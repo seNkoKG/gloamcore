@@ -1,0 +1,38 @@
+NINJA LENS 2.2.8 — POE 1 ECONOMY + PRICE CHECKING ON YOUR PHONE
+
+Android:
+1. Copy Ninja-Lens-Android-2.2.8.apk to your phone.
+2. Open it and approve “Install unknown apps” for your file/browser app.
+3. Launch Ninja Lens and allow notifications if you want price-target alerts.
+
+What it includes:
+- Every current PoE 1 economy category from poe.ninja
+- Current-league detection, search, sorting, and supported category filters
+- Ninja Exchange/Stash prices with source-age and stale-data guards
+- Item descriptions and modifiers from PoE Wiki
+- Ninja Intel live search for items, bases, affixes, tiers, tags, and acquisition
+- Exact in-game item, currency, card, gem, map, and equipment artwork
+- Safe PoE Wiki, PoEDB, and Craft of Exile handoff buttons
+- Price trends, liquidity, listings, confidence, trade links, and watch targets
+- A local copied-item parser and manual-paste price checker with exact,
+  similar-roll, base-only, unique-jewel, and Timeless-seed comparison plans,
+  plus mapped Chronicle-room, Veiled-state, and safely calculated equipment
+  property filters where the copied item supplies enough information
+- A safe user-clicked official Trade handoff with mapped filters prefilled;
+  mobile does not include the Windows global capture/overlay or its live seller
+  listing bridge
+- Source-timed refresh, CDN-age checks, guarded thin-market estimates, and a
+  strict two-hour maximum for clearly marked offline market snapshots
+
+iPhone:
+Extract the included source archive on a Mac, run pnpm install and
+pnpm mobile:sync, then open the Xcode project and sign it with your Apple
+account. Apple does not permit a normal unsigned IPA to be shared directly.
+
+Privacy:
+Ninja Lens uses public market/wiki endpoints only. It does not read game
+memory or automate gameplay. Mobile price checks use manual paste, send no game
+input, contain no direct Trade search/fetch client, and never use account
+cookies or POESESSID.
+
+Not affiliated with Grinding Gear Games or poe.ninja.

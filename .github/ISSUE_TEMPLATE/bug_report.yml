@@ -1,0 +1,88 @@
+name: Bug report
+description: Report a reproducible Ninja Lens problem.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Ninja Lens. Do not include OAuth tokens, account cookies, private character data, or other secrets. Security issues belong in the private process described in SECURITY.md.
+  - type: dropdown
+    id: version
+    attributes:
+      label: Ninja Lens version
+      options:
+        - Latest stable release
+        - Older release
+        - Development checkout
+    validations:
+      required: true
+  - type: input
+    id: exact-version
+    attributes:
+      label: Exact version
+      description: Open Settings to find the installed version, or provide the commit hash.
+      placeholder: 2.2.8
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2, x64
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected area
+      options:
+        - Ctrl+D price-check overlay
+        - Market Explorer, Ninja Intel, or watchlist
+        - Build Lab
+        - Player Toolkit
+        - Installer, updates, tray, or shortcuts
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Explain the observed behavior and why it is a problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: List the smallest reliable sequence, including copied item text only when it contains no personal data.
+      placeholder: |
+        1. Launch Ninja Lens...
+        2. Open...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or sanitized logs
+      description: Drag files here. Remove account names, tokens, local paths, and private character data first.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I reproduced this on the latest stable release, or explained why I could not.
+          required: true
+        - label: I removed credentials, personal data, and private local paths.
+          required: true
+        - label: This is not a security vulnerability requiring private disclosure.
+          required: true

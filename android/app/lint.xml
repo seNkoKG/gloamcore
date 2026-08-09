@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Capacitor recreates this Cordova compatibility descriptor during sync. -->
+    <issue id="UnusedResources">
+        <ignore regexp=".*[/\\]res[/\\]xml[/\\]config\.xml" />
+    </issue>
+
+    <!-- Generated launch art intentionally varies by device aspect ratio. The
+         light/dark copies are identical because Ninja Lens uses one dark theme. -->
+    <issue id="IconDipSize,IconDuplicatesConfig,IconLocation">
+        <ignore regexp=".*[/\\]res[/\\]drawable[^/\\]*[/\\]splash\.png" />
+    </issue>
+</lint>

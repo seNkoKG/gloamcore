@@ -1,0 +1,158 @@
+import { Buffer } from "node:buffer";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  assertNoForbiddenText,
+  assertPublicUpdateConfig,
+  closeAsar,
+  expectedAppUpdateYaml,
+  githubUpdateConfiguration,
+  readAsar,
+} from "./verify-release-artifacts.mjs";
+
+const windowsReleaseScript = readFileSync(
+  join(process.cwd(), "scripts", "build-windows-release.ps1"),
+  "utf8",
+);
+
+describe("Windows release publication boundary", () => {
+  it("keeps electron-builder offline until verified artifacts reach the hardened publisher", () => {
+    expect(windowsReleaseScript).toContain(
+      "exec electron-builder --win nsis portable --publish never",
+    );
+    expect(windowsReleaseScript.indexOf("--publish never")).toBeLessThan(
+      windowsReleaseScript.indexOf('"verify-release-artifacts.mjs"'),
+    );
+  });
+});
+
+function minimalAsar(jsonText: string, extraPayloadBytes = 0) {
+  const json = Buffer.from(jsonText, "utf8");
+  const alignedJsonSize = Math.ceil(json.length / 4) * 4;
+  const headerPayloadSize = 4 + alignedJsonSize + extraPayloadBytes;
+  const headerSize = 4 + headerPayloadSize;
+  const archive = Buffer.alloc(8 + headerSize);
+  archive.writeUInt32LE(4, 0);
+  archive.writeUInt32LE(headerSize, 4);
+  archive.writeUInt32LE(headerPayloadSize, 8);
+  archive.writeUInt32LE(json.length, 12);
+  json.copy(archive, 16);
+  return archive;
+}
+
+describe("desktop release Trade endpoint policy", () => {
+  it("permits official search, fetch, and exchange routes only in the vetted desktop client", () => {
+    expect(() => assertNoForbiddenText(
+      "vetted client",
+      Buffer.from("/api/trade/search/ /api/trade/fetch/ /api/trade/exchange/"),
+      "electron/official-trade-listings.cjs",
+    )).not.toThrow();
+
+    for (const relativePath of ["electron/main.cjs", "dist/assets/index.js"]) {
+      for (const route of ["search", "fetch", "exchange"]) {
+        expect(() => assertNoForbiddenText(
+          relativePath,
+          Buffer.from(`/api/trade/${route}/`),
+          relativePath,
+        )).toThrow(/outside the vetted client/i);
+      }
+    }
+  });
+
+  it("continues to reject legacy automation in every path", () => {
+    expect(() => assertNoForbiddenText(
+      "vetted client",
+      Buffer.from("price-check:search-trade"),
+      "electron/official-trade-listings.cjs",
+    )).toThrow(/legacy Trade IPC/i);
+  });
+});
+
+describe("desktop release GitHub update policy", () => {
+  const packageMetadata = {
+    name: "poe-economy-widget",
+    build: {
+      publish: [{
+        provider: "github",
+        owner: "seNkoKG",
+        repo: "ninja-lens",
+      }],
+    },
+  };
+
+  it("pins the public token-free repository in package and packaged YAML metadata", () => {
+    expect(githubUpdateConfiguration(packageMetadata)).toEqual({
+      provider: "github",
+      owner: "seNkoKG",
+      repo: "ninja-lens",
+    });
+    expect(expectedAppUpdateYaml(packageMetadata)).toBe([
+      "owner: seNkoKG",
+      "repo: ninja-lens",
+      "provider: github",
+      "updaterCacheDirName: poe-economy-widget-updater",
+    ].join("\n"));
+    expect(() => assertPublicUpdateConfig({
+      enabled: true,
+      provider: "github",
+      owner: "seNkoKG",
+      repo: "ninja-lens",
+    }, packageMetadata)).not.toThrow();
+  });
+
+  it("rejects generic, private, authenticated, disabled, and mismatched channels", () => {
+    for (const publish of [
+      { provider: "generic", url: "https://example.test" },
+      { provider: "github", owner: "someone-else", repo: "ninja-lens" },
+      { provider: "github", owner: "seNkoKG", repo: "ninja-lens", private: true },
+      { provider: "github", owner: "seNkoKG", repo: "ninja-lens", token: "secret" },
+    ]) {
+      expect(() => githubUpdateConfiguration({
+        ...packageMetadata,
+        build: { publish: [publish] },
+      })).toThrow(/public GitHub update configuration/i);
+    }
+
+    for (const updateConfig of [
+      { enabled: false, provider: "github", owner: "seNkoKG", repo: "ninja-lens" },
+      { enabled: true, provider: "github", owner: "seNkoKG", repo: "elsewhere" },
+      { enabled: true, provider: "github", owner: "seNkoKG", repo: "ninja-lens", token: "secret" },
+    ]) {
+      expect(() => assertPublicUpdateConfig(updateConfig, packageMetadata))
+        .toThrow(/token-free public GitHub release channel/i);
+    }
+  });
+});
+
+describe("desktop release ASAR header validation", () => {
+  it("accepts a current Electron string pickle with zero alignment padding", () => {
+    let header = JSON.stringify({ files: {} });
+    while (Buffer.byteLength(header, "utf8") % 4 !== 0) header += " ";
+    const directory = mkdtempSync(join(tmpdir(), "ninja-lens-asar-"));
+    const archivePath = join(directory, "app.asar");
+    writeFileSync(archivePath, minimalAsar(header));
+    try {
+      const archive = readAsar(archivePath);
+      expect(archive.entries.size).toBe(0);
+      closeAsar(archive);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects payload bytes beyond the pickle's maximum alignment padding", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ninja-lens-asar-invalid-"));
+    const archivePath = join(directory, "app.asar");
+    writeFileSync(
+      archivePath,
+      minimalAsar(JSON.stringify({ files: {} }), 4),
+    );
+    try {
+      expect(() => readAsar(archivePath)).toThrow(/header lengths are invalid/i);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});

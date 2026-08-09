@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a focused improvement to Ninja Lens.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the player problem first. Features must preserve Ninja Lens's no-game-memory, no-automation, local-first safety boundaries.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Area
+      options:
+        - Ctrl+D price-check overlay
+        - Market Explorer, Ninja Intel, or watchlist
+        - Build Lab
+        - Player Toolkit
+        - Desktop, tray, settings, or updates
+        - New workflow
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Player problem
+      description: What is difficult today, and who encounters it?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the result, not only a particular UI control.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Note existing Ninja Lens, PoB, Trade, or community workflows that almost solve it.
+  - type: textarea
+    id: data
+    attributes:
+      label: Data, privacy, and rate-limit impact
+      description: Identify any new source, account permission, local file access, or upstream request pattern.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: This request does not require reading game memory, injection, or gameplay automation.
+          required: true
+        - label: I searched existing issues for the same request.
+          required: true

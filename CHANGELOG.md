@@ -1,0 +1,490 @@
+# Changelog
+
+## 2.2.8
+
+- Connected packaged Windows builds to the public Ninja Lens GitHub Releases
+  channel with electron-updater's token-free GitHub provider. Automatic and
+  manual checks now discover stable releases, download the verified NSIS
+  installer, and keep installation behind the existing explicit install action.
+- Kept the established app ID, product name, and updater cache identity so
+  2.2.8 installs over existing versions and all future GitHub releases can use
+  the same update path. Release verification now rejects disabled, private,
+  token-bearing, or mismatched updater metadata before an installer ships.
+
+## 2.2.7
+
+- Finished the Awakened-style overlay interaction contract: the passive preview
+  keeps Path of Exile foreground, the first deliberate click reaches the real
+  control without a promotion round trip, and Close, Escape, and Alt-Tab return
+  input cleanly without hover-driven dismissal.
+- Showed every query-relevant, non-hidden modifier by default, whether checked
+  or unchecked. The compact card no longer folds useful rows or gives modifiers
+  their own scrollbar; it grows with the useful content and contracts seller
+  listings first on short work areas.
+- Removed fixed zero-span unique properties before rendering, restored exact
+  Malachai's Loop 3-of-8 filter parity, and kept active defaults active while
+  preserving supported unchecked Trade rows as disabled, editable browser
+  filters. Unrelated aggregate identity quotes are now suppressed for
+  Vestigial and Foil checks so exact state-aware listings remain primary.
+- Restored all 95 modifier-group resolvers from Awakened PoE Trade v3.29.104
+  instead of flattening their candidate stats. Category-selected weapon,
+  armour, Heist, Tincture, and Sanctum Relic IDs now resolve from source data;
+  trivial, percentage, and fixed-flag merges preserve source order and apply
+  each alternate ID's exact empty or divide-by-100 Trade payload.
+- Preserved every ordered Awakened ITEM and UNIQUE variant instead of
+  collapsing records that share a name. Copied armour properties, map tier,
+  exact implicit or explicit stat references, section text, and unique base
+  now select the matching base ranges, identity, and icon from pinned data.
+- Preserved Awakened's canonical stat decimal-precision flag and copied-token
+  precision. Integer two-roll averages now use the same outward Trade-bound
+  rounding as Awakened, while genuinely decimal rolls retain decimal steps.
+
+## 2.2.6
+
+- Reworked the compact price checker around a 460-pixel Awakened-sized card:
+  selected stats remain visible, optional stats fold behind one summary,
+  numeric rows no longer repeat a mode menu or `CALCULATED PROPERTY`, and
+  contextual state chips wrap without turning modifier-heavy weapons into a
+  screen-height form. Corrected weapon-property/default semantics and retained
+  every explicit edit in both the official API request and browser handoff.
+- Reconstructed calculated weapon and defence bounds from proven Advanced
+  Description roll endpoints, including maximum-quality projection, unique
+  roll-span tolerance, and directional zero-tolerance searches. Pure-physical
+  weapons no longer show redundant per-hit/total-DPS rows, and unusually large
+  edited Trade handoffs no longer discard the selected query.
+- Restored Awakened's map Property/Bulk preset split and bulk-currency result
+  selection. Rare maps no longer spend an automatic request on their property
+  preset, Bulk cannot inherit stale rolled thresholds, sparse chaos results
+  defer to divine, and the browser handoff follows the selected currency side.
+- Removed the remaining hover-driven price-check activation path. Ordinary
+  pointer movement now leaves the preview passive and keeps Path of Exile in
+  the foreground; only a deliberate click or held-hotkey entry promotes the
+  card. Pointer movement alone no longer dismisses an open result.
+- Corrected official Trade failure and pacing behavior: first-load failures no
+  longer claim nonexistent stale listings, stale-cache grace starts after the
+  fresh lifetime, and Search and Exchange share GGG's advertised rate windows
+  without adding an artificial first-request cooldown.
+- Moved verified PoB engine work and cold passive-tree parsing off Electron's
+  main thread. Build imports and first tree loads no longer block the global
+  price-check shortcut, while exact source identities, bounds, cancellation,
+  stale-result rejection, and warm caches remain enforced.
+- Hardened Build Lab state transitions so slow calculations, imports, spec or
+  game switches, character loads, and workspace loads cannot overwrite newer
+  edits or mark stale outputs fresh. Ordinary resizes now preserve tree pan and
+  zoom instead of refitting the viewport. Damaged saved-build libraries now
+  lock mutations and require exporting the exact raw recovery copy before a
+  reset, instead of silently collapsing to an overwriteable empty list.
+- Replaced raw PoB item text in planner cards and socket tooltips with a shared
+  presentation model. Internal IDs, XML controls, ModRange records, disabled or
+  unselected variants, and version/group control lines no longer appear as
+  fake modifiers; selected Timeless Jewel seeds and modifiers remain visible.
+- Repaired Toolkit persistence and filter editing: corrupt workspaces are
+  preserved for explicit recovery, image and storage budgets fail safely,
+  duplicate macros cannot leak shortcuts, concurrent plugin writes are
+  serialized, unsaved plugin drafts stay isolated, chunked remote imports are
+  bounded, and BaseType moves cannot broaden or target impossible rules.
+- Fixed market navigation and Trade handoff edge cases: unsupported saved
+  sources normalize consistently, concurrent source preferences do not clobber
+  each other, failed league discovery leaves a retryable state, and currency
+  rows open a prefilled official Exchange query when a canonical tag exists.
+
+## 2.2.5
+
+- Fixed advanced-copy Timeless Jewel searches end to end. Rolls such as
+  `12476(10000-18000)` now resolve the complete two-line seed stat, select the
+  correct conqueror pseudo automatically, and send an exact min/max value to
+  both the official Trade API and browser handoff. The resolver covers all 28
+  current GGG conquerors and retains a safe fallback when the pinned catalog is
+  older than the game data.
+- Removed fixed `Historic` metadata and unique flavour prose from price-check
+  modifier rows without hiding similarly worded real modifiers.
+- Repaired passive-tree connector filtering, ascendancy context, remote-jewel
+  dependencies, mastery effects, point counts, path/refund previews, Shift
+  tracing, hover hit testing, and viewport-safe tooltips against the matching
+  Path of Building source and the user's real imported build.
+- Matched PoB's mastery interaction and ordering: left-clicking an unallocated
+  mastery opens its chooser, left-clicking an allocated mastery refunds it,
+  and right-clicking an allocated mastery changes it. Already-used effects are
+  filtered without reordering the remaining source-defined choices, and an
+  exhausted chooser reports why it has no selectable option.
+- Added an authoritative local PoB calculation bridge for the exactly verified
+  Path of Building Community 2.66.1 engine. Each explicit recalculation uses a
+  fresh hidden read-only process, supports Timeless Jewel data, refuses unknown
+  engine/runtime hashes, and replaces stale imported snapshots with real PoB
+  scalar outputs.
+- Replaced heuristic PoE 1 official-character conversion with PoB 2.66.1's own
+  verified importer, preserving its slot, socket, gem, passive-jewel, class,
+  bandit, pantheon, and Cluster Jewel handling before loading the generated PoB
+  XML. Public and OAuth profile modes share this exact path, and authenticated
+  character responses are never cached.
+- Disabled PoE 2 account-profile import instead of creating a lossy build that
+  drops skills, weapon-set specialisations, or quest statistics. PoB2 XML/code
+  import, matching installed-tree editing, and PoB2 export remain supported.
+- Replaced the placeholder regex editor with a data-backed poe.re-style
+  workbench: 69 searchable categories, mutually exclusive AVOID/WANT choices,
+  exact and exhaustively verified shorter tokens, Any/All wanted logic, map
+  property/state/rarity/quality constraints, lossless 250-character chunking,
+  custom entries, profiles, and source/coverage diagnostics.
+
+## 2.2.4
+
+- Rebuilt the in-game price-check lifecycle around Awakened PoE Trade's
+  non-activating preview model. Passive checks no longer toggle native window
+  focusability, stationary held modifiers cannot promote the card, and only a
+  deliberate click or modifier-assisted pointer movement transfers input.
+  Native hit areas now follow asynchronous result growth and renew after their
+  bounded watch interval instead of silently becoming inert.
+- Unified promoted-card pointer exit, Close, Escape, target blur, and external
+  app switching so PoE receives one immediate return only when the overlay
+  actually owned focus; Alt-Tab never triggers a delayed focus steal.
+- Restored the integrity-checked Awakened Trade stat catalog in sandboxed
+  desktop builds. Rare and unique modifiers now hydrate to official stat IDs
+  and pseudos instead of silently appearing as `UNMAPPED`, and Exact/Base
+  dashboard handoffs retain the query mode that produced them.
+- Repaired Path of Building tree rendering that discarded 1,658 authoritative
+  connections, displayed proxy/bloodline templates as real passives, and
+  omitted PoB's node, frame, group, background, class, and ascendancy atlases.
+- Preserved imported passive jewels, socket assignments, extended hashes,
+  skill overrides, alternate ascendancies, and cluster metadata through edit
+  and PoB export, while correcting start-node point accounting.
+- Ported PoB's deterministic nested Cluster Jewel graph construction, including
+  Voices, sockets, notables, keystones, orbit transforms, and encoded node IDs.
+  Imported PoB builds now export and re-import those allocations without
+  requiring a manual edit first.
+- Load each imported spec from its exact standard, Ruthless, or alternate PoB
+  tree version. Missing versions fail clearly instead of interpreting hashes on
+  a different tree, and mixed-version specs materialize only after their own
+  tree is loaded.
+
+## 2.2.3
+
+- Fixed official Trade browser handoff: ordinary searches now open the
+  server-issued result ID, while Exchange links use the browser's required
+  `{ exchange: query }` state instead of leaking the API POST envelope into
+  the page URL.
+- Fixed current Exchange API responses being rejected when their opaque result
+  map key differs from the public listing ID, and retained valid RFC 3339
+  timestamps that use an explicit UTC offset.
+- Removed hover-driven focusability and mouse-routing churn from passive price
+  checks. Ctrl+D now keeps PoE foreground until a deliberate panel interaction,
+  and closing a passive preview no longer issues a redundant focus request.
+- Kept the attached overlay host stable between checks and moved league/stat
+  resolution behind the first loading paint for a faster visible response.
+- Added a non-activating `--start-minimized` launch path so update verification
+  can start the tray process without bringing a dashboard over the game.
+
+## 2.2.2
+
+- Expanded compact official Trade evidence to Awakened's 20 displayed seller
+  rows, with the first two ten-ID fetches in parallel and adaptive continuation
+  up to 100 result IDs when grouping would otherwise under-sample the market.
+- Added a Scalpel-style Player Toolkit: safe filter editing and replay,
+  PoE1/PoE2 regex workspaces, socket recolouring, economy/dust/card audits,
+  opt-in focus-gated macros and stash scrolling, cheat-sheet and whiteboard
+  overlays, themes, checkpoints, and a permissioned HTTPS plugin host.
+- Added a SolvedExile-style Build Lab using installed PoB Community data:
+  authoritative PoE1/PoE2 trees, PoE1 character profiles, PoB/PoB2 XML/code
+  import, interactive allocation, editable items/skills/config/notes, imported
+  calculation and Galaxy views, saved-build comparisons, and PoB export. PoE2
+  schema differences, including radians, shared starts, integer class IDs, and
+  connection records, are parsed explicitly instead of being treated as PoE1.
+
+- Removed the overlay-level item-check cooldown: a new price-check hotkey press
+  now hands focus back to Path of Exile once, captures the newly hovered item,
+  and replaces the existing single card with the latest request.
+- Replaced fixed per-search spacing with Awakened-style Trade API burst windows,
+  server-header policy reconciliation, a five-minute exact-query cache, and an
+  immediate retry message instead of building a long request queue.
+- Matched Awakened's smart initial-search policy: ordinary rolled equipment
+  opens at its filter editor and searches only on request, while identities such
+  as uniques, maps, currency, gems, unidentified, and veiled items still search
+  automatically.
+- Replaced the ambiguous `CLEAN` label with Awakened's explicit
+  `NOT CORRUPTED` / `CORRUPTED` control. Clean eligible items retain the
+  uncorrupted Trade predicate, while a positive corrupted predicate is emitted
+  only for Awakened's exact magic non-cluster-jewel case.
+- Matched contextual Exact, Similar, and Base presets; gem level/quality rules;
+  transfigured-gem discriminators; map, Heist, Logbook, Veiled, and item-state
+  serialization; listed-age and price-currency filters; and ambiguous
+  unidentified-unique resolution to the pinned Awakened data and source logic.
+- Routed eligible no-stat items through the official legacy exchange endpoint,
+  including stock and bundle ratios, while ordinary Trade searches now fetch,
+  group, and conditionally expand seller batches using Awakened's sampling
+  thresholds instead of stopping after the first ten IDs.
+- Split passive `Ctrl+D` from locked `Ctrl+Alt+D` overlay behavior, hardened
+  blur/close/focus return, and changed the native input helper to a windowed
+  subsystem so rapid checks no longer cause foreground-console churn.
+- Added Awakened's pinned trade-tag routing: statless tagged items use the
+  legacy bulk exchange endpoint with a separate rate-limit pool and sanitized
+  bundle ratios, while ordinary Trade loads two initial batches and fetches on
+  demand up to 100 IDs to produce useful same-seller-grouped rows.
+
+## 2.2.1
+
+- Made the in-game price-check card draggable from its top bar and persist its
+  normalized on-screen anchor, with native hit-test geometry kept aligned and
+  the saved position clamped after monitor or resolution changes.
+- Reworked item-state defaults around Awakened PoE Trade's contextual model:
+  only relevant controls are shown, ordinary false states stay hidden instead
+  of appearing checked, and the compact strip wraps to up to two rows without a
+  horizontal scrollbar.
+- Unified overlay dismissal and focus handling so Close, Escape, game focus,
+  and Alt-Tab cannot leave an invisible focusable host, steal focus back later,
+  or briefly remount a stale card.
+- Finished rolled rare and magic checks in a terminal modifier-comparison state
+  instead of leaving the detailed checker on `Loading market reference...`.
+- Made the in-game price-check card grow with every modifier row, keeping the
+  complete editor and its sliders visible whenever the monitor has room.
+- Made the Close button remove the card immediately and fully release the
+  native input shape, focus, pending capture work, and hidden overlay window.
+- Background-throttled the dashboard, tray, quick-search, and price-check
+  Chromium surfaces so hidden app windows do not keep rendering during play.
+- Matched rare-armour parsing more closely to Awakened: localized
+  `Intangibility` stays an item property, elemental resistance and Life
+  regeneration use official pseudo filters, and ordinary rare explicits remain
+  opt-in instead of being selected only because they are Tier 1 or Tier 2.
+- Added source-aware integer tolerance and calculated Energy Shield bounds so
+  official Trade queries use valid outward-rounded thresholds.
+- Added editable, conflict-checked shortcuts for the widget, click-through,
+  price check, instant search, item search, and game-data search. Global
+  registrations are replaced transactionally and roll back if Windows refuses
+  a new binding.
+- Exposed the existing start-minimized behavior in Settings and refreshed all
+  bundled Trade-stat/base metadata from the verified current Awakened source.
+
+## 2.2.0
+
+- Added a compact rare/magic item editor directly inside the 360 x 360 in-game
+  overlay, with a checkbox and visible copied text for every parsed modifier;
+  unresolved rows remain visible for manual review.
+- Extended the same compact roll editor to identified uniques while retaining
+  their live identity estimate, including Watcher's Eye effects, unique-jewel
+  implicits, Split Personality rolls, and exact Timeless Jewel seed/conqueror
+  pseudo-stats.
+- Added `RANGE`, `EXACT`, and `PRESENT` matching, exact min/max number fields, and
+  dual-handle sliders that support negative and decimal rolls.
+- Added pinned craftable-base and unique fixed-stat profiles for safe magic-name
+  recovery and Awakened-style unique-roll defaults.
+- Added editable item-level, map-tier, links, quality, corruption, legacy and
+  Eldritch influence, Foulborn, Vestigial, Foil, fractured, synthesised,
+  mirrored, split, and identification state filters.
+- Preserved opaque selector IDs for Forbidden Flame/Flesh, Thread of Hope and
+  compound Cluster Jewel enchants, including two-selector Imbued stats.
+  Value-less selectors use presence matching, numeric pipe-qualified selectors
+  retain adjustable ranges, and multi-line selector affixes stay one Trade
+  filter while unrelated advanced affixes remain individually editable.
+- Added mapped Impossible Escape, Split Personality, cluster-jewel and
+  identification-state handling alongside exact Timeless Jewel planning.
+- Added individual Chronicle of Atzoatl open/obstructed room filters, a Veiled
+  item-state filter, and calculated armour/evasion/energy-shield/ward, block,
+  weapon damage, attack-speed, critical-chance, DPS, physical-DPS and
+  elemental-DPS filters where the copied values can be converted safely.
+- Added direction-aware unique ranges: higher-is-better rolls default to a
+  minimum, lower-is-better rolls to a maximum, exact/discrete rolls remain
+  exact, and only the correct canonical endpoint is treated as perfect.
+- Rare and magic checks no longer show misleading poe.ninja base-item prices or
+  identity-match rows. The Windows checker now runs the mapped comparison
+  anonymously against the public official Trade website and shows up to ten
+  sanitized seller rows plus the total result count. `TRADE` still opens the
+  full mapped search for final verification.
+- Added separate available-now, instant-buyout, and all-listings availability
+  plans, while keeping unsupported or oversized browser plans visible for
+  manual review.
+- Preserved compact modifier, state, identity, tolerance, league, and
+  availability edits when opening the detailed checker.
+- Improved state-strip discoverability, map-tier visibility, keyboard focus,
+  intermediate negative/decimal entry, stable slider domains, pointer targets,
+  and exact row-height alignment.
+- Hardened `Escape` dismissal so Windows releases the empty overlay host before
+  focus returns to Path of Exile, including repeated pinned `Ctrl+D` checks.
+- Kept modifier edits locally immediate and debounced follow-up official Trade
+  searches by 550 ms. Equal requests are coalesced, short-lived results are
+  memory-cached, official rate-limit windows and cooldowns are honored, and no
+  background Trade polling cycle is started.
+- Kept desktop Trade access anonymous and fail-closed: fixed official URLs,
+  bounded queries/responses and queues, no cookies or `POESESSID`, and no
+  automated whisper or gameplay action. Mobile retains manual paste and the
+  user-clicked Trade handoff without the desktop live-listing bridge.
+- Documented deliberate limits instead of claiming full Awakened PoE Trade
+  parity, including a maximum of ten embedded seller rows, twelve selected
+  modifier stats, omitted unsafe property conversions, and visible unmapped
+  rows after source or game-data changes.
+
+## 2.1.0
+
+- Rebuilt the desktop price checker as a flat 360 x 360 in-game card opened by
+  one `Ctrl+D` press while Path of Exile is focused.
+- Added a first-party Windows input helper that performs the single copy action
+  without reserving the shortcut in unrelated applications.
+- Added dense exact/similar/base controls, editable roll and item-state filters,
+  accurate in-game artwork, and corrected unique/Foulborn/category routing.
+- Added stronger capture, query-planning, cache, alignment, freshness, mobile,
+  and packaged-overlay regression coverage.
+- Disabled the direct Currency Exchange digest client in the friends build.
+  The documented feed is completed-hour history, not a current order book,
+  and GGG requires an identifiable registered-style client and real contact.
+
+## 2.0.1
+
+- Replaced the standalone price-check window with a transparent native overlay
+  attached to the live `Path of Exile` window, using the same maintained MIT
+  overlay controller as Awakened PoE Trade.
+- The overlay now follows PoE across window moves, monitor/DPI changes and
+  minimize/restore, remains click-through while inactive, and never opens over
+  unrelated programs.
+- Native window shaping limits hit-testing to the visible card, so transparent
+  pixels pass mouse clicks directly to PoE; card position is stable when pinned.
+- Opening a check hides the dashboard and presents only the compact in-game
+  card. `Escape`, Close and backdrop click hide it and return input to PoE.
+- Added target-attachment, access-level, card-containment, hotkey and
+  focus-restoration assertions to the packaged Electron smoke test.
+- Added a deterministic production-license inventory with complete license
+  texts for all shipped desktop and mobile dependencies.
+
+## 2.0.0
+
+- Added a dedicated desktop price-check overlay opened with `Ctrl+Shift+D` and
+  a touch-first mobile checker that accepts manually pasted Path of Exile item
+  text.
+- Added local parsing for currency, fragments, gems, maps, equipment, uniques,
+  item state, sockets, requirements, influences, and advanced modifier text.
+- Added exact, similar-roll, and base-only comparison modes with editable
+  modifier ranges, confidence scoring, source freshness, liquidity evidence,
+  warnings, and bounded local history.
+- Added current-league estimates from focused poe.ninja economy snapshots and
+  supporting completed-hour Faustus evidence without downloading every market
+  whenever the overlay opens.
+- Added a pinned, transformed catalog of 8,123 English modifier patterns from
+  Awakened PoE Trade for local Trade-stat recognition, with ambiguity checks,
+  source metadata, and bundled MIT attribution.
+- Added a transparent official Trade handoff and readable filter plan. The app
+  does not use `POESESSID`, unsupported Trade search/fetch endpoints, game
+  memory, input injection, or automated gameplay.
+- Added configurable shortcut, cursor positioning, blur/pin behavior, roll
+  tolerance, online-only defaults, advanced details, and history retention.
+- Added focused parser, resolver, estimator, query-plan, stat-catalog, history,
+  storage, category-routing, and shortcut-validation regression coverage plus
+  a dedicated Electron overlay smoke harness.
+
+## 1.6.2
+
+- Made market freshness account for the upstream HTTP `Age` header instead of
+  retaining a CDN-aged snapshot for another complete cache window.
+- Replaced fixed five-minute reparsing with source-expiry scheduling, request
+  coalescing, and normalized-result memoization to reduce CPU, disk, and
+  network work for large Skill Gem and Base Type datasets.
+- Hid prices backed by fewer than five market observations by default and
+  added an explicit review mode with approximate values, sample counts, and
+  warnings to verify thin asks on the official Trade site.
+- Prevented stale, old, or low-confidence data from triggering watch targets
+  and added fresh-market state to persisted watch entries.
+- Rejected malformed and unpriced rows, inferred missing Divine conversions
+  from the live dataset, and stopped rendering `0%` when history is absent.
+- Versioned market caches so obsolete snapshots cannot leak into this release,
+  capped offline market fallback at two hours, and added payload validation.
+- Added `pnpm audit:market`, which verified all 43 Allflame category endpoints,
+  30,992 uniquely keyed rows, and zero invalid live prices during release QA.
+
+## 1.6.1
+
+- Replaced Ninja Intel's generic item placeholders with each item's exact
+  in-game inventory artwork resolved through MediaWiki image metadata.
+- Added a trusted, persistent artwork cache for Windows, browser preview,
+  Android, and iOS so bot challenges or temporary image-host outages cannot
+  leave broken image tiles behind.
+- Added semantic fallbacks for currencies, cards, gems, equipment, maps,
+  crafting items, monsters, and modifier domains when an official asset is not
+  available.
+- Added rarity-aware card accents, improved artwork framing and shadows, and a
+  matching full-size identity treatment in the Intel details drawer.
+- Added image-title, trusted-host, data-URL, and live artwork regression checks.
+
+## 1.6.0
+
+- Added Ninja Intel, a dedicated live search across current PoE items, bases,
+  and modifier records backed by the documented PoE Wiki Cargo API.
+- Added item acquisition, drop restrictions, patch origin, metadata IDs,
+  modifier domains, affix types, tiers, requirements, groups, and tags.
+- Added safe item-specific PoE Wiki and PoEDB links plus contextual Craft of
+  Exile handoff buttons without copying third-party crafting logic or data.
+- Added one-hour knowledge caching with stale/offline fallback across Windows,
+  browser preview, Android, and iOS bridges.
+- Added `Ctrl+K` Intel access, a four-tab mobile navigation bar, responsive
+  phone/tablet result grids, and panel switching that remains available while
+  a mobile details or settings drawer is open.
+- Enriched existing market details with acquisition and provenance data.
+- Added query-safety, normalization, deduplication, domain-label, handoff-link,
+  external-host, and acquisition regression coverage.
+
+## 1.5.1
+
+- Completed a release audit of shared React, Android, iOS-source, caching,
+  Faustus, notification, signing, and friend-package paths.
+- Made the mobile Compact/Comfortable density setting change the price-card
+  layout instead of acting as a no-op.
+- Made manual watchlist refreshes bypass fresh caches while scheduled and
+  resume refreshes continue to respect source cache windows.
+- Moved notification permission to target creation, preventing a prompt when
+  an item is merely starred and covering targets saved directly from details.
+- Added positive target validation and a tap-to-dismiss mobile drawer scrim.
+- Corrected hourly Faustus chart accessibility labels and reset stale category
+  searches whenever the mobile market picker closes.
+- Fixed cross-platform Android/iOS asset regeneration and hardened persistent
+  cache recovery plus trusted external-link validation.
+- Added the required iOS UserDefaults privacy manifest and corrected the native
+  device capability declaration from legacy armv7 to arm64.
+- Added regression coverage for mobile endpoints, cache headers, Faustus cache
+  identity, Cargo escaping, and external-link security.
+
+## 1.5.0
+
+- Added native Android and iOS projects powered by the shared economy engine.
+- Added a touch-first phone layout, searchable category sheet, bottom
+  navigation, compact price cards, and mobile details/settings sheets.
+- Added direct native HTTP, persistent offline cache, app-resume and reconnect
+  refreshes, haptics, local target notifications, and safe external browsing.
+- Added a signed Android friend APK and a macOS/Xcode-ready iOS source package.
+
+## 1.4.0
+
+- Added an official Faustus mode to every supported stackable Currency Exchange
+  category.
+- Added last-completed-hour price ranges, units traded, stock ranges, and
+  eight-hour market movement from Grinding Gear Games' public hourly digest.
+- Added Faustus-aware filters, sorting, watchlists, global search, details,
+  Item Intel, caching, refresh timing, and official Currency Exchange links.
+- Clearly distinguished historical hourly Faustus data from the active in-game
+  order book.
+- Fixed the shared trend cell leaving the native table grid, which misaligned
+  trend, listings, and market columns across item categories.
+- Added exact right alignment for market actions and hourly range cells in all
+  expanded tables, while preserving compact-mode column geometry.
+- Corrected current Path of Exile tooltip frame-type mappings.
+- Added Faustus normalization and metadata-decoding regression coverage.
+
+## 1.3.0
+
+- Added rich item-intelligence cards across every economy table.
+- Combined live prices, seven-day movement, liquidity, confidence, item art,
+  game descriptions, requirements, modifiers, and flavour text in one view.
+- Added instant Inspect, Watch, Trade, and Wiki actions to the item card.
+- Added smart screen-edge placement, compact-window support, keyboard dismissal,
+  focus-safe controls, and scroll-safe long cards.
+- Added persistent PoE Wiki item information to the details drawer.
+- Added lazy, cached PoE Wiki Cargo requests with offline stale-cache fallback.
+- Added normalization and rarity-theme regression coverage.
+
+## 1.2.0
+
+- Added a native tray market panel with Divine reference pricing, target hits,
+  market movers, refresh controls, and update status.
+- Added global instant search on `Ctrl+Shift+Space`, including keyboard
+  navigation and recently loaded market indexing.
+- Added a configurable, hash-verified NSIS automatic-update system.
+- Added stricter IPC validation for auxiliary-window state and actions.
+- Added updater and instant-search regression tests.
+
+## 1.1.1
+
+- Replaced the unreliable inline SVG tray image with a packaged multi-size ICO.
+- Added tray resource fallbacks, pixel/bounds smoke testing, and click debounce.

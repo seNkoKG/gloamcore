@@ -1,0 +1,100 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+
+    dependencyLocking {
+        lockFile = file('gradle/dependency-locks/root-buildscript.lockfile')
+        lockMode = org.gradle.api.artifacts.dsl.LockMode.STRICT
+    }
+    configurations.classpath.resolutionStrategy.activateDependencyLocking()
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.google.gms:google-services:4.4.4'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    def lockProjectName = project.path == ':' ? 'root' : project.path.substring(1).replace(':', '-')
+    def centralLockDirectory = rootProject.file('gradle/dependency-locks')
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencyLocking {
+        lockAllConfigurations()
+        lockFile = new File(centralLockDirectory, "${lockProjectName}.lockfile")
+        lockMode = org.gradle.api.artifacts.dsl.LockMode.STRICT
+    }
+    if (project != rootProject) {
+        buildscript.dependencyLocking {
+            lockFile = new File(centralLockDirectory, "${lockProjectName}-buildscript.lockfile")
+            lockMode = org.gradle.api.artifacts.dsl.LockMode.STRICT
+        }
+        buildscript.configurations.classpath.resolutionStrategy.activateDependencyLocking()
+    }
+}
+
+tasks.register('resolveAndLockAllDependencies') {
+    group = 'verification'
+    description = 'Resolves external artifacts used by release, debug lint, and debug unit tests for locks/checksums.'
+    doLast {
+        def requiredConfiguration = { String name ->
+            name ==~ /(?:debug|release)(?:Compile|Runtime)Classpath/ ||
+                name ==~ /debugUnitTest(?:Compile|Runtime)Classpath/ ||
+                name ==~ /(?:debug|release)AnnotationProcessor/ ||
+                name.startsWith('_internal-unified-test-platform-') ||
+                name in [
+                    'androidApis',
+                    'debugReverseMetadataValues',
+                    'debugWearBundling',
+                    'lintChecks',
+                    'lintClassPath',
+                    'lintPublish',
+                    'releaseReverseMetadataValues',
+                    'releaseWearBundling'
+                ]
+        }
+        int resolvedConfigurationCount = 0
+        allprojects.sort { left, right -> left.path <=> right.path }.each { targetProject ->
+            targetProject.configurations
+                .findAll { configuration ->
+                    configuration.canBeResolved && requiredConfiguration(configuration.name)
+                }
+                .sort { left, right -> left.name <=> right.name }
+                .each { configuration ->
+                    resolvedConfigurationCount++
+                    def artifactView = configuration.incoming.artifactView {
+                        lenient(false)
+                        componentFilter { componentIdentifier ->
+                            componentIdentifier instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier
+                        }
+                    }
+                    artifactView.artifacts.artifactFiles.files.each { artifact ->
+                        if (!artifact.isFile()) {
+                            throw new GradleException(
+                                "Resolved dependency artifact is missing for ${targetProject.path}:${configuration.name}: ${artifact}"
+                            )
+                        }
+                    }
+                }
+        }
+        if (resolvedConfigurationCount == 0) {
+            throw new GradleException('No release/lint/unit-test dependency configurations were resolved.')
+        }
+        logger.lifecycle("Resolved ${resolvedConfigurationCount} release/lint/unit-test dependency configurations.")
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

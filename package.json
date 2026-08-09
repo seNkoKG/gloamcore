@@ -1,0 +1,156 @@
+{
+  "name": "poe-economy-widget",
+  "version": "2.2.8",
+  "packageManager": "pnpm@11.9.0",
+  "private": true,
+  "type": "module",
+  "description": "A live Path of Exile 1 economy and game-intelligence app for Windows, Android, and iOS powered by poe.ninja and PoE Wiki Cargo.",
+  "main": "electron/main.cjs",
+  "author": "PoE Economy Widget",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seNkoKG/ninja-lens.git"
+  },
+  "homepage": "https://github.com/seNkoKG/ninja-lens#readme",
+  "bugs": {
+    "url": "https://github.com/seNkoKG/ninja-lens/issues"
+  },
+  "scripts": {
+    "prebuild": "node scripts/build-native-input.mjs && node scripts/generate-third-party-notices.mjs",
+    "dev": "vite",
+    "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "audit:market": "node scripts/audit-live-market.mjs",
+    "notices:generate": "node scripts/generate-third-party-notices.mjs",
+    "data:build-trade-stats": "node scripts/build-price-check-stat-pack.mjs",
+    "data:build-base-types": "node scripts/build-price-check-base-pack.mjs",
+    "test:tray": "electron scripts/tray-smoke.cjs",
+    "test:price-check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1",
+    "test:price-check:rare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1 -Rare",
+    "test:price-check:wand": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1 -Wand",
+    "release:qa": "pnpm test && pnpm build && pnpm test:tray && pnpm test:price-check && pnpm test:price-check:rare && pnpm test:price-check:wand",
+    "package:friends": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-friends.ps1",
+    "preview": "vite preview --host 127.0.0.1",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-release.ps1",
+    "dist:dir": "pnpm build && electron-builder --dir",
+    "mobile:sync": "pnpm build && cap sync",
+    "mobile:assets": "node scripts/generate-mobile-assets.mjs",
+    "mobile:android:open": "cap open android",
+    "mobile:ios:open": "cap open ios",
+    "mobile:android:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-mobile.ps1 -Configuration Debug",
+    "mobile:android:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-mobile.ps1 -Configuration Release",
+    "mobile:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-mobile.ps1"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "electron-overlay-window": "4.1.0",
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "8.4.2",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/browser": "8.0.4",
+    "@capacitor/cli": "8.4.2",
+    "@capacitor/core": "8.4.2",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/ios": "8.4.2",
+    "@capacitor/local-notifications": "8.2.1",
+    "@capacitor/network": "8.0.1",
+    "@capacitor/preferences": "8.0.1",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.3",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "~5.7.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.poeeconomy.widget",
+    "productName": "PoE Economy Widget",
+    "asar": true,
+    "npmRebuild": false,
+    "asarUnpack": [
+      "node_modules/electron-overlay-window/prebuilds/win32-x64/*.node"
+    ],
+    "electronDist": "node_modules/electron/dist",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "seNkoKG",
+        "repo": "ninja-lens"
+      }
+    ],
+    "directories": {
+      "output": "deliverables"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/*.png",
+      "build/*.ico",
+      "THIRD_PARTY_NOTICES.md",
+      "package.json",
+      "!node_modules/electron-overlay-window/prebuilds/darwin-*/**/*",
+      "!node_modules/electron-overlay-window/prebuilds/linux-*/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/tray.ico",
+        "to": "tray.ico"
+      },
+      {
+        "from": "build/tray.png",
+        "to": "tray.png"
+      },
+      {
+        "from": "build/update-config.json",
+        "to": "update-config.json"
+      },
+      {
+        "from": "build/native-input",
+        "to": "native-input",
+        "filter": [
+          "NinjaLensInput.exe"
+        ]
+      },
+      {
+        "from": "build/pob-engine",
+        "to": "pob-engine",
+        "filter": [
+          "NinjaLensPobHost-x64.exe"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "artifactName": "PoE-Economy-Widget-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "PoE-Economy-Widget-Portable-${version}-${arch}.${ext}"
+    }
+  }
+}

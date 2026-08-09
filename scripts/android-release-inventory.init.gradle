@@ -1,0 +1,327 @@
+import groovy.json.JsonOutput
+import java.security.MessageDigest
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.maven.MavenModule
+import org.gradle.maven.MavenPomArtifact
+
+String sha256(File file) {
+    MessageDigest digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { stream ->
+        byte[] buffer = new byte[1024 * 1024]
+        int count
+        while ((count = stream.read(buffer)) > 0) {
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest().collect { String.format('%02x', it) }.join()
+}
+
+Map<String, String> stableAttributes(def attributes) {
+    Map<String, String> values = [:]
+    attributes.keySet().sort { left, right -> left.name <=> right.name }.each { key ->
+        def value = attributes.getAttribute(key)
+        values[key.name] = value == null ? '' : value.toString()
+    }
+    return values
+}
+
+List<Map> bundledNotices(Project root, File artifactFile) {
+    String lower = artifactFile.name.toLowerCase(Locale.ROOT)
+    if (!lower.endsWith('.jar') && !lower.endsWith('.aar')) {
+        throw new GradleException(
+            "Unsupported release runtime artifact type: ${artifactFile}"
+        )
+    }
+    List<Map> notices = []
+    root.zipTree(artifactFile).matching {
+        include 'META-INF/LICENSE*'
+        include 'META-INF/NOTICE*'
+        include 'META-INF/DEPENDENCIES*'
+    }.visit { details ->
+        if (!details.directory) {
+            if (details.file.length() > 512 * 1024) {
+                throw new GradleException(
+                    "Bundled license/notice is unexpectedly large: ${artifactFile}!/${details.relativePath}"
+                )
+            }
+            byte[] bytes = details.file.bytes
+            notices.add([
+                path: details.relativePath.pathString,
+                sha256: MessageDigest.getInstance('SHA-256')
+                    .digest(bytes)
+                    .collect { String.format('%02x', it) }
+                    .join(),
+                text: new String(bytes, 'UTF-8')
+            ])
+        }
+    }
+    return notices.sort { left, right -> left.path <=> right.path }
+}
+
+String pomBlock(String xml, String name) {
+    def match = (xml =~ /(?is)<${name}(?:\s[^>]*)?>(.*?)<\/${name}>/)
+    if (!match.find()) {
+        return null
+    }
+    return match.group(1)
+}
+
+String pomTag(String xml, String name) {
+    String value = pomBlock(xml, name)
+    if (value == null) {
+        return null
+    }
+    return value
+        .replaceAll(/(?s)<[^>]+>/, ' ')
+        .replace('&lt;', '<')
+        .replace('&gt;', '>')
+        .replace('&quot;', '"')
+        .replace('&apos;', "'")
+        .replace('&amp;', '&')
+        .replaceAll(/\s+/, ' ')
+        .trim()
+}
+
+Map resolveVerifiedPom(Project project, String coordinate) {
+    def parts = coordinate.split(':', 3)
+    def query = project.dependencies.createArtifactResolutionQuery()
+        .forModule(parts[0], parts[1], parts[2])
+        .withArtifacts(MavenModule, MavenPomArtifact)
+        .execute()
+    if (query.components.size() != query.resolvedComponents.size()) {
+        throw new GradleException(
+            "Maven POM resolution failed for ${coordinate}: ${query.components}"
+        )
+    }
+    def components = query.resolvedComponents.toList()
+    if (components.size() != 1) {
+        throw new GradleException(
+            "Expected one Maven POM component for ${coordinate}, found ${components.size()}"
+        )
+    }
+    def pomArtifacts = components[0].getArtifacts(MavenPomArtifact).toList()
+    if (pomArtifacts.size() != 1) {
+        throw new GradleException(
+            "Expected one resolved Maven POM artifact for ${coordinate}: ${pomArtifacts}"
+        )
+    }
+    File pomFile
+    try {
+        pomFile = pomArtifacts[0].file
+    } catch (Exception error) {
+        def methods = pomArtifacts[0].class.methods*.name.unique().sort().findAll {
+            it.toLowerCase(Locale.ROOT).contains('file') ||
+                it.toLowerCase(Locale.ROOT).contains('artifact')
+        }
+        def failure = null
+        try {
+            failure = pomArtifacts[0].failure
+        } catch (Exception ignored) {
+            failure = error
+        }
+        throw new GradleException(
+            "Maven POM artifact is unresolved for ${coordinate}: ${pomArtifacts[0]} " +
+            "(${pomArtifacts[0].class.name}, methods: ${methods}, failure: ${failure})",
+            error
+        )
+    }
+    if (!pomFile.isFile() || pomFile.length() > 2 * 1024 * 1024) {
+        throw new GradleException("Resolved Maven POM is missing or too large: ${coordinate}")
+    }
+    String text = pomFile.getText('UTF-8')
+    String parentBlock = pomBlock(text, 'parent')
+    String parent = null
+    if (parentBlock != null) {
+        String parentGroup = pomTag(parentBlock, 'groupId')
+        String parentName = pomTag(parentBlock, 'artifactId')
+        String parentVersion = pomTag(parentBlock, 'version')
+        if (!parentGroup || !parentName || !parentVersion ||
+            [parentGroup, parentName, parentVersion].any { it.contains('${') }) {
+            throw new GradleException("Unresolved Maven parent coordinate in ${coordinate}")
+        }
+        parent = "${parentGroup}:${parentName}:${parentVersion}".toString()
+    }
+    return [
+        coordinate: coordinate,
+        artifact: pomFile.name,
+        sha256: sha256(pomFile),
+        text: text,
+        declaresLicenses: text ==~ /(?is).*<licenses(?:\s[^>]*)?>.*<license(?:\s[^>]*)?>.*<\/licenses>.*/,
+        parent: parent
+    ]
+}
+
+gradle.projectsEvaluated {
+    Project root = gradle.rootProject
+    Project app = root.findProject(':app')
+    if (app == null) {
+        throw new GradleException('Android :app project was not found.')
+    }
+
+    root.tasks.register('writeReleaseRuntimeInventory') {
+        group = 'verification'
+        description = 'Writes a deterministic inventory of exact external releaseRuntimeClasspath artifacts.'
+        File outputFile = app.layout.buildDirectory.file(
+            'reports/release-runtime-artifacts.json'
+        ).get().asFile
+        outputs.file(outputFile)
+        outputs.upToDateWhen { false }
+
+        doLast {
+            def configuration = app.configurations.findByName('releaseRuntimeClasspath')
+            if (configuration == null) {
+                throw new GradleException('releaseRuntimeClasspath configuration was not found.')
+            }
+
+            // Resolve the selected release artifacts through Gradle itself. Never guess a
+            // filename by walking the cache: that can silently select a stale classifier or
+            // a different variant of the same module.
+            def artifactView = configuration.incoming.artifactView {
+                lenient(false)
+                componentFilter { componentIdentifier ->
+                    componentIdentifier instanceof ModuleComponentIdentifier
+                }
+            }
+            def resolvedArtifacts = artifactView.artifacts.artifacts
+            Map<String, List<Map>> artifactsByComponent = [:].withDefault { [] }
+            resolvedArtifacts.each { artifactResult ->
+                def componentId = artifactResult.id.componentIdentifier
+                if (!(componentId instanceof ModuleComponentIdentifier)) {
+                    return
+                }
+                File artifactFile = artifactResult.file
+                if (!artifactFile.isFile()) {
+                    throw new GradleException(
+                        "Resolved release artifact is missing: ${artifactResult.id.displayName}"
+                    )
+                }
+                String artifactHash = sha256(artifactFile)
+                if (!(artifactHash ==~ /[a-f0-9]{64}/)) {
+                    throw new GradleException(
+                        "Resolved release artifact has no valid SHA-256: ${artifactResult.id.displayName}"
+                    )
+                }
+                String coordinate = "${componentId.group}:${componentId.module}:${componentId.version}"
+                artifactsByComponent[coordinate].add([
+                    group: componentId.group,
+                    name: componentId.module,
+                    version: componentId.version,
+                    artifact: artifactFile.name,
+                    artifactId: artifactResult.id.displayName,
+                    type: artifactFile.name.tokenize('.').last().toLowerCase(Locale.ROOT),
+                    variant: artifactResult.variant.displayName,
+                    variantAttributes: stableAttributes(artifactResult.variant.attributes),
+                    sha256: artifactHash,
+                    bundledNotices: bundledNotices(root, artifactFile)
+                ])
+            }
+
+            // Metadata-only platforms/BOMs legitimately have no runtime file. Every other
+            // external module selected as library code must be represented by an exact,
+            // hashed artifact above.
+            configuration.incoming.resolutionResult.allComponents.each { component ->
+                if (!(component.id instanceof ModuleComponentIdentifier)) {
+                    return
+                }
+                String coordinate = "${component.id.group}:${component.id.module}:${component.id.version}"
+                if (artifactsByComponent.containsKey(coordinate)) {
+                    return
+                }
+                Set<String> categories = component.variants.collect { variant ->
+                    def categoryKey = variant.attributes.keySet().find {
+                        it.name == 'org.gradle.category'
+                    }
+                    def category = categoryKey == null ? null : variant.attributes.getAttribute(categoryKey)
+                    category == null ? '' : category.toString()
+                } as Set
+                boolean metadataOnly = !categories.isEmpty() && categories.every {
+                    it == 'platform' || it == 'enforced-platform'
+                }
+                Set<String> redirectTargets = component.variants.collectMany { variant ->
+                    def externalVariant = variant.externalVariant
+                    if (externalVariant == null || !externalVariant.present) {
+                        return []
+                    }
+                    def owner = externalVariant.get().owner
+                    if (!(owner instanceof ModuleComponentIdentifier)) {
+                        return []
+                    }
+                    return ["${owner.group}:${owner.module}:${owner.version}".toString()]
+                } as Set
+                boolean exactRedirect = !component.variants.isEmpty() &&
+                    redirectTargets.size() > 0 &&
+                    redirectTargets.every { artifactsByComponent.containsKey(it) }
+                if (!metadataOnly && !exactRedirect) {
+                    def nearby = artifactsByComponent.keySet().findAll {
+                        it.startsWith("${component.id.group}:${component.id.module}:")
+                    }.sort()
+                    def artifactTypes = artifactsByComponent.values()
+                        .flatten()
+                        .groupBy { it.type }
+                        .collectEntries { type, entries -> [type, entries.size()] }
+                    throw new GradleException(
+                        "Release code module resolved without a hashed artifact: ${coordinate} " +
+                        "(categories: ${categories.sort()}, redirects: ${redirectTargets.sort()}, " +
+                        "matching artifacts: ${nearby}, " +
+                        "resolved artifact types: ${artifactTypes})"
+                    )
+                }
+            }
+
+            List<Map> sorted = artifactsByComponent
+                .keySet()
+                .sort()
+                .collectMany { coordinate ->
+                    artifactsByComponent[coordinate].sort { left, right ->
+                        "${left.artifactId}|${left.variant}" <=>
+                            "${right.artifactId}|${right.variant}"
+                    }
+                }
+            if (sorted.isEmpty()) {
+                throw new GradleException('Resolved release runtime artifact inventory is empty.')
+            }
+            Set<String> identities = [] as Set
+            sorted.each { artifact ->
+                String identity = "${artifact.group}:${artifact.name}:${artifact.version}|${artifact.artifactId}|${artifact.variant}"
+                if (!identities.add(identity)) {
+                    throw new GradleException("Duplicate release runtime artifact identity: ${identity}")
+                }
+            }
+            Map<String, Map> pomsByCoordinate = [:]
+            sorted.each { artifact ->
+                String coordinate = "${artifact.group}:${artifact.name}:${artifact.version}".toString()
+                List<Map> pomChain = []
+                Set<String> seenPoms = [] as Set
+                String current = coordinate
+                while (current != null) {
+                    if (!seenPoms.add(current) || seenPoms.size() > 12) {
+                        throw new GradleException("Maven parent cycle/depth error at ${current}")
+                    }
+                    Map pom = pomsByCoordinate[current]
+                    if (pom == null) {
+                        pom = resolveVerifiedPom(app, current)
+                        pomsByCoordinate[current] = pom
+                    }
+                    pomChain.add([
+                        coordinate: pom.coordinate,
+                        artifact: pom.artifact,
+                        sha256: pom.sha256,
+                        text: pom.text
+                    ])
+                    if (pom.declaresLicenses || pom.parent == null) {
+                        break
+                    }
+                    current = pom.parent
+                }
+                artifact.pomChain = pomChain
+            }
+            outputFile.parentFile.mkdirs()
+            outputFile.setText(JsonOutput.prettyPrint(JsonOutput.toJson([
+                schema: 2,
+                configuration: 'releaseRuntimeClasspath',
+                dependencies: sorted
+            ])) + System.lineSeparator(), 'UTF-8')
+            logger.lifecycle("Wrote ${sorted.size()} exact release runtime artifacts to ${outputFile}")
+        }
+    }
+}
