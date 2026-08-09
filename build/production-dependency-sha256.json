@@ -4,7 +4,7 @@
   "platform": "win32-x64",
   "packageCount": 36,
   "fileCount": 4510,
-  "sha256": "22493cfbc0c5acbd4b2ef401dff255673a679b07b23bc5e1a59d56dbafc456a8",
+  "sha256": "2d10e27348bf80f3e28471a41ee1922871841efd55a9fdae7f3022c5e3fe9d37",
   "packages": [
     {
       "name": "@electron-internal/extract-zip",
@@ -2325,8 +2325,8 @@
     },
     {
       "name": "js-yaml",
-      "version": "4.3.0",
-      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.0.tgz",
+      "version": "4.3.1",
+      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.1.tgz",
       "packaged": true,
       "files": [
         {
@@ -2336,33 +2336,33 @@
         },
         {
           "path": "dist/js-yaml.js",
-          "size": 131246,
-          "sha256": "5fec03f5a928716cf726240a1ebcebdbb0166cd61a00ab17ab363b31c0c7a44d"
+          "size": 131335,
+          "sha256": "09a14e2cb63130302308b94500c4e6d99fc57be5070c32dc1fbe3d942386ad3c"
         },
         {
           "path": "dist/js-yaml.js.map",
-          "size": 190802,
-          "sha256": "569c167450f9469d5d222e9c189fa4bff3c69abebe349e2c8751e4a9a3faae73"
+          "size": 190875,
+          "sha256": "82280e5ab0259cd0a087011d32979254ec8330605f7b14d2a9b904f9a5a1997f"
         },
         {
           "path": "dist/js-yaml.min.js",
-          "size": 43527,
-          "sha256": "666213b4657b022d0e7eb4b48cfbcae5339c5db1892fe30614f22cc65860673d"
+          "size": 43549,
+          "sha256": "fdb7c9f75afd2f3b6baa3aa53e648d10fe7815276e305d3d681af37e09454ea6"
         },
         {
           "path": "dist/js-yaml.min.js.map",
-          "size": 179165,
-          "sha256": "5de083912c57672cc159df64ec3b2efe0f860ded55276357654aacd7df056b00"
+          "size": 179229,
+          "sha256": "c3ea061cc5d63fdc4f37ecf6b7287e77145a235296ac42b6eedf9ace6f267786"
         },
         {
           "path": "dist/js-yaml.mjs",
-          "size": 103854,
-          "sha256": "1928c9ca89e6af32eb3c88e992c37f5b9f3befade4d62209f5bff8c58ae4f963"
+          "size": 103891,
+          "sha256": "33e98d04719e7a7fc8e0433803ad4b26a6f72d4545d279a5b053d45bd7871c7a"
         },
         {
           "path": "dist/js-yaml.mjs.map",
-          "size": 183102,
-          "sha256": "1f6d1e843ebc3ea903ce0884f18ac9dd03211a820907e579bd293792aec5bd63"
+          "size": 183161,
+          "sha256": "f3985e79b3b482fe0b4fa8ad680d87485d9d562af7de4d10e171d9595ad8ca1d"
         },
         {
           "path": "index.js",
@@ -2466,8 +2466,8 @@
         },
         {
           "path": "lib/type/omap.js",
-          "size": 999,
-          "sha256": "711911528cddf768c4b800c565e15168e72d2433670094c8936b7693c126867f"
+          "size": 1036,
+          "sha256": "8a865841abeb5f12a30f39f095967b6ac05ef6240e78872573fb23e8c9b5c47f"
         },
         {
           "path": "lib/type/pairs.js",
@@ -2502,7 +2502,7 @@
         {
           "path": "package.json",
           "size": 2281,
-          "sha256": "6921d84ff035bba63648df9de947b0da44c9b4355b94260df1176824d0495d81"
+          "sha256": "82b932c87c5da7901c6a8f984698c57912570146fffd3156dcdc96a6c210d847"
         },
         {
           "path": "README.md",

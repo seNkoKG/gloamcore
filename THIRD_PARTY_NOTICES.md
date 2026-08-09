@@ -994,7 +994,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ==============================================================================
-js-yaml 4.3.0
+js-yaml 4.3.1
 License: MIT
 Project: https://github.com/nodeca/js-yaml#readme
 License source: LICENSE
