@@ -78,7 +78,9 @@ function Get-PinnedNodePath {
 
   $pin = Get-Content -Raw -LiteralPath (Join-Path $Root "build/release-toolchain.json") |
     ConvertFrom-Json
-  $pnpmLauncher = Get-Command pnpm.cmd -CommandType Application -ErrorAction SilentlyContinue
+  $pnpmLauncher = @(
+    Get-Command pnpm.cmd -CommandType Application -ErrorAction SilentlyContinue
+  ) | Select-Object -First 1
   $candidates = @()
   if ($pnpmLauncher) {
     $launcherDirectory = Split-Path -Parent $pnpmLauncher.Source
@@ -87,7 +89,9 @@ function Get-PinnedNodePath {
     )
     $candidates += Join-Path $launcherDirectory "node.exe"
   }
-  $ambientNode = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue
+  $ambientNode = @(
+    Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue
+  ) | Select-Object -First 1
   if ($ambientNode) {
     $candidates += $ambientNode.Source
   }
