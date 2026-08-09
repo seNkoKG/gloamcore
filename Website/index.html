@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ninja Lens — Price items, follow the economy, plan your build in Path of Exile</title>
+  <meta name="description" content="Ninja Lens is a Windows companion for Path of Exile 1. One-key price checks with live official Trade listings, live poe.ninja economy signals, a local Build Lab, and practical player tools — all tray-first.">
+  <meta name="theme-color" content="#07090b">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Ninja Lens — Read the market. Price the item. Plan the build.">
+  <meta property="og:description" content="A focused Path of Exile 1 companion for Windows: one-key item checks, live economy signals, a local Build Lab, and practical player tools.">
+  <meta property="og:url" content="https://github.com/seNkoKG/ninja-lens">
+  <meta property="og:image" content="assets/img/logo.png">
+  <meta name="twitter:card" content="summary">
+
+  <link rel="icon" type="image/png" href="assets/img/logo.png">
+  <link rel="preload" as="image" href="assets/img/logo.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/css/styles.css">
+
+  <!-- Structured data for rich results -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Ninja Lens",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Windows 10/11 (x64)",
+    "softwareVersion": "2.2.8",
+    "description": "A focused Path of Exile 1 companion for Windows bringing one-key item checks, live economy signals, player utilities, and a local Build Lab into one polished tray-first desktop app.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5", "ratingCount": "1", "bestRating": "5" },
+    "url": "https://github.com/seNkoKG/ninja-lens",
+    "downloadUrl": "https://github.com/seNkoKG/ninja-lens/releases/latest/download/Ninja-Lens-Setup-x64.exe",
+    "publisher": { "@type": "Organization", "name": "Ninja Lens", "url": "https://github.com/seNkoKG/ninja-lens" }
+  }
+  </script>
+</head>
+
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ============================================================ Header -->
+  <header class="site-header" data-header data-reveal>
+    <div class="container header__inner">
+      <a class="brand" href="#top" aria-label="Ninja Lens — back to top">
+        <img class="brand__mark" src="assets/img/logo.png" alt="" width="34" height="34">
+        <span class="brand__name">Ninja <em>Lens</em></span>
+        <span class="brand__tag" data-version-chip>v2.2.8</span>
+      </a>
+
+      <nav class="site-nav" id="site-nav" data-nav aria-label="Primary">
+        <ul class="site-nav__list">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#examples">Examples</a></li>
+          <li><a href="#download">Download</a></li>
+          <li><a href="#shortcuts">Shortcuts</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div class="header__actions">
+        <a class="btn btn--ghost btn--sm header__github" href="https://github.com/seNkoKG/ninja-lens" target="_blank" rel="noopener">
+          <svg class="i sp" aria-hidden="true"><use href="#i-github"></use></svg>
+          GitHub
+        </a>
+        <a class="btn btn--primary btn--sm" href="#download">
+          <svg class="i sp" aria-hidden="true"><use href="#i-download"></use></svg>
+          Download
+        </a>
+        <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="site-nav">
+          <span class="nav-toggle__bar"></span><span class="nav-toggle__bar"></span><span class="nav-toggle__bar"></span>
+          <span class="visually-hidden">Menu</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ============================================================ Hero -->
+    <section class="hero" id="top">
+      <div class="hero__backdrop" aria-hidden="true"></div>
+      <div class="hero__beam" aria-hidden="true"></div>
+      <div class="container hero__grid">
+        <div class="hero__copy">
+          <span class="eyebrow">
+            <span class="eyebrow__dot" aria-hidden="true"></span>
+            Ninja Lens <span data-version>2.2.8</span> · Windows x64 · Path of Exile&nbsp;1
+          </span>
+
+          <h1 class="hero__title">
+            Read the market.<br>
+            <em>Price the item.</em><br>
+            Plan the build.
+          </h1>
+
+          <p class="hero__lede">
+            A tray-first companion for Path of Exile&nbsp;1. Hover any item, press
+            <kbd>Ctrl</kbd><kbd>D</kbd>, and read a compact roll-aware price check — with
+            live anonymous Trade listings, close market matches, and a clean handoff to the
+            official Trade site.
+          </p>
+
+          <div class="hero__cta">
+            <a class="btn btn--primary btn--lg" data-download href="https://github.com/seNkoKG/ninja-lens/releases/latest/download/Ninja-Lens-Setup-x64.exe" download>
+              <svg class="i sp" aria-hidden="true"><use href="#i-download"></use></svg>
+              Download for Windows
+            </a>
+            <a class="btn btn--ghost btn--lg" href="#examples">
+              <svg class="i sp" aria-hidden="true"><use href="#i-play"></use></svg>
+              See it in action
+            </a>
+          </div>
+
+          <ul class="hero__facts" aria-label="Key facts">
+            <li><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg> One-key price check</li>
+            <li><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg> Live Trade listings</li>
+            <li><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg> Local &amp; private by default</li>
+          </ul>
+        </div>
+
+        <div class="hero__stage" aria-hidden="true">
+          <div class="stage-cards">
+            <div class="stage-card stage-card--top">
+              <div class="stage-card__bar"><i></i><i></i><i></i></div>
+              <div class="stage-card__row">
+                <span class="stage-card__data">23.9</span><span>DIVINE</span>
+                <b class="stage-chip">TRADE LIVE</b>
+              </div>
+              <div class="stage-card__spark">
+                <svg viewBox="0 0 120 30" preserveAspectRatio="none">
+                  <polyline points="0,22 18,18 34,20 52,11 70,14 88,7 104,9 120,3" fill="none" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            <div class="stage-card stage-card--mid">
+              <div class="stage-card__row">
+                <span class="stage-card__data">1.4k</span><span>LISTED</span>
+                <b class="stage-chip stage-chip--gold">WATCH</b>
+              </div>
+            </div>
+            <div class="stage-card stage-card--bottom">
+              <span class="stage-card__kbd"><kbd>Ctrl</kbd>+<kbd>D</kbd></span>
+              <span class="stage-card__label">price check</span>
+            </div>
+          </div>
+          <div class="hero__stage-glow" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Ticker -->
+    <section class="ticker" aria-label="Data sources" data-reveal>
+      <div class="container ticker__inner">
+        <span class="ticker__label">Trusted signals, one local app</span>
+        <div class="ticker__marquee">
+          <ul class="ticker__list" data-marquee>
+            <li><span class="ticker__dot"></span>poe.ninja aggregates</li>
+            <li><span class="ticker__dot"></span>Official Trade listings</li>
+            <li><span class="ticker__dot"></span>PoE Wiki Cargo reference</li>
+            <li><span class="ticker__dot"></span>Awakened-parity planner data</li>
+            <li><span class="ticker__dot"></span>Path of Building import</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Stats -->
+    <section class="stats" aria-label="Highlights" data-reveal>
+      <div class="container">
+        <dl class="stats__grid" data-stagger>
+          <div class="stat">
+            <dt>1</dt>
+            <dd>keypress to go from hovering an item to a price.</dd>
+          </div>
+          <div class="stat">
+            <dt>4</dt>
+            <dd>workflows in one tray — check, market, build, toolkit.</dd>
+          </div>
+          <div class="stat">
+            <dt>6</dt>
+            <dd>rebindable desktop shortcuts, or remap your own.</dd>
+          </div>
+          <div class="stat">
+            <dt>0</dt>
+            <dd>telemetry. Preferences, watchlists, and caches stay local.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ============================================================ Features -->
+    <section class="section" id="features" data-reveal>
+      <div class="container">
+        <header class="section__head">
+          <span class="section__kicker">One companion · four workflows</span>
+          <h2 class="section__title">Everything around the market, in one tray.</h2>
+          <p class="section__sub">Four focused tools converge in a single, dark, readable desktop app — no browser hopping between checks.</p>
+        </header>
+
+        <div class="feature-grid" data-stagger>
+          <article class="feature">
+            <span class="feature__icon feature__icon--teal"><svg class="i" aria-hidden="true"><use href="#i-gem"></use></svg></span>
+            <h3>Price check with one shortcut</h3>
+            <p>Hover an item in PoE and press <kbd>Ctrl</kbd><kbd>D</kbd>. Ninja Lens performs one item copy, parses the text, and opens a compact overlay over the game — combining a poe.ninja identity estimate with live anonymous Trade listings.</p>
+            <ul class="feature__list">
+              <li>Roll-aware plans for rares, uniques, maps, gems &amp; jewels</li>
+              <li>Modifier, property, and state controls without a nested scroll</li>
+              <li>One-click handoff to the official Trade website</li>
+            </ul>
+            <span class="feature__tag">Built against Awakened PoE Trade 3.29.104 parity data</span>
+          </article>
+
+          <article class="feature">
+            <span class="feature__icon feature__icon--gold"><svg class="i" aria-hidden="true"><use href="#i-chart"></use></svg></span>
+            <h3>Follow the live economy</h3>
+            <p>Explore current poe.ninja markets with league selection, search, filters, sorting, trend history, liquidity context, and low-confidence handling.</p>
+            <ul class="feature__list">
+              <li>Star items for a local watchlist</li>
+              <li>Set price targets and get a Windows notification</li>
+              <li>Last-good data stays visible during upstream outages</li>
+            </ul>
+            <span class="feature__tag">Currency, items, and crafting bases across leagues</span>
+          </article>
+
+          <article class="feature">
+            <span class="feature__icon feature__icon--violet"><svg class="i" aria-hidden="true"><use href="#i-tree"></use></svg></span>
+            <h3>Work in Build Lab</h3>
+            <p>Import PoB XML, codes, and supported build links into an interactive passive-tree workspace with mastery choices, multiple specs, items, skills, and configuration.</p>
+            <ul class="feature__list">
+              <li>Edit, compare, note, and export back to PoB</li>
+              <li>Undo / redo across the whole workspace</li>
+              <li>Verified PoB Community engine, fails closed when missing</li>
+            </ul>
+            <span class="feature__tag">Tree editing and full PoB export</span>
+          </article>
+
+          <article class="feature">
+            <span class="feature__icon feature__icon--red"><svg class="i" aria-hidden="true"><use href="#i-wrench"></use></svg></span>
+            <h3>Bring tools together</h3>
+            <p>The Player Toolkit includes an item-filter editor, a source-tracked regex workbench, socket-colour comparison, economy audits, and practical overlays.</p>
+            <ul class="feature__list">
+              <li>AVOID / WANT stash and map-search expressions</li>
+              <li>Macros and plugin permissions start disabled</li>
+              <li>Remotes isolated from Node, files, and game memory</li>
+            </ul>
+            <span class="feature__tag">Explicit provenance on every expression</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ How it works -->
+    <section class="section section--alt" id="how" data-reveal>
+      <div class="container">
+        <header class="section__head">
+          <span class="section__kicker">Under the hood</span>
+          <h2 class="section__title">From hover to answer, <em>locally</em>.</h2>
+          <p class="section__sub">One ordinary item copy stays on your machine — nothing is injected, scanned, or whispered. Here is the path every check takes.</p>
+        </header>
+
+        <div class="how-grid" data-stagger>
+          <article class="how-step">
+            <span class="how-step__icon"><svg class="i" aria-hidden="true"><use href="#i-kbd"></use></svg></span>
+            <h3>1 · Press <kbd>Ctrl</kbd><kbd>D</kbd></h3>
+            <p>Ninja Lens performs exactly one <code>Ctrl+C</code> item copy and reads the text from your clipboard — no memory scans, no injection.</p>
+          </article>
+          <article class="how-step">
+            <span class="how-step__icon"><svg class="i" aria-hidden="true"><use href="#i-gem"></use></svg></span>
+            <h3>2 · Identify &amp; plan</h3>
+            <p>The parser classifies base, rarity, sockets, and modifiers against pinned Awakened-parity data, then builds a roll-aware search plan.</p>
+          </article>
+          <article class="how-step">
+            <span class="how-step__icon"><svg class="i" aria-hidden="true"><use href="#i-chart"></use></svg></span>
+            <h3>3 · Price with context</h3>
+            <p>A poe.ninja identity estimate combines with live anonymous Trade listings, liquidity context, and visible stale-data labels.</p>
+          </article>
+          <article class="how-step">
+            <span class="how-step__icon"><svg class="i" aria-hidden="true"><use href="#i-external"></use></svg></span>
+            <h3>4 · Verify on Trade</h3>
+            <p>One click hands the mapped query to the official Trade site, or keeps <em class="hl">TRADE</em> in the compact overlay for a second look.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Examples -->
+    <section class="section section--alt" id="examples" data-reveal>
+      <div class="container">
+        <header class="section__head">
+          <span class="section__kicker">Gallery</span>
+          <h2 class="section__title">See Ninja Lens in <em>action</em>.</h2>
+          <p class="section__sub">Capture-driven examples and live-style previews — no account, no fake numbers.</p>
+        </header>
+
+        <!-- Tabbed gallery -->
+        <div class="gallery" data-gallery>
+          <div class="gallery__tabs" role="tablist" aria-label="Example screenshots">
+            <button class="gallery__tab is-active" role="tab" id="tab-price" aria-selected="true" aria-controls="panel-price" data-gallery-tab="price-check">
+              <svg class="i sp" aria-hidden="true"><use href="#i-gem"></use></svg> Price Check
+            </button>
+            <button class="gallery__tab" role="tab" id="tab-market" aria-selected="false" aria-controls="panel-market" data-gallery-tab="market">
+              <svg class="i sp" aria-hidden="true"><use href="#i-chart"></use></svg> Market Explorer
+            </button>
+            <button class="gallery__tab" role="tab" id="tab-build" aria-selected="false" aria-controls="panel-build" data-gallery-tab="build">
+              <svg class="i sp" aria-hidden="true"><use href="#i-tree"></use></svg> Build Lab
+            </button>
+            <button class="gallery__tab" role="tab" id="tab-regex" aria-selected="false" aria-controls="panel-regex" data-gallery-tab="regex">
+              <svg class="i sp" aria-hidden="true"><use href="#i-wrench"></use></svg> Regex Workbench
+            </button>
+          </div>
+
+          <div class="gallery__panel" role="tabpanel" id="panel-price" aria-labelledby="tab-price" data-gallery-panel="price-check">
+            <figure class="shot">
+              <div class="shot__chrome" aria-hidden="true"><i></i><i></i><i></i><span>Price check · overlay capture</span></div>
+              <img class="shot__img" src="assets/img/example-price-check.png" alt="Ninja Lens price-check overlay showing Malachai's Loop modifiers and anonymized seller listings" loading="eager" width="460" height="900">
+              <figcaption>
+                <strong>A compact, roll-aware <em>Ctrl+D</em> surface</strong>
+                <span>Malachai's Loop with an edited modifier plan, a poe.ninja identity estimate, and anonymized live Trade rows. Rares and magic items get contextual filter controls instead of a misleading base price.</span>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="gallery__panel" role="tabpanel" id="panel-market" aria-labelledby="tab-market" data-gallery-panel="market" hidden>
+            <figure class="shot">
+              <div class="shot__chrome" aria-hidden="true"><i></i><i></i><i></i><span>Market Explorer · live data</span></div>
+              <img class="shot__img" src="assets/img/example-market.jpg" alt="Ninja Lens Market Explorer showing currency values, trends, liquidity, and exchange context" loading="lazy" width="1798" height="1144">
+              <figcaption>
+                <strong>Live economy signals, league-aware</strong>
+                <span>Currency and item rows with trend history, liquidity context, exchange links, watchlist stars, and low-confidence handling — all from one dark dashboard.</span>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="gallery__panel" role="tabpanel" id="panel-build" aria-labelledby="tab-build" data-gallery-panel="build" hidden>
+            <figure class="shot">
+              <div class="shot__chrome" aria-hidden="true"><i></i><i></i><i></i><span>Build Lab · tree workspace</span></div>
+              <img class="shot__img" src="assets/img/example-buildlab.jpg" alt="Ninja Lens Build Lab showing the Path of Exile passive tree workspace" loading="lazy" width="1798" height="1144">
+              <figcaption>
+                <strong>A local passive-tree workspace</strong>
+                <span>Import a build, inspect the matching tree, edit allocations and mastery choices, then export straight back to Path of Building.</span>
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="gallery__panel" role="tabpanel" id="panel-regex" aria-labelledby="tab-regex" data-gallery-panel="regex" hidden>
+            <figure class="shot">
+              <div class="shot__chrome" aria-hidden="true"><i></i><i></i><i></i><span>Regex Workbench · source-tracked</span></div>
+              <img class="shot__img" src="assets/img/example-regex.jpg" alt="Ninja Lens regex workbench showing AVOID and WANT logic with source provenance" loading="lazy" width="1798" height="1144">
+              <figcaption>
+                <strong>Expressions with explicit AVOID / WANT logic</strong>
+                <span>Compose stash and map-search filters with length-aware output, saved profiles, socket-colour comparison, and visible source freshness.</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <!-- Interactive demo -->
+        <div class="demo" data-demo>
+          <div class="demo__copy">
+            <span class="section__kicker">Interactive preview</span>
+            <h3>A check, the way it feels in-game.</h3>
+            <p>A stylized replay of the compact overlay card. Real checks use your live Trade context — this cycles through captured examples so you can feel the layout before installing.</p>
+            <div class="demo__nav" role="tablist" aria-label="Demo item selector">
+              <button type="button" class="demo__dot is-active" data-demo-dot="0" aria-label="Show The Doctor" aria-selected="true"></button>
+              <button type="button" class="demo__dot" data-demo-dot="1" aria-label="Show Malachai's Loop" aria-selected="false"></button>
+              <button type="button" class="demo__dot" data-demo-dot="2" aria-label="Show Awakened Added Chaos Damage" aria-selected="false"></button>
+            </div>
+          </div>
+          <div class="demo__stage" aria-live="polite">
+            <div class="mock" data-mock>
+              <div class="mock__content">
+              <div class="mock__top">
+                <span class="mock__league" data-mock-league>Hardcore</span>
+                <span class="mock__status mock__status--live" data-mock-status>TRADE LIVE</span>
+                <span class="mock__icons"><i></i><i></i><i></i></span>
+              </div>
+              <div class="mock__item">
+                <span class="mock__framing" aria-hidden="true"></span>
+                <div class="mock__itemtext">
+                  <strong data-mock-name>The Doctor</strong>
+                  <span data-mock-base>Divination Card</span>
+                </div>
+                <b class="mock__price" data-mock-price>
+                  <em data-mock-number>18.7</em> DIVINE
+                </b>
+              </div>
+              <div class="mock__facts" data-mock-facts>
+                <b>ILVL 84</b><b>Q 20%</b><b>6 LINKS</b>
+              </div>
+              <div class="mock__rows" data-mock-rows>
+                <div class="mock__row"><span>6.2 DIVINE</span><span>Headhunter</span><em>24 LISTED</em></div>
+                <div class="mock__row"><span>18.7 DIVINE</span><span>The Doctor</span><em>4.2k LISTED</em></div>
+                <div class="mock__row"><span>3.1 DIVINE</span><span>House of Mirrors</span><em>58 LISTED</em></div>
+              </div>
+              <div class="mock__actions"><b>ONLINE</b><b>TRADE</b><b>DEMO</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Download -->
+    <section class="section" id="download" data-reveal>
+      <div class="container">
+        <header class="section__head">
+          <span class="section__kicker">Install on Windows</span>
+          <h2 class="section__title">Two ways to <em>run it</em>.</h2>
+          <p class="section__sub">Both artifacts are built from the latest audited release <span data-version>2.2.8</span> and published to GitHub Releases with checksums.</p>
+        </header>
+
+        <div class="dl-grid" data-stagger>
+          <article class="dl-card dl-card--primary">
+            <div class="dl-card__head">
+              <span class="dl-card__icon"><svg class="i" aria-hidden="true"><use href="#i-orbit"></use></svg></span>
+              <div>
+                <h3>Installer</h3>
+                <p>NSIS setup · <strong>recommended</strong></p>
+              </div>
+            </div>
+            <ul class="dl-card__points">
+              <li><svg class="i sp" aria-hidden="true"><use href="#i-check"></use></svg> In-app automatic updates</li>
+              <li><svg class="i sp" aria-hidden="true"><use href="#i-check"></use></svg> Tray launch &amp; updater channel</li>
+              <li><svg class="i sp" aria-hidden="true"><use href="#i-check"></use></svg> Optional install location</li>
+            </ul>
+            <div class="dl-card__foot">
+              <a class="btn btn--primary btn--block" data-download href="https://github.com/seNkoKG/ninja-lens/releases/latest/download/Ninja-Lens-Setup-x64.exe" download>
+                <svg class="i sp" aria-hidden="true"><use href="#i-download"></use></svg>
+                Download Ninja-Lens-Setup-x64.exe
+              </a>
+              <button class="linklike" type="button" data-copy="https://github.com/seNkoKG/ninja-lens/releases/latest/download/Ninja-Lens-Setup-x64.exe" data-copied="Copied link — thanks!">
+                <svg class="i sp" aria-hidden="true"><use href="#i-copy"></use></svg>
+                <span data-copy-label>Copy direct link</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="dl-card">
+            <div class="dl-card__head">
+              <span class="dl-card__icon dl-card__icon--gold"><svg class="i" aria-hidden="true"><use href="#i-usb"></use></svg></span>
+              <div>
+                <h3>Portable</h3>
+                <p>Single standalone <code>exe</code> · no install</p>
+              </div>
+            </div>
+            <ul class="dl-card__points">
+              <li><svg class="i sp" aria-hidden="true"><use href="#i-check"></use></svg> Run from any folder or USB stick</li>
+              <li><svg class="i sp" aria-hidden="true"><use href="#i-check"></use></svg> No background updater</li>
+              <li><svg class="i sp" aria-hidden="true"><use href="#i-check"></use></svg> Replace the exe to update</li>
+            </ul>
+            <div class="dl-card__foot">
+              <a class="btn btn--ghost btn--block" href="https://github.com/seNkoKG/ninja-lens/releases/latest" target="_blank" rel="noopener">
+                <svg class="i sp" aria-hidden="true"><use href="#i-external"></use></svg>
+                Grab Portable from Releases
+              </a>
+            </div>
+          </article>
+        </div>
+
+        <div class="dl-steps">
+          <h3>Get up and running in four steps</h3>
+          <ol class="steps">
+            <li><b>1</b><span><strong>Install</strong> — run the setup, or unzip the portable exe.</span></li>
+            <li><b>2</b><span><strong>Add to tray</strong> — launch Ninja Lens and leave it in the system tray.</span></li>
+            <li><b>3</b><span><strong>Set display mode</strong> — use PoE in Borderless or Windowed Fullscreen so the native overlay can attach.</span></li>
+            <li><b>4</b><span><strong>Check</strong> — hover an item and press <kbd>Ctrl</kbd><kbd>D</kbd>.</span></li>
+          </ol>
+        </div>
+
+        <div class="dl-note">
+          <div class="dl-note__title">
+            <svg class="i" aria-hidden="true"><use href="#i-shield"></use></svg>
+            <span>SmartScreen &amp; verification</span>
+          </div>
+          <p>Windows binaries are not currently Authenticode-signed, so SmartScreen may show an unknown-publisher warning. Download only from this repository and verify the file before running it.</p>
+          <div class="dl-note__cta">
+            <a class="btn btn--ghost btn--sm" href="https://github.com/seNkoKG/ninja-lens/releases/latest/download/SHA256SUMS.txt" target="_blank" rel="noopener">
+              <svg class="i sp" aria-hidden="true"><use href="#i-hash"></use></svg>
+              SHA256SUMS.txt
+            </a>
+            <button class="btn btn--ghost btn--sm" type="button" data-checksum-toggle aria-expanded="false" aria-controls="checksum-help">
+              How to verify
+            </button>
+          </div>
+          <pre id="checksum-help" class="checksum" data-checksum hidden><code>certutil -hashfile "Ninja-Lens-Setup-x64.exe" SHA256</code></pre>
+          <p class="dl-note__more">Prefer automatic updates? Installed builds check the stable GitHub update channel shortly after launch and install only when you choose <em>Restart &amp; install</em>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Shortcuts -->
+    <section class="section section--alt" id="shortcuts" data-reveal>
+      <div class="container">
+        <header class="section__head">
+          <span class="section__kicker">Rebindable</span>
+          <h2 class="section__title">Shortcuts that stay out of your way.</h2>
+          <p class="section__sub">Desktop bindings are rebindable in Settings; conflicting or unavailable keys are rejected without replacing the working binding.</p>
+        </header>
+
+        <div class="keys">
+          <table class="keys__table">
+            <thead><tr><th scope="col">Shortcut</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Copy and price-check the item under the cursor</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td><td>Show or hide Ninja Lens globally</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td><td>Toggle click-through mode</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd></td><td>Open instant market search</td></tr>
+              <tr><td><kbd>/</kbd></td><td>Focus item search while Ninja Lens is active</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Open Ninja Intel and focus its search</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Privacy -->
+    <section class="section" id="privacy" data-reveal>
+      <div class="container">
+        <header class="section__head">
+          <span class="section__kicker">Privacy &amp; safety</span>
+          <h2 class="section__title">Private by design, bounded by <em>trust</em>.</h2>
+          <p class="section__sub">One check sends one ordinary item copy — never memory scans, injection, or whispers.</p>
+        </header>
+
+        <div class="trust-grid" data-stagger>
+          <article class="trust">
+            <span class="trust__icon"><svg class="i" aria-hidden="true"><use href="#i-key"></use></svg></span>
+            <h3>Local-first</h3>
+            <p>Preferences, watchlists, saved workspaces, and ordinary caches stay on your computer.</p>
+          </article>
+          <article class="trust">
+            <span class="trust__icon"><svg class="i" aria-hidden="true"><use href="#i-lock"></use></svg></span>
+            <h3>Memory-safe capture</h3>
+            <p>Each <kbd>Ctrl</kbd><kbd>D</kbd> performs exactly one <code>Ctrl+C</code> item copy. No game-memory reads, no automation, no <code>POESESSID</code>.</p>
+          </article>
+          <article class="trust">
+            <span class="trust__icon"><svg class="i" aria-hidden="true"><use href="#i-eye"></use></svg></span>
+            <h3>OAuth cleared after use</h3>
+            <p>Optional character import holds the token in memory only, clears it after import, and never persists authenticated responses.</p>
+          </article>
+          <article class="trust">
+            <span class="trust__icon"><svg class="i" aria-hidden="true"><use href="#i-brief"></use></svg></span>
+            <h3>Anonymous Trade</h3>
+            <p>Listings use public unauthenticated Trade routes with sanitized output. GGG can change, reject, or rate-limit them.</p>
+          </article>
+        </div>
+        <p class="section__note">poe.ninja, PoE Wiki, official Trade, and external services can be delayed or unavailable. Ninja Lens labels stale fallback data where it applies — see the <a href="docs/PRICE_CHECKER.md" target="_blank" rel="noopener">price-checker trust notes</a>.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ FAQ -->
+    <section class="section section--alt" id="faq" data-reveal>
+      <div class="container container--narrow">
+        <header class="section__head">
+          <span class="section__kicker">FAQ</span>
+          <h2 class="section__title">Questions, <em>answered plainly</em>.</h2>
+        </header>
+
+        <div class="faq" data-faq>
+          <details class="faq__item">
+            <summary><span>Why does Windows show “Unknown publisher”?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>Current builds are not Authenticode-signed, which is why SmartScreen flags them. Download only from the official GitHub repository and compare <code>SHA256SUMS.txt</code> before running — the checksum is published with every release.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>Can I use a portable build and still update?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>Portable builds are standalone: there is no background updater, so updating means replacing the executable from the latest release page. Installed builds use the automatic update channel instead.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>Why do I need Borderless or Windowed Fullscreen?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>The transparent overlay attaches to the native “Path of Exile” window. Windows cannot reliably place a normal desktop overlay above a game in exclusive fullscreen.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>How does the price check work?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>Press <kbd>Ctrl</kbd><kbd>D</kbd> over an item. Ninja Lens copies the item text, parses it locally, builds a roll-aware plan from pinned Awakened-parity stat data, and combines a poe.ninja estimate with anonymous live Trade listings. A <code>TRADE</code> button opens the mapped query on the official site for full verification.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>Does Build Lab need anything installed?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>Tree import and editing are local. Recalculating builds or importing supported PoE 1 characters uses a separately installed, verified Path of Building Community engine. Ninja Lens fails closed when that engine is missing or mismatched — it never invents calculated DPS.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>Is Ninja Lens affiliated with GGG?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>No. This product isn’t affiliated with or endorsed by Grinding Gear Games. Path of Exile names, artwork, and data belong to their owners; poe.ninja, Awakened PoE Trade, PoB Community, and PoE Wiki are independent projects that do not endorse Ninja Lens.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>Is the source open?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>The repository is source-available, not open-source. Official release binaries are provided for end-user installation; ask the maintainer before reusing project code.</p></div>
+          </details>
+          <details class="faq__item">
+            <summary><span>Found a bug or have a request?</span><span class="faq__chevron" aria-hidden="true"></span></summary>
+            <div class="faq__body"><p>Open an issue on <a href="https://github.com/seNkoKG/ninja-lens/issues/new?template=bug_report.yml" target="_blank" rel="noopener">GitHub</a>. Please include your Windows version, display mode, and a short description of what happened.</p></div>
+          </details>
+        </div>
+      </div>
+
+      <!-- ============================================================ CTA -->
+      <div class="container cta" data-reveal>
+        <div class="cta__inner">
+          <h2>Your next check is one <em>keystroke</em> away.</h2>
+          <p>Free for personal use. Windows 10 / 11, x64, Path of Exile&nbsp;1.</p>
+          <div class="cta__actions">
+            <a class="btn btn--primary btn--lg" data-download href="https://github.com/seNkoKG/ninja-lens/releases/latest/download/Ninja-Lens-Setup-x64.exe" download>
+              <svg class="i sp" aria-hidden="true"><use href="#i-download"></use></svg>
+              Download Ninja Lens <span data-version>2.2.8</span>
+            </a>
+            <a class="btn btn--ghost btn--lg" href="https://github.com/seNkoKG/ninja-lens/releases/latest" target="_blank" rel="noopener">
+              View release notes <svg class="i sp" aria-hidden="true"><use href="#i-external"></use></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <button class="to-top" type="button" data-to-top aria-label="Back to top">
+    <svg class="i" aria-hidden="true"><use href="#i-chevron-up"></use></svg>
+  </button>
+
+  <!-- ============================================================ Footer -->
+  <footer class="site-footer" data-reveal>
+    <div class="container site-footer__inner">
+      <div class="site-footer__brand">
+        <img class="site-footer__mark" src="assets/img/logo.png" alt="" width="44" height="44">
+        <p><strong>Ninja Lens</strong><br><span>Read the market. Price the item. Plan the build.</span></p>
+      </div>
+
+      <nav class="site-footer__nav" aria-label="Footer">
+        <div>
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#examples">Examples</a></li>
+            <li><a href="#download">Download</a></li>
+            <li><a href="#shortcuts">Shortcuts</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="https://github.com/seNkoKG/ninja-lens/releases" target="_blank" rel="noopener">All releases</a></li>
+            <li><a href="https://github.com/seNkoKG/ninja-lens/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a></li>
+            <li><a href="https://github.com/seNkoKG/ninja-lens" target="_blank" rel="noopener">Repository</a></li>
+            <li><a href="https://github.com/seNkoKG/ninja-lens/issues/new?template=bug_report.yml" target="_blank" rel="noopener">Report a bug</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <div class="container site-footer__legal">
+      <p>© <span data-year>2026</span> Ninja Lens. Source-available under <code>UNLICENSED</code>; ask the maintainer before reusing project code.</p>
+      <p><strong>This product isn’t affiliated with or endorsed by Grinding Gear Games in any way.</strong> Path of Exile names, artwork, and game data belong to their respective owners. poe.ninja, Awakened PoE Trade, Path of Building Community, and PoE Wiki are independent projects and do not endorse Ninja Lens.</p>
+    </div>
+  </footer>
+
+  <!-- ============================================================ Icon sprite -->
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.14c-3.2.69-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.95.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.73.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .3.2.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path fill="currentColor" d="M11 4a1 1 0 0 1 2 0v8.17l2.3-2.3a1 1 0 1 1 1.41 1.42l-4 4a1 1 0 0 1-1.41 0l-4-4A1 1 0 0 1 8.7 9.87L11 12.17V4Zm-6 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1a1 1 0 0 1 1-1Z"/></symbol>
+    <symbol id="i-chevron-up" viewBox="0 0 24 24"><path fill="currentColor" d="M12 6.6a1 1 0 0 1 .7.3l6 6a1 1 0 0 1-1.4 1.4L12 9.4l-5.3 4.9a1 1 0 0 1-1.4-1.4l6-6a1 1 0 0 1 .7-.3Z"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path fill="currentColor" d="M14 4a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0V6.41l-9.3 9.3a1 1 0 0 1-1.4-1.42L17.58 5H15a1 1 0 0 1-1-1ZM5 5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 1 1 2 0v5a4 4 0 0 1-4 4H5a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h5a1 1 0 1 1 0 2H5Z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 5.8a1 1 0 0 1 1.52-.85l9 5.7a1 1 0 0 1 0 1.7l-9 5.7a1 1 0 0 1-1.52-.85V5.8Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="M9.55 15.88 5.66 12a1.16 1.16 0 0 0-1.64 1.64l4.62 4.58a1.16 1.16 0 0 0 1.63 0l8.42-8.36a1.16 1.16 0 1 0-1.64-1.64l-7.6 7.66Z"/></symbol>
+    <symbol id="i-kbd" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4Zm2 5a1 1 0 1 1 2 0v.01A1 1 0 0 1 7 10 1 1 0 0 1 6 9Zm4 0a1 1 0 1 1 2 0v.01a1 1 0 0 1-2 0V9Zm4 0a1 1 0 1 1 2 0v.01a1 1 0 0 1-2 0V9Zm4 0a1 1 0 1 1 2 0v.01a1 1 0 0 1-2 0V9ZM6 13a1 1 0 1 1 2 0v.01A1 1 0 0 1 7 14 1 1 0 0 1 6 13Zm4 0a1 1 0 1 1 2 0v.01a1 1 0 0 1-2 0v-.01Zm4 0a1 1 0 1 1 2 0v.01a1 1 0 0 1-2 0v-.01Zm2 4a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1Z"/></symbol>
+    <symbol id="i-gem" viewBox="0 0 24 24"><path fill="currentColor" d="M6.2 3h11.6a1 1 0 0 1 .76.35l3.3 3.9a1 1 0 0 1 .06 1.29l-9.3 11.6a1 1 0 0 1-1.52 0L2.08 8.54a1 1 0 0 1 .06-1.3l3.3-3.9A1 1 0 0 1 6.2 3Zm1.4 2-2.34 2.75h5.05L9.7 5H7.6Zm8.8 0h-2.1l2.1 2.75h3.24L16.4 5Zm-6.7 6-1.96 3.93L6.1 11h3.6Zm1.9 0h4.8l-2.4 5.2L11.6 11Zm2.4-2L12.6 5h-1.2l1.4 4Zm-1.5 0-.8-4H8.5l1.5 4h2Zm4.7 0 1.5-4h-3.4l-.8 4h2.7Zm-7.56 7.06L8 12.13H4.5l4.53 5.93-.36-.03Zm1.38.03 4.93-5.96h3.52l-6.3 7.85-.36.25-1.79-2.14ZM19.5 12.13H16l-1.46 4.23 5-6.23h.96v2Z"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4a1 1 0 0 1 2 0v14h14a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1V4Zm3.5 10a1 1 0 0 1 1.4.12l2.6 3 3.36-3.84a1 1 0 0 1 1.4-.1l3 2.5a1 1 0 0 1-1.3 1.54l-2.32-1.94-3.35 3.83a1 1 0 0 1-1.4.1L7.62 15.5l-2.1-2.52a1 1 0 0 1 .98-1.07v0a1 1 0 0 1 1 .09l1 1V14Zm8.5-8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0V8.41L14.7 10.3a1 1 0 1 1-1.4-1.42l4.12-4.12H16a1 1 0 0 1-1-.88Z"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1v2h2a1 1 0 0 1 1 1v1h3a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-3v2h1a1 1 0 0 1 1 1v   2a1 1 0 0 1-1 1h-4\n a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h1v-2H7a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2V9a1 1 0 0 1 1-1h2V6h-1a1 1 0 0 1-1-1V3ZM7 12h4v2H7v-2Zm6 0h4v2h-4v-2Zm-3 5v2h4v-2h-4Z"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path fill="currentColor" d="M20.2 4.56a1 1 0 0 0-1.4-1.4l-5 5A3.2 3.2 0 0 0 9.8 9l-.25.25-4.8-4.8a1 1 0 0 0-1.4 1.4l4.8 4.8-.01.74a3.2 3.2 0 0 0 .94 2.27l-.8.8a1 1 0 0 0 0 1.41L8.6 16.6a1 1 0 0 0 1.41 0l.8-.8A3.2 3.2 0 0 0 13.9 16l.02-.02.04 3.02a2 2 0 0 0 3.4 1.4l2.1-2.1a2 2 0 0 0-1.4-3.4l-3.02-.04A3.2 3.2 0 0 0 15 12.1l.17-.17a1 1 0 0 0 1.4 0c.8-.8 1.24-1.86 1.26-2.95l5.08-5.08a1 1 0 0 0 0-1.4l-.71-.71c-.2-.2-.45-.3-.71-.3Z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a1 1 0 0 1 .55.17l7 4.5a1 1 0 0 1 .45.83v4.5c0 4.6-2.9 7.9-7.35 9.77a1 1 0 0 1-.3.08l-.35.07a1 1 0 0 1-.32-.07 9.4 9.4 0 0 1-.35-.08C6.9 19.9 4 16.6 4 12V7.5a1 1 0 0 1 .45-.83l7-4.5A1 1 0 0 1 12 2Zm0 2.2L6.5 7.9V12c0 3.4 2.05 5.92 5.5 7.6 3.45-1.68 5.5-4.2 5.5-7.6V7.9L12 4.2Zm.7 5.1a1 1 0 0 1 2 0v2a1 1 0 0 1-1 1h-2v3a1 1 0 1 1-2 0v-3a2 2 0 0 1 2-2h1V9.3Z"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2a5 5 0 0 0-5 5c0 1.7.85 3.2 2.16 4.12A1 1 0 0 1 4.6 12l-.5.7a1 1 0 0 1-.79.42H2v3a1 1 0 0 0 1 1h1v1a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-1.55A1 1 0 0 1 8 16.4l.49-.41A1 1 0 0 1 9.4 16h.6a1 1 0 0 0 1-1v-2h2.18l.29-.29a5 5 0 0 0 1.47-3.54C15 5.34 12.66 3 7 3h0Zm0 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm9.5-1a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm3 7V7a3 3 0 1 0-6 0v2h6Zm-4 4a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0v-3Z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5.25c-3.7 0-6.9 2.2-8.9 5.2-.4.6-.4 1.6 0 2.2 2 3 5.2 5.2 8.9 5.2s6.9-2.2 8.9-5.2c.4-.6.4-1.6 0-2.2-2-3-5.2-5.2-8.9-5.2Zm0 2.5c2 0 3.75 1.24 4.55 3-.8 1.76-2.55 3-4.55 3s-3.75-1.24-4.55-3c.8-1.76 2.55-3 4.55-3Zm0 2.25A1.25 1.25 0 1 0 12 13.25 1.25 1.25 0 0 0 12 10Z"/></symbol>
+    <symbol id="i-brief" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm2 0v3h14V6H5Zm0 5v7h14v-7h-3.5v.75a1 1 0 1 1 0 2v.5h-3a1 1 0 0 1-1-1V11h-3Zm4 1h1v.75a1 1 0 0 1-1 1v-.5a1 1 0 0 1 0 0h0V12Z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3a2 2 0 0 0-2 2v1h2V5h9v9h-1v2h3a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H7Zm2 4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H9Zm0 2h9v10H9V9Z"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><path fill="currentColor" d="M8 3a1 1 0 0 1 1 1v3h4V4a1 1 0 1 1 2 0v3h3a1 1 0 1 1 0 2h-3v4h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H9v3a1 1 0 1 1-2 0v-3H4a1 1 0 1 1 0-2h3V9H4a1 1 0 1 1 0-2h3V4a1 1 0 0 1 1-1Zm1 6v4h4V9H9Z"/></symbol>
+    <symbol id="i-orbit" viewBox="0 0 24 24"><path fill="currentColor" d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-6.9.6A5 5 0 0 0 5 12c0 3.87 3.13 7 7 7 .96 0 1.89-.19 2.73-.54a7 7 0 0 1-2.9-1 5 5 0 0 1-3.33-1.9 7 7 0 0 1-1.4-3.54A5 5 0 0 1 5.1 9.6Zm13.8 4.8A5 5 0 0 0 19 12c0-3.87-3.13-7-7-7-.96 0-1.89.19-2.73.54a7 7 0 0 1 2.9 1A7 7 0 0 1 12.9 12l.1 0a5 5 0 0 1 3.33 1.9c.3.4.66.78 1.46 1.5ZM8.2 6.44 12 4v2.1A3 3 0 0 0 12 20v2.1l-3.8-2.44A7 7 0 0 0 12 15.16v-2.3a3 3 0 0 0-1.4-2.28l-2.4-4.14Z"/></symbol>
+    <symbol id="i-usb" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v3a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1Zm-4 3.5a1 1 0 0 1 1-1h1a1 1 0 0 1 0 2H9a1 1 0 0 1-1-1Zm7 0a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2h-1a1 1 0 0 1-1-1Zm-4 2a1 1 0 0 1 1-1h0a1 1 0 0 1 1 1v9a1 1 0 0 1-.3.7l-2.5 2.5V21h3v-1a1 1 0 0 1 2 0v2a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-2.3a1 1 0 0 1 .3-.7l2.5-2.5V7.5Zm-5 2a1 1 0 0 1 2 0v4a1 1 0 0 1-1.5.86l-3-1.73A1 1 0 0 1 5 11.5v-2a1 1 0 0 1 1-1h0Zm1 2v1.27l1.5.86V11.5H7Zm10 0a1 1 0 0 1 2 0v2.23l3 1.73a1 1 0 0 1 .5.87v2.5a1 1 0 0 1-1.5.86l-3-1.73a1 1 0 0 1-.5-.87V11.5h-1a1 1 0 0 1 0-2h-.5v2Z"/></symbol>
+  </svg>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
