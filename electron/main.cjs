@@ -3339,7 +3339,7 @@ const deadline = Date.now() + 150_000;
       // Let the native controller finish its second DPI-corrected setBounds
       // before proving that the Pin action itself cannot move the cached card.
       await new Promise((resolve) => setTimeout(resolve, 250));
-      const panelBeforePin = priceCheckPanelBounds
+      let panelBeforePin = priceCheckPanelBounds
         ? { ...priceCheckPanelBounds }
         : null;
       const rendererPinDeadline = Date.now() + 800;
