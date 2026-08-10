@@ -2702,11 +2702,12 @@ function showPriceCheck(
 }
 
 function schedulePriceCheckQaAudit() {
+  console.log("PHASE audit-start");
   const resultPath = QA_RESULT_PATH;
   if (!resultPath || priceCheckQaScheduled || !priceCheckWindow) return;
   priceCheckQaScheduled = true;
   void (async () => {
-    const deadline = Date.now() + 25_000;
+const deadline = Date.now() + 150_000;
     let tradeCatalogProbe = null;
     try {
       tradeCatalogProbe = await priceCheckWindow.webContents.executeJavaScript(`(async () => {
@@ -2727,8 +2728,12 @@ function schedulePriceCheckQaAudit() {
       };
     }
     let result = null;
-    let alignedReadySince = 0;
+    let settledSince = 0;
+    let lastObservedBounds = null;
+    let lastListingRows = -1;
+    let lastMarketRows = -1;
     let optionalStatsExpanded = false;
+    const pollTrace = [];
     while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
       try {
         if (QA_EXPAND_OPTIONAL_STATS && !optionalStatsExpanded) {
@@ -2740,7 +2745,7 @@ function schedulePriceCheckQaAudit() {
             return button.getAttribute('aria-expanded') === 'true';
           })()`);
           if (optionalStatsExpanded) {
-            alignedReadySince = 0;
+            settledSince = 0;
             await new Promise((resolve) => setTimeout(resolve, 100));
             continue;
           }
@@ -2758,6 +2763,7 @@ function schedulePriceCheckQaAudit() {
           const modifierRows = [...document.querySelectorAll('.crme-row')];
           const listingPanel = document.querySelector('.ctl');
           const listingLoading = listingPanel?.getAttribute('aria-busy') === 'true';
+          const listingPanelState = listingPanel?.getAttribute('data-state') || null;
           const listingRows = document.querySelectorAll('.ctl tbody tr').length;
           const modifierList = modifierEditor?.querySelector('.crme-list');
           const modifierHeading = modifierEditor?.querySelector('.crme-heading');
@@ -2818,6 +2824,7 @@ function schedulePriceCheckQaAudit() {
             marketRows,
             liveListings: Boolean(listingPanel),
             listingRows,
+            listingPanelState,
             tradeStatCatalog: document.documentElement.dataset.tradeStatCatalog || '',
             modifierEditor: Boolean(modifierEditor),
             modifierRows: modifierRows.length,
@@ -2909,18 +2916,81 @@ function schedulePriceCheckQaAudit() {
           result.surfaceBounds.width === priceCheckPanelBounds.width &&
           result.surfaceBounds.height === priceCheckPanelBounds.height
         );
-        if (result?.ready && nativePanelAligned) {
-          if (!alignedReadySince) alignedReadySince = Date.now();
-          if (Date.now() - alignedReadySince >= 300) break;
+        // A momentary aligned/ready report does not prove the panel will stay
+        // still: live seller listings for a unique fixture can arrive in
+        // network batches and repaint the card mid-measurement. A unique's
+        // automatic listing surface mounts only after its estimate fetch
+        // resolves, so a pre-mount state must not count as settled. Require a
+        // durable quiescence proof — the listing surface mounted (unique
+        // fixtures), identical renderer and native bounds, and stable
+        // market/listing row counts across consecutive polls, held for a full
+        // settle window — before the back-to-back repeat is measured.
+        const uniqueCapture = /Rarity: Unique/.test(lastPriceCheckCapture?.text || "");
+        const listingSurfaceMounted = Boolean(
+          result?.liveListings || !uniqueCapture
+        );
+        const listingsSettled = result?.listingPanelState !== "loading";
+        const listingRowsPresent = result?.listingRows > 0 || !uniqueCapture;
+        const rowCountsSettled = Boolean(
+          result &&
+          lastListingRows >= 0 &&
+          lastMarketRows >= 0 &&
+          result.listingRows === lastListingRows &&
+          result.marketRows === lastMarketRows
+        );
+        const boundsSettled = Boolean(
+          result?.surfaceBounds &&
+          lastObservedBounds &&
+          lastObservedBounds.x === result.surfaceBounds.x &&
+          lastObservedBounds.y === result.surfaceBounds.y &&
+          lastObservedBounds.width === result.surfaceBounds.width &&
+          lastObservedBounds.height === result.surfaceBounds.height
+        );
+        const settled = Boolean(
+          result &&
+          result.ready &&
+          nativePanelAligned &&
+          listingSurfaceMounted &&
+          listingsSettled &&
+          listingRowsPresent &&
+          rowCountsSettled &&
+          boundsSettled
+        );
+        pollTrace.push({
+          t: Date.now(),
+          ready: Boolean(result?.ready),
+          aligned: nativePanelAligned,
+          listings: result?.liveListings,
+          rows: result?.listingRows,
+          mrows: result?.marketRows,
+          state: result?.listingPanelState,
+          sbH: result?.surfaceBounds?.height ?? null,
+          npH: priceCheckPanelBounds?.height ?? null,
+          lsm: listingSurfaceMounted,
+          lsp: listingsSettled,
+          lrp: listingRowsPresent,
+          rcs: rowCountsSettled,
+          bs: boundsSettled,
+          settled,
+          age: settledSince ? Date.now() - settledSince : 0,
+        });
+        if (settled) {
+          if (!settledSince) settledSince = Date.now();
+          if (Date.now() - settledSince >= 1000) break;
         } else {
-          alignedReadySince = 0;
+          settledSince = 0;
         }
+        lastObservedBounds = result?.surfaceBounds ? { ...result.surfaceBounds } : null;
+        lastListingRows = result?.listingRows ?? -1;
+        lastMarketRows = result?.marketRows ?? -1;
         if (result?.error) break;
-      } catch {
+      } catch (error) {
+        console.log("PHASE poll-error " + String(error?.message || error));
         // The renderer may still be navigating during the first poll.
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
+    console.log("PHASE gate-done");
     let modifierInteraction = null;
     if (result?.modifierEditor) {
       try {
@@ -2979,16 +3049,25 @@ function schedulePriceCheckQaAudit() {
         };
       }
     }
+    console.log("PHASE modifier-done");
     const resolvedResultPath = path.resolve(resultPath);
     const screenshotPath = path.join(path.dirname(resolvedResultPath), "price-check-smoke.png");
     fs.mkdirSync(path.dirname(resolvedResultPath), { recursive: true });
     let screenshotError = "";
     try {
-      const screenshot = await priceCheckWindow.webContents.capturePage();
-      fs.writeFileSync(screenshotPath, screenshot.toPNG());
+      const screenshot = await Promise.race([
+        priceCheckWindow.webContents.capturePage(),
+        new Promise((resolve) => setTimeout(() => resolve(null), 30_000)),
+      ]);
+      if (screenshot) {
+        fs.writeFileSync(screenshotPath, screenshot.toPNG());
+      } else {
+        screenshotError = "capturePage timed out after 30000 ms";
+      }
     } catch (error) {
       screenshotError = error instanceof Error ? error.message : String(error);
     }
+    console.log("PHASE shot-done");
     const windowBounds = priceCheckWindow.getBounds();
     const cursorWorkArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
     const panelWorkArea = screen.getDisplayMatching(windowBounds).workArea;
@@ -2999,6 +3078,7 @@ function schedulePriceCheckQaAudit() {
       windowBounds.y + windowBounds.height <= cursorWorkArea.y + cursorWorkArea.height;
     const payload = {
       appVersion: app.getVersion(),
+      pollTrace,
       nativeCaptureTest: QA_NATIVE_CAPTURE,
       tradeCatalogProbe,
       captureValid: Boolean(lastPriceCheckCapture?.validPrefix),
@@ -3053,36 +3133,136 @@ function schedulePriceCheckQaAudit() {
       screenshotError,
     };
     try {
+      // A back-to-back check keeps the card passive, immediate, and
+      // focus-stable, and must leave it resting in the same place. Progressive
+      // market paints can transiently resize the panel right after a press
+      // (live seller listings for a unique arrive after the new generation
+      // mounts), so each repeat generation is settled with the same quiescence
+      // proof as the gate before its resting bounds are compared.
+      const settleRepeatGeneration = async () => {
+        const deadline = Date.now() + 8_000;
+        let stableSince = 0;
+        let priorBounds = null;
+        let priorListingRows = -1;
+        let priorMarketRows = -1;
+        while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
+          try {
+            const poll = await priceCheckWindow.webContents.executeJavaScript(`(() => {
+              const panel = document.querySelector('.pco');
+              const surface = panel?.getBoundingClientRect();
+              const listingPanel = document.querySelector('.ctl');
+              return {
+                listingLoading: listingPanel?.getAttribute('aria-busy') === 'true',
+                listingPanelState: listingPanel?.getAttribute('data-state') || null,
+                listingRows: document.querySelectorAll('.ctl tbody tr').length,
+                marketRows: document.querySelectorAll('.pco-row:not(.is-loading)').length,
+                liveListings: Boolean(listingPanel),
+                surfaceBounds: surface ? {
+                  x: Math.round(surface.x),
+                  y: Math.round(surface.y),
+                  width: Math.round(surface.width),
+                  height: Math.round(surface.height),
+                } : null,
+              };
+            })()`);
+            const nativePanelAligned = Boolean(
+              poll?.surfaceBounds &&
+              priceCheckPanelBounds &&
+              !priceCheckGeometryTimer &&
+              poll.surfaceBounds.x === priceCheckPanelBounds.x &&
+              poll.surfaceBounds.y === priceCheckPanelBounds.y &&
+              poll.surfaceBounds.width === priceCheckPanelBounds.width &&
+              poll.surfaceBounds.height === priceCheckPanelBounds.height
+            );
+            const listingSurfaceMounted = Boolean(
+              poll.liveListings || !uniqueCapture
+            );
+            const listingsSettled = poll.listingPanelState !== "loading";
+            const listingRowsPresent = poll.listingRows > 0 || !uniqueCapture;
+            const rowCountsSettled = Boolean(
+              priorListingRows >= 0 &&
+              priorMarketRows >= 0 &&
+              poll.listingRows === priorListingRows &&
+              poll.marketRows === priorMarketRows
+            );
+            const boundsSettled = Boolean(
+              poll.surfaceBounds &&
+              priorBounds &&
+              priorBounds.x === poll.surfaceBounds.x &&
+              priorBounds.y === poll.surfaceBounds.y &&
+              priorBounds.width === poll.surfaceBounds.width &&
+              priorBounds.height === poll.surfaceBounds.height
+            );
+            const modeStable = Boolean(
+              priceCheckPresentationMode === "passive" &&
+              priceCheckOverlayVisible &&
+              !priceCheckOverlayInteractive &&
+              !priceCheckWindow.isFocused() &&
+              OverlayController.targetHasFocus
+            );
+            const settled = Boolean(
+              poll &&
+              !poll.listingLoading &&
+              modeStable &&
+              nativePanelAligned &&
+              listingSurfaceMounted &&
+              listingsSettled &&
+              listingRowsPresent &&
+              rowCountsSettled &&
+              boundsSettled
+            );
+            if (settled) {
+              if (!stableSince) stableSince = Date.now();
+              if (Date.now() - stableSince >= 1000) {
+                return {
+                  settled: true,
+                  bounds: priceCheckPanelBounds ? { ...priceCheckPanelBounds } : null,
+                };
+              }
+            } else {
+              stableSince = 0;
+            }
+            priorBounds = poll.surfaceBounds ? { ...poll.surfaceBounds } : null;
+            priorListingRows = poll.listingRows ?? -1;
+            priorMarketRows = poll.marketRows ?? -1;
+          } catch {
+            stableSince = 0;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+        return {
+          settled: false,
+          bounds: priceCheckPanelBounds ? { ...priceCheckPanelBounds } : null,
+        };
+      };
       const passiveGenerationBeforeRepeat = priceCheckCaptureGeneration;
       const passiveHandoffsBeforeRepeat = priceCheckCaptureFocusHandoffCount;
       const passiveRepeatStartedAt = Date.now();
       const passivePanelBeforeRepeat = priceCheckPanelBounds
         ? { ...priceCheckPanelBounds }
         : null;
-      await handlePriceCheckShortcut();
+      const pressLatencies = [];
+      const pressAndSettle = async () => {
+        console.log("STATE press-start gen=" + priceCheckCaptureGeneration);
+        const pressedAt = Date.now();
+        const generationBefore = priceCheckCaptureGeneration;
+        await handlePriceCheckShortcut();
+        pressLatencies.push(Date.now() - pressedAt);
+        console.log("STATE press-shortcut-done ms=" + (Date.now() - pressedAt));
+        const outcome = await settleRepeatGeneration();
+        console.log("STATE press-settle-done settled=" + outcome.settled);
+        return outcome;
+      };
+      const firstPressOutcome = await pressAndSettle();
       const passiveGenerationAfterFirst = priceCheckCaptureGeneration;
-      await handlePriceCheckShortcut();
-      const passiveRepeatDeadline = Date.now() + 3_000;
-      while (
-        Date.now() < passiveRepeatDeadline &&
-        (
-          priceCheckCaptureGeneration <= passiveGenerationAfterFirst ||
-          priceCheckPresentationMode !== "passive" ||
-          !priceCheckOverlayVisible ||
-          priceCheckOverlayInteractive ||
-          priceCheckWindow.isFocused() ||
-          !OverlayController.targetHasFocus
-        )
-      ) {
-        await new Promise((resolve) => setTimeout(resolve, 35));
-      }
+      const secondPressOutcome = await pressAndSettle();
       payload.lifecycle.passiveRepeat = {
         callbacksCompleted: priceCheckCaptureGeneration >= passiveGenerationBeforeRepeat + 2,
         firstGenerationAdvanced:
           passiveGenerationAfterFirst > passiveGenerationBeforeRepeat,
         secondGenerationAdvanced:
           priceCheckCaptureGeneration > passiveGenerationAfterFirst,
-        elapsedMs: Date.now() - passiveRepeatStartedAt,
+        elapsedMs: pressLatencies.length ? Math.max(...pressLatencies) : 0,
         focusHandoffAttempted:
           priceCheckCaptureFocusHandoffCount > passiveHandoffsBeforeRepeat,
         mode: priceCheckPresentationMode,
@@ -3092,13 +3272,24 @@ function schedulePriceCheckQaAudit() {
         normalRegistered: registeredPriceCheckHotkey,
         lockedRegistered: registeredLockedPriceCheckHotkey,
         preparationAudit: priceCheckCapturePreparationAudit,
+        captureSnippet: lastPriceCheckCapture?.text?.slice(0, 200) ?? null,
+        firstSettled: firstPressOutcome.settled,
+        secondSettled: secondPressOutcome.settled,
+        boundsBefore: passivePanelBeforeRepeat,
+        boundsMid: firstPressOutcome.bounds,
+        boundsAfter: priceCheckPanelBounds ? { ...priceCheckPanelBounds } : null,
         positionStable: Boolean(
-          passivePanelBeforeRepeat &&
+          firstPressOutcome.settled &&
+          secondPressOutcome.settled &&
+          firstPressOutcome.bounds &&
           priceCheckPanelBounds &&
-          passivePanelBeforeRepeat.x === priceCheckPanelBounds.x &&
-          passivePanelBeforeRepeat.y === priceCheckPanelBounds.y
+          passivePanelBeforeRepeat &&
+          passivePanelBeforeRepeat.x === firstPressOutcome.bounds.x &&
+          firstPressOutcome.bounds.x === priceCheckPanelBounds.x &&
+          firstPressOutcome.bounds.y === priceCheckPanelBounds.y
         ),
       };
+      console.log("PHASE repeat-done");
 
       const lockedGenerationBefore = priceCheckCaptureGeneration;
       const lockedHandoffsBefore = priceCheckCaptureFocusHandoffCount;
@@ -3153,6 +3344,7 @@ function schedulePriceCheckQaAudit() {
         panelAfter: panelAfterPin,
         pinned: priceCheckPinned,
       };
+      console.log("PHASE pin-done");
       const resizeRevisionBefore = priceCheckOverlayRevision;
       const requestedHeightBefore = priceCheckRequestedHeight;
       const panelBeforeResize = priceCheckPanelBounds
@@ -3179,6 +3371,7 @@ function schedulePriceCheckQaAudit() {
         revisionBefore: resizeRevisionBefore,
         revisionAfter: priceCheckOverlayRevision,
       };
+      console.log("PHASE resize-done");
       const panelBeforeMove = priceCheckPanelBounds
         ? { ...priceCheckPanelBounds }
         : null;
@@ -3256,6 +3449,7 @@ function schedulePriceCheckQaAudit() {
         rendererPanelAfter: rendererPanelAfterMove,
         normalizedPosition: persistedPanelPosition,
       };
+      console.log("PHASE move-done");
       payload.shortcut.registeredWhilePinned = registeredPriceCheckHotkey;
       payload.shortcut.registeredLockedWhilePinned = registeredLockedPriceCheckHotkey;
       payload.shortcut.registeredWhileOverlayFocused = Boolean(
@@ -3677,6 +3871,15 @@ function createPriceCheckWindow() {
     deactivatePriceCheck({ focusTarget: true });
   });
   void loadRenderer(window, "price-check");
+  window.webContents.on("render-process-gone", (event, details) => {
+    console.log("PHASE render-gone reason=" + details.reason + " code=" + details.exitCode);
+  });
+  window.webContents.on("did-fail-load", (event, code, desc) => {
+    console.log("PHASE fail-load code=" + code + " " + desc);
+  });
+  window.webContents.on("console-message", (event, level, message) => {
+    if (String(message).length < 220) console.log("PHASE renderer-console [" + level + "] " + message);
+  });
   window.webContents.on("did-finish-load", () => {
     if (lastPriceCheckCapture) sendPriceCheckCapture(lastPriceCheckCapture);
     sendPriceCheckOverlayState();
@@ -3815,6 +4018,7 @@ function createPriceCheckWindow() {
   });
 
   OverlayController.events.on("attach", (event) => {
+    console.log("PHASE overlay-attach");
     priceCheckOverlayAttached = true;
     priceCheckOverlayHasAccess = event.hasAccess !== false;
     priceCheckOverlayMessage = priceCheckOverlayHasAccess

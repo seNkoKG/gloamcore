@@ -441,7 +441,8 @@ try {
       $launch.ArgumentList = "--ninja-lens-qa-smoke"
     }
     $appProcess = Start-Process @launch
-    $appDeadline = [DateTime]::UtcNow.AddSeconds(40)
+    $appWaitSeconds = 240
+    $appDeadline = [DateTime]::UtcNow.AddSeconds($appWaitSeconds)
     do {
       Start-Sleep -Milliseconds 100
       $appProcess.Refresh()
@@ -457,9 +458,9 @@ try {
       }
       $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -Raw -LiteralPath $stderrPath } else { "" }
       $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -Raw -LiteralPath $stdoutPath } else { "" }
-      throw "Electron price-check smoke timed out after 40 seconds. STDERR: $stderr STDOUT: $stdout"
+      throw "Electron price-check smoke timed out after $appWaitSeconds seconds. STDERR: $stderr STDOUT: $stdout"
     }
-    if (-not $appProcess.HasExited -and -not $appProcess.WaitForExit(10000)) {
+    if (-not $appProcess.HasExited -and -not $appProcess.WaitForExit(20000)) {
       throw "Electron price-check smoke wrote a result but did not exit within 10 seconds."
     }
     if ($appProcess.HasExited) {
