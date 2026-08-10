@@ -2105,12 +2105,13 @@ function restorePriceCheckTargetFocus(generation) {
     audit.aborted = "overlay-focus-lost";
     return;
   }
-  setImmediate(() => {
+  const handoff = () => {
     if (
       generation === priceCheckActivationGeneration &&
       priceCheckOverlayAttached
     ) {
       try {
+        audit.attempts += 1;
         OverlayController.focusTarget();
       } catch (error) {
         audit.lastError = error instanceof Error ? error.message : String(error);
@@ -2119,7 +2120,8 @@ function restorePriceCheckTargetFocus(generation) {
         return;
       }
     }
-  });
+  };
+  setImmediate(handoff);
   const verify = () => {
     if (
       generation !== priceCheckActivationGeneration ||
@@ -2136,6 +2138,15 @@ function restorePriceCheckTargetFocus(generation) {
     ) {
       syncPriceCheckShortcutRegistration();
       audit.success = true;
+      return;
+    }
+    if (
+      priceCheckWindow?.isFocused() &&
+      audit.attempts < 5 &&
+      Date.now() < deadline
+    ) {
+      handoff();
+      setTimeout(verify, 25);
       return;
     }
     if (Date.now() < deadline) {
