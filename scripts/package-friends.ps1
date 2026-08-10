@@ -16,11 +16,11 @@ if ($Version -ne $packageVersion) {
   throw "Requested version $Version does not match package.json $packageVersion."
 }
 
-$setupName = "PoE-Economy-Widget-Setup-$Version-x64.exe"
-$portableName = "PoE-Economy-Widget-Portable-$Version-x64.exe"
+$setupName = "Ninja-Lens-Setup-$Version-x64.exe"
+$portableName = "Ninja-Lens-Portable-$Version-x64.exe"
 $setupPath = Join-Path $deliverables $setupName
 $portablePath = Join-Path $deliverables $portableName
-$stageName = "PoE-Economy-Widget-$Version-Friends"
+$stageName = "Ninja-Lens-$Version-Friends"
 $stagePath = Join-Path $deliverables $stageName
 $zipPath = Join-Path $deliverables "$stageName.zip"
 $zipHashPath = Join-Path $deliverables "$stageName.sha256.txt"
@@ -176,7 +176,7 @@ INSTALL
 Recommended: run $setupName
 No install: run $portableName
 
-Before upgrading, quit any older Ninja Lens / PoE Economy Widget instance from
+Before upgrading, quit any older Ninja Lens instance from
 its system-tray menu so Windows can replace every application file cleanly.
 The installer creates Desktop and Start Menu shortcuts. Closing the window sends
 the widget to the tray; use its tray menu to restore or quit.

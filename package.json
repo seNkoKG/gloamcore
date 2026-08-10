@@ -1,12 +1,12 @@
 {
-  "name": "poe-economy-widget",
-  "version": "2.3.0",
+  "name": "ninja-lens",
+  "version": "2.3.1",
   "packageManager": "pnpm@11.9.0",
   "private": true,
   "type": "module",
   "description": "A live Path of Exile 1 economy and game-intelligence app for Windows, Android, and iOS powered by poe.ninja and PoE Wiki Cargo.",
   "main": "electron/main.cjs",
-  "author": "PoE Economy Widget",
+  "author": "Ninja Lens",
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
@@ -79,8 +79,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.poeeconomy.widget",
-    "productName": "PoE Economy Widget",
+    "appId": "com.ninjalens.poe",
+    "productName": "Ninja Lens",
     "asar": true,
     "npmRebuild": false,
     "asarUnpack": [
@@ -143,14 +143,14 @@
       ]
     },
     "nsis": {
-      "artifactName": "PoE-Economy-Widget-Setup-${version}-${arch}.${ext}",
+      "artifactName": "Ninja-Lens-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
     "portable": {
-      "artifactName": "PoE-Economy-Widget-Portable-${version}-${arch}.${ext}"
+      "artifactName": "Ninja-Lens-Portable-${version}-${arch}.${ext}"
     }
   }
 }

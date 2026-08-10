@@ -209,7 +209,7 @@ function bundledResources() {
 function cacheRoot(options = {}) {
   if (options.cacheRoot) return path.resolve(options.cacheRoot);
   const local = process.env.LOCALAPPDATA || path.join(os.tmpdir(), "NinjaLens");
-  return path.join(local, "PoE Economy Widget", "pob-engine");
+  return path.join(local, "Ninja Lens", "pob-engine");
 }
 
 function writeImmutableFile(fileName, content) {

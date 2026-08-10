@@ -735,7 +735,7 @@ function assertElectronRuntimePackaged(root, unpackedRoot) {
       fail(`Packaged Electron runtime contains stale or changed ${packagedRelative}.`);
     }
   }
-  expectedRuntimeFiles.push("PoE Economy Widget.exe");
+  expectedRuntimeFiles.push("Ninja Lens.exe");
   const actualRuntimeFiles = walkFiles(unpackedRoot)
     .map((filePath) => normalizeRelative(path.relative(unpackedRoot, filePath)))
     .filter((relativePath) => !relativePath.startsWith("resources/"))
@@ -746,7 +746,7 @@ function assertElectronRuntimePackaged(root, unpackedRoot) {
   }
   const sourceIdentity = peCodeIdentity(path.join(sourceRoot, "electron.exe"));
   const packagedIdentity = peCodeIdentity(
-    path.join(unpackedRoot, "PoE Economy Widget.exe"),
+    path.join(unpackedRoot, "Ninja Lens.exe"),
   );
   if (canonicalJson(sourceIdentity) !== canonicalJson(packagedIdentity)) {
     fail("Packaged app executable code sections do not derive from the pinned Electron runtime.");
@@ -1371,12 +1371,12 @@ function windowsArtifactPaths(root, version) {
   const deliverables = path.join(root, "deliverables");
   return {
     deliverables,
-    setup: path.join(deliverables, `PoE-Economy-Widget-Setup-${version}-x64.exe`),
+    setup: path.join(deliverables, `Ninja-Lens-Setup-${version}-x64.exe`),
     blockmap: path.join(
       deliverables,
-      `PoE-Economy-Widget-Setup-${version}-x64.exe.blockmap`,
+      `Ninja-Lens-Setup-${version}-x64.exe.blockmap`,
     ),
-    portable: path.join(deliverables, `PoE-Economy-Widget-Portable-${version}-x64.exe`),
+    portable: path.join(deliverables, `Ninja-Lens-Portable-${version}-x64.exe`),
     appAsar: path.join(deliverables, "win-unpacked", "resources", "app.asar"),
     helper: path.join(
       deliverables,
@@ -1398,7 +1398,7 @@ function windowsArtifactPaths(root, version) {
       "resources",
       "update-config.json",
     ),
-    unpackedExe: path.join(deliverables, "win-unpacked", "PoE Economy Widget.exe"),
+    unpackedExe: path.join(deliverables, "win-unpacked", "Ninja Lens.exe"),
     latest: path.join(deliverables, "latest.yml"),
     manifest: path.join(deliverables, "windows-release-provenance.json"),
   };

@@ -72,7 +72,7 @@ describe("desktop release Trade endpoint policy", () => {
 
 describe("desktop release GitHub update policy", () => {
   const packageMetadata = {
-    name: "poe-economy-widget",
+    name: "ninja-lens",
     build: {
       publish: [{
         provider: "github",
@@ -92,7 +92,7 @@ describe("desktop release GitHub update policy", () => {
       "owner: seNkoKG",
       "repo: ninja-lens",
       "provider: github",
-      "updaterCacheDirName: poe-economy-widget-updater",
+      "updaterCacheDirName: ninja-lens-updater",
     ].join("\n"));
     expect(() => assertPublicUpdateConfig({
       enabled: true,

@@ -29,7 +29,7 @@ function loadTrayIcon(nativeImage, { resourcesPath, appRoot }) {
   }
 
   throw new Error(
-    `Unable to load a visible PoE Economy Widget tray icon. Tried: ${failures.join(", ")}`,
+    `Unable to load a visible Ninja Lens tray icon. Tried: ${failures.join(", ")}`,
   );
 }
 

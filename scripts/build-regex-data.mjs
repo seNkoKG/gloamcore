@@ -5,7 +5,7 @@ import path from "node:path";
 const packageJson = JSON.parse(
   await fs.readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
-const USER_AGENT = `PoE-Economy-Widget/${packageJson.version} (local regex data builder)`;
+const USER_AGENT = `Ninja-Lens/${packageJson.version} (local regex data builder)`;
 
 const OFFICIAL = {
   items: "https://www.pathofexile.com/api/trade/data/items",

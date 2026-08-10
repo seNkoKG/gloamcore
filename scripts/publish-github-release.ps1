@@ -376,9 +376,9 @@ try {
     throw "deliverables must be a real local directory."
   }
 
-  $setupName = "PoE-Economy-Widget-Setup-$version-x64.exe"
+  $setupName = "Ninja-Lens-Setup-$version-x64.exe"
   $blockmapName = "$setupName.blockmap"
-  $portableName = "PoE-Economy-Widget-Portable-$version-x64.exe"
+  $portableName = "Ninja-Lens-Portable-$version-x64.exe"
   $setupPath = Join-Path $deliverables $setupName
   $blockmapPath = Join-Path $deliverables $blockmapName
   $portablePath = Join-Path $deliverables $portableName

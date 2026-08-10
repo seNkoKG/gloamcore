@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.1
+
+- Completed the Ninja Lens rebrand across the desktop app: the installer,
+  portable executable, installed product name, tray tooltip, user agent,
+  update metadata, and data directories now use the Ninja Lens identity
+  instead of the legacy "PoE Economy Widget" name. Existing settings, local
+  storage, and the PoB engine cache under the old data directory are
+  migrated to the new location on first launch.
+
 ## 2.3.0
 
 - Matched Awakened's silent-check behavior by default: a stalled hotkey read,

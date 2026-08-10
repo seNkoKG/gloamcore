@@ -8,7 +8,7 @@ const { _internals } = require("./packaged-pob-smoke.cjs");
 
 describe("packaged PoB release smoke", () => {
   it("accepts only the resources directory beside the executable under test", () => {
-    const executable = path.join(process.cwd(), "release-smoke", "PoE Economy Widget.exe");
+    const executable = path.join(process.cwd(), "release-smoke", "Ninja Lens.exe");
     const resources = path.join(path.dirname(executable), "resources");
     const realpath = (value: string) => path.resolve(value);
 

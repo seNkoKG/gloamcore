@@ -80,7 +80,7 @@ const {
 
 const API_ROOT = "https://poe.ninja";
 const WIKI_API_ROOT = "https://www.poewiki.net/w/api.php";
-const USER_AGENT = `PoE-Economy-Widget/${app.getVersion()} (personal desktop widget)`;
+const USER_AGENT = `Ninja-Lens/${app.getVersion()} (personal desktop widget)`;
 const officialTradeListingService = createOfficialTradeListingService({
   userAgent: USER_AGENT,
 });
@@ -4305,13 +4305,43 @@ if (!gotSingleInstanceLock) {
   app.quit();
 }
 
-app.setAppUserModelId("com.poeeconomy.widget");
+app.setAppUserModelId("com.ninjalens.poe");
 
 app.on("second-instance", () => {
   showMainWindow();
 });
 
+function migrateLegacyDataDirectories() {
+  try {
+    const currentUserData = app.getPath("userData");
+    const legacyUserData = path.join(app.getPath("appData"), "PoE Economy Widget");
+    if (
+      legacyUserData !== currentUserData &&
+      !fs.existsSync(currentUserData) &&
+      fs.existsSync(legacyUserData)
+    ) {
+      const entries = fs.readdirSync(legacyUserData, { withFileTypes: true });
+      const hasSettings = entries.some(
+        (entry) => entry.name !== "Update Cache" && entry.name.toLowerCase() !== "crashpad",
+      );
+      if (hasSettings) {
+        fs.mkdirSync(currentUserData, { recursive: true });
+        for (const entry of entries) {
+          fs.cpSync(
+            path.join(legacyUserData, entry.name),
+            path.join(currentUserData, entry.name),
+            { recursive: true, force: true },
+          );
+        }
+      }
+    }
+  } catch {
+    // Legacy data remains untouched if migration is not possible.
+  }
+}
+
 app.whenReady().then(() => {
+  migrateLegacyDataDirectories();
   void cleanupRetiredCacheFiles();
   loadSettings();
   getToolkitRuntimeStore();
@@ -4328,7 +4358,7 @@ app.whenReady().then(() => {
   priceCheckWindow = createPriceCheckWindow();
 
   tray = new Tray(createTrayIcon());
-  tray.setToolTip("PoE Economy Widget - click for the market panel");
+  tray.setToolTip("Ninja Lens - click for the market panel");
   tray.on("click", handleTrayClick);
   updateTrayMenu();
 

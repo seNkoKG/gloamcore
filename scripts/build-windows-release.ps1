@@ -20,10 +20,10 @@ if ($Version -ne $packageVersion) {
 $deliverables = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "deliverables"))
 $winUnpacked = [System.IO.Path]::GetFullPath((Join-Path $deliverables "win-unpacked"))
 $setupPath = [System.IO.Path]::GetFullPath(
-  (Join-Path $deliverables "PoE-Economy-Widget-Setup-$Version-x64.exe")
+  (Join-Path $deliverables "Ninja-Lens-Setup-$Version-x64.exe")
 )
 $portablePath = [System.IO.Path]::GetFullPath(
-  (Join-Path $deliverables "PoE-Economy-Widget-Portable-$Version-x64.exe")
+  (Join-Path $deliverables "Ninja-Lens-Portable-$Version-x64.exe")
 )
 $blockmapPath = [System.IO.Path]::GetFullPath("$setupPath.blockmap")
 $latestPath = [System.IO.Path]::GetFullPath((Join-Path $deliverables "latest.yml"))

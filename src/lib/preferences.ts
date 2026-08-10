@@ -3,7 +3,8 @@ import { Preferences } from "@capacitor/preferences";
 import { isNativeMobile } from "./platform";
 import { migrateStoredPreferences } from "./preference-migration";
 
-const STORAGE_KEY = "poe-economy-widget:preferences:v1";
+const STORAGE_KEY = "ninja-lens:preferences:v1";
+const LEGACY_STORAGE_KEY = "poe-economy-widget:preferences:v1";
 const STORAGE_SCHEMA = 2;
 
 interface StoredPreferencesRecord {
@@ -98,7 +99,9 @@ function encodePreferencesRecord(
 }
 
 function nextPreferenceRevision() {
-  const local = decodePreferencesRecord(localStorage.getItem(STORAGE_KEY));
+  const local = decodePreferencesRecord(
+    localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY),
+  );
   currentPreferenceRevision = Math.max(
     currentPreferenceRevision,
     local?.revision || 0,
@@ -156,9 +159,14 @@ export function normalizeStoredPreferences(value: unknown): {
 export async function hydratePreferences() {
   if (!isNativeMobile) return;
   try {
-    const local = decodePreferencesRecord(localStorage.getItem(STORAGE_KEY));
+    const local =
+      decodePreferencesRecord(localStorage.getItem(STORAGE_KEY)) ??
+      decodePreferencesRecord(localStorage.getItem(LEGACY_STORAGE_KEY));
     const { value } = await Preferences.get({ key: STORAGE_KEY });
-    const native = decodePreferencesRecord(value);
+    const native = decodePreferencesRecord(value) ??
+      decodePreferencesRecord(
+        (await Preferences.get({ key: LEGACY_STORAGE_KEY })).value,
+      );
     const winner = selectNewestPreferencesRecord(local, native);
     if (!winner) return;
 
@@ -182,7 +190,9 @@ export async function hydratePreferences() {
 
 export function loadPreferences(): AppPreferences {
   try {
-    const record = decodePreferencesRecord(localStorage.getItem(STORAGE_KEY));
+    const record =
+      decodePreferencesRecord(localStorage.getItem(STORAGE_KEY)) ??
+      decodePreferencesRecord(localStorage.getItem(LEGACY_STORAGE_KEY));
     const normalized = normalizeStoredPreferences(record?.preferences || {});
     if (normalized.migrated || record?.legacy) savePreferences(normalized.preferences);
     return normalized.preferences;

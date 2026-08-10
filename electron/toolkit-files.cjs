@@ -224,7 +224,7 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
         response = await fetchImpl(current, {
           redirect: "manual",
           signal: controller.signal,
-          headers: { "User-Agent": `PoE-Economy-Widget/${APP_VERSION}` },
+          headers: { "User-Agent": `Ninja-Lens/${APP_VERSION}` },
         });
         if (response.status < 300 || response.status >= 400) break;
         const location = response.headers.get("location");
