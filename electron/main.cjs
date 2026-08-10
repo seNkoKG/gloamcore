@@ -2105,16 +2105,26 @@ function restorePriceCheckTargetFocus(generation) {
     audit.aborted = "overlay-focus-lost";
     return;
   }
-  try {
-    // A close action gets one foreground handoff. Repeated focusTarget calls
-    // can steal focus back several seconds after the user has Alt-Tabbed.
-    OverlayController.focusTarget();
-  } catch (error) {
-    audit.lastError = error instanceof Error ? error.message : String(error);
-    audit.exhausted = true;
-    console.warn(`Could not return focus to Path of Exile: ${audit.lastError}`);
-    return;
-  }
+  // Release the overlay's own activation before the single foreground
+  // handoff. Without this, Windows can return the pending click activation to
+  // the still-visible passive host a moment later and visibly steal the game's
+  // focus again after the close.
+  priceCheckWindow.blur();
+  setImmediate(() => {
+    if (
+      generation === priceCheckActivationGeneration &&
+      priceCheckOverlayAttached
+    ) {
+      try {
+        OverlayController.focusTarget();
+      } catch (error) {
+        audit.lastError = error instanceof Error ? error.message : String(error);
+        audit.exhausted = true;
+        console.warn(`Could not return focus to Path of Exile: ${audit.lastError}`);
+        return;
+      }
+    }
+  });
   const verify = () => {
     if (
       generation !== priceCheckActivationGeneration ||
