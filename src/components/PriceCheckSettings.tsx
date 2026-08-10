@@ -162,6 +162,13 @@ export function PriceCheckSettings({
             icon={<Pin size={17} />}
             onChange={(pinByDefault) => onChange({ pinByDefault })}
           />
+          <SettingSwitch
+            checked={settings.legacyBehavior}
+            title="Legacy capture behavior"
+            description="Show an error card on a stalled clipboard read and hand focus back to Path of Exile when re-checking inside the overlay."
+            icon={<SlidersHorizontal size={17} />}
+            onChange={(legacyBehavior) => onChange({ legacyBehavior })}
+          />
         </section> : null}
 
         <section className="pc-settings-group">

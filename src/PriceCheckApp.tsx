@@ -612,21 +612,18 @@ export default function PriceCheckApp({
       lastCapture.current = capture;
       const id = sessionId(capture.capturedAt);
       const initialLeague = preservedLeague || leagueRef.current || previous?.league || "";
-      // Paint the new capture immediately. League refresh and stat hydration
-      // are background work and must not make Ctrl+D look unresponsive.
-      setView("check");
-      setSession({
-        ...idleSession(initialLeague, capture.captureId),
-        id,
-        capturedAt: capture.capturedAt,
-        status: "parsing",
-      });
-
       // Match Awakened's event path: parse and reveal the copied item before
       // waiting on league discovery or market/stat hydration. A cold league
       // request must never make a valid capture look like an unresponsive key.
+      //
+      // A stalled or foreign clipboard read must also never replace the
+      // previous card. Awakened simply keeps whatever the panel was showing,
+      // so parity mode stays silent here; only the legacy 2.2.x escape hatch
+      // paints the fail-closed card.
       if (!capture.text.trim() || !capture.validPrefix || !isPoeItemText(capture.text)) {
         if (currentRequest !== requestId.current) return;
+        if (!settingsRef.current.legacyBehavior) return;
+        setView("check");
         setSession({
           ...idleSession(initialLeague, capture.captureId),
           id,
@@ -637,6 +634,14 @@ export default function PriceCheckApp({
         });
         return;
       }
+
+      setView("check");
+      setSession({
+        ...idleSession(initialLeague, capture.captureId),
+        id,
+        capturedAt: capture.capturedAt,
+        status: "parsing",
+      });
 
       const parsedItem = parsePoeItem(capture.text);
       if (!parsedItem.valid) {
@@ -808,6 +813,43 @@ export default function PriceCheckApp({
         }
         setSession(readyBase);
         const candidates = priceCheckCategoryCandidates(item);
+        const publishEstimate = (groups: LoadedRows[], final: boolean) => {
+          const matches = resolvePriceCheckMatches(
+            item,
+            groups.map((group) => group.rows),
+          );
+          const selectedMatchKey =
+            sameItem && previous?.selectedMatchKey &&
+            matches.some((match) => match.row.key === previous.selectedMatchKey)
+              ? previous.selectedMatchKey
+              : matches[0]?.row.key;
+          const freshness = sourceFreshness(groups, selectedMatchKey);
+          const estimate = estimatePriceCheck(item, matches, {
+            league,
+            sourceFetchedAt: freshness.fetchedAt,
+            sourceStale: freshness.stale,
+            history: historyRef.current,
+            selectedMatchKey,
+          });
+          setSession((current) =>
+            current.id === id
+              ? {
+                  ...current,
+                  matches,
+                  selectedMatchKey,
+                  estimate,
+                  sourceFetchedAt: freshness.fetchedAt,
+                  sourceStale: freshness.stale,
+                  message:
+                    final && matches.length === 0
+                      ? "No direct poe.ninja market row matched; review the comparison on official Trade."
+                      : undefined,
+                }
+              : current,
+          );
+          return { estimate, selectedMatchKey };
+        };
+        const groups: LoadedRows[] = [];
         const settled = await Promise.allSettled(
           candidates.map(async ({ category, source }) => {
             const envelope = await bridge.getOverview({
@@ -817,13 +859,21 @@ export default function PriceCheckApp({
               force,
             });
             const normalized = normalizeOverview(envelope.data, source, category);
-            return {
+            const group = {
               rows: normalized.rows,
               fetchedAt: envelope.fetchedAt,
               stale: envelope.stale,
-              category,
-              normalized,
             };
+            groups.push(group);
+            if (
+              currentRequest === requestId.current &&
+              groups.length < candidates.length
+            ) {
+              // Awakened reveals each arriving source instead of waiting for
+              // the slowest one; paint partial matches as they land.
+              publishEstimate(groups, false);
+            }
+            return group;
           }),
         );
         const successful = settled.flatMap((result) =>
@@ -835,63 +885,9 @@ export default function PriceCheckApp({
             ? reason.reason
             : new Error("No matching economy source is available.");
         }
-
-        const groups: LoadedRows[] = successful.map((result) => ({
-          rows: result.rows,
-          fetchedAt: result.fetchedAt,
-          stale: result.stale,
-        }));
         if (currentRequest !== requestId.current) return;
         loadedGroups.current = groups;
-        const matches = resolvePriceCheckMatches(
-          item,
-          groups.map((group) => group.rows),
-        );
-        const selectedMatchKey =
-          sameItem && previous?.selectedMatchKey &&
-          matches.some((match) => match.row.key === previous.selectedMatchKey)
-            ? previous.selectedMatchKey
-            : matches[0]?.row.key;
-        const freshness = sourceFreshness(groups, selectedMatchKey);
-        const estimate = estimatePriceCheck(item, matches, {
-          league,
-          sourceFetchedAt: freshness.fetchedAt,
-          sourceStale: freshness.stale,
-          history: historyRef.current,
-          selectedMatchKey,
-        });
-        const ready: PriceCheckSession = {
-          id,
-          capturedAt: capture.capturedAt,
-          captureId: capture.captureId,
-          league,
-          status: "ready",
-          item,
-          matches,
-          selectedMatchKey,
-          estimate,
-          query,
-          sourceFetchedAt: freshness.fetchedAt,
-          sourceStale: freshness.stale,
-          message:
-            matches.length === 0
-              ? "No direct poe.ninja market row matched; review the comparison on official Trade."
-              : undefined,
-        };
-        setSession((current) =>
-          current.id === id
-            ? {
-                ...current,
-                matches: ready.matches,
-                selectedMatchKey: ready.selectedMatchKey,
-                estimate: ready.estimate,
-                sourceFetchedAt: ready.sourceFetchedAt,
-                sourceStale: ready.sourceStale,
-                message: ready.message,
-              }
-            : current,
-        );
-
+        const { estimate, selectedMatchKey } = publishEstimate(groups, true);
         rememberResult(estimate, selectedMatchKey);
       } catch (reason) {
         if (currentRequest !== requestId.current) return;
@@ -1118,7 +1114,6 @@ export default function PriceCheckApp({
       }
     };
     void bridge.surfaceAction({ type: "hide-price-check" }).then(
-      reconcileAfterClose,
       reconcileAfterClose,
     );
   };

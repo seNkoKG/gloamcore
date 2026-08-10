@@ -23,6 +23,7 @@ describe("PriceCheckSettings completeness", () => {
       "Open near cursor",
       "Close when focus leaves",
       "Pin new checks",
+      "Legacy capture behavior",
       "Online sellers",
       "Similar-roll tolerance",
       "Show advanced modifiers",

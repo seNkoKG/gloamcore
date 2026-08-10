@@ -209,7 +209,7 @@ describe("one-key item capture", () => {
     });
   });
 
-  it("returns a failed capture when the copied text is incomplete", async () => {
+  it("accepts item text when only the leading Item Class line has landed", async () => {
     let clipboardText = "clipboard before capture";
     const capture = createOneKeyItemCapture({
       readClipboardText: () => clipboardText,
@@ -221,9 +221,9 @@ describe("one-key item capture", () => {
     });
 
     await expect(capture.capture()).resolves.toEqual({
-      text: "",
+      text: INCOMPLETE_ITEM,
       capturedAt: 1_000,
-      validPrefix: false,
+      validPrefix: true,
     });
     expect(clipboardText).toBe(INCOMPLETE_ITEM);
   });

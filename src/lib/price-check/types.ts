@@ -416,6 +416,15 @@ export interface PriceCheckSettings {
   rememberHistory: boolean;
   maxHistory: number;
   showAdvanced: boolean;
+  /**
+   * Escape hatch switching the capture and overlay contract to the shipped
+   * 2.2.x behavior: fail-closed "no item" cards on stalled clipboard reads and
+   * a focus hand-off when the price-check hotkey is pressed while the overlay
+   * owns focus. The default matches the Awakened-style path: a stalled read
+   * leaves the previous card untouched (silent) and the hotkey never moves
+   * focus away from Path of Exile.
+   */
+  legacyBehavior: boolean;
 }
 
 export interface ClipboardItemCapture {
@@ -438,4 +447,5 @@ export const defaultPriceCheckSettings: PriceCheckSettings = {
   rememberHistory: true,
   maxHistory: 50,
   showAdvanced: false,
+  legacyBehavior: false,
 };

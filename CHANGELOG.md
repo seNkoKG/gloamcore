@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.3.0
+
+- Matched Awakened's silent-check behavior by default: a stalled hotkey read,
+  a foreign clipboard value, or an incomplete copy no longer replaces the
+  previous card with the "No complete English PoE item was copied" error.
+  Parity mode keeps whatever the panel was showing, exactly like Awakened's
+  silent update; the new "Legacy capture behavior" setting restores the 2.2.x
+  fail-closed card for troubleshooting.
+- Revealed the copied item before league discovery and stat hydration, so a
+  cold league request can never make a valid Ctrl+D look like an unresponsive
+  key. The parsing state no longer replaces a previous card either.
+- While the overlay owns keyboard focus, the price-check hotkey is no longer
+  re-evaluated inside it in parity mode; Escape and Ctrl+W return focus to the
+  game, where the hotkey is live again. Legacy behavior keeps the focus
+  hand-off re-check.
+- One-key capture now accepts clipboard text as soon as the leading
+  "Item Class:" line has landed, matching Awakened's completion gate instead
+  of requiring Rarity before reading succeeds.
+- Painted market estimate rows progressively as each poe.ninja source arrives
+  instead of waiting for the slowest request.
+- Fixed a duplicated handler argument in the overlay-close reconciliation that
+  registered the same callback twice.
+
 ## 2.2.8
 
 - Connected packaged Windows builds to the public Ninja Lens GitHub Releases

@@ -16,7 +16,7 @@ function normalizeClipboardText(value, maxTextLength = DEFAULT_MAX_TEXT_LENGTH) 
 
 function isCompletePoeItemText(value) {
   const text = String(value ?? "");
-  return /^Item Class:\s*.+$/m.test(text) && /^Rarity:\s*.+$/m.test(text);
+  return /^Item Class:\s*.+$/m.test(text);
 }
 
 function isCopyAccelerator(value) {

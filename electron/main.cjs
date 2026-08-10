@@ -296,6 +296,7 @@ let settings = {
     rememberHistory: true,
     maxHistory: 50,
     showAdvanced: false,
+    legacyBehavior: false,
   },
   // The renderer card moves inside the fixed game-sized overlay host. Store
   // its anchor as percentages so it survives resolution and DPI changes.
@@ -3705,6 +3706,12 @@ function createPriceCheckWindow() {
         ? DEFAULT_LOCKED_PRICE_CHECK_HOTKEY
         : configuredPriceCheckHotkey;
       event.preventDefault();
+      if (!settings.priceCheck.legacyBehavior) {
+        // Awakened parity: while the overlay owns keyboard focus, the
+        // registered hotkey is not re-evaluated inside it. Escape and
+        // Ctrl+W return focus to the game, where the hotkey is live again.
+        return;
+      }
       process.nextTick(() => {
         void requestPriceCheckCapture({
           mode: "locked",
@@ -4738,6 +4745,10 @@ function sanitizeSettingsPatch(patch) {
         "showAdvanced" in candidate
           ? Boolean(candidate.showAdvanced)
           : current.showAdvanced,
+      legacyBehavior:
+        "legacyBehavior" in candidate
+          ? Boolean(candidate.legacyBehavior)
+          : current.legacyBehavior,
     };
   }
   return sanitized;
