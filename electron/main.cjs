@@ -2105,11 +2105,6 @@ function restorePriceCheckTargetFocus(generation) {
     audit.aborted = "overlay-focus-lost";
     return;
   }
-  // Release the overlay's own activation before the single foreground
-  // handoff. Without this, Windows can return the pending click activation to
-  // the still-visible passive host a moment later and visibly steal the game's
-  // focus again after the close.
-  priceCheckWindow.blur();
   setImmediate(() => {
     if (
       generation === priceCheckActivationGeneration &&
@@ -2444,6 +2439,7 @@ function deactivatePriceCheck({
   reason = "unspecified",
 } = {}) {
   auditPriceCheckLifecycle("deactivate", { reason, focusTarget, hidePanel });
+  const wasInteractiveLocked = Boolean(priceCheckOverlayInteractive);
   const restoreTargetFocus = shouldRestorePriceCheckTargetFocus({
     requested: focusTarget,
     attached: priceCheckOverlayAttached,
@@ -2479,6 +2475,12 @@ function deactivatePriceCheck({
     // Match Awakened's next-turn focus return. X/Escape first release and hide
     // the Electron host; only then does the one deliberate handoff go to PoE.
     // Alt-Tab and external blur call this function with focusTarget=false.
+    // A passive close releases the host's own activation first so the pending
+    // click focus cannot re-steal the game's foreground; locked closes keep
+    // the host focused so a reopen interaction lands intact.
+    if (!wasInteractiveLocked) {
+      priceCheckWindow?.blur();
+    }
     setImmediate(() => {
       if (
         generation === priceCheckActivationGeneration &&

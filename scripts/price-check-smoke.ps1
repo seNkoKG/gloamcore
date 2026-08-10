@@ -888,8 +888,11 @@ try {
     $result.dismissal.activationPending -or
     $result.dismissal.capturePending -or
     -not $result.dismissal.windowVisible -or
-    -not $result.dismissal.targetActive -or
-    -not $result.dismissal.focusRestoreAudit.success
+    -not $result.dismissal.focusRestoreAudit.success -or
+    (
+      -not $result.dismissal.focusRestoreAudit.restoreScheduled -and
+      -not $result.dismissal.targetActive
+    )
   ) {
     $dismissalState = $result.dismissal | ConvertTo-Json -Compress -Depth 6
     throw "The close button did not clear the shaped panel while keeping the passive overlay host stable and returning input focus to Path of Exile: $dismissalState"
