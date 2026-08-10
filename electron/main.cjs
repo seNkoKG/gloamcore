@@ -4311,28 +4311,46 @@ app.on("second-instance", () => {
   showMainWindow();
 });
 
+const LEGACY_USER_DATA_DIRS = Object.freeze([
+  "PoE Economy Widget",
+  "poe-economy-widget",
+]);
+
+function copyMissingUserDataEntries(legacyUserData, currentUserData) {
+  fs.mkdirSync(currentUserData, { recursive: true });
+  for (const entry of fs.readdirSync(legacyUserData, { withFileTypes: true })) {
+    if (entry.name === "Update Cache" || entry.name.toLowerCase() === "crashpad") {
+      continue;
+    }
+    const target = path.join(currentUserData, entry.name);
+    if (!fs.existsSync(target)) {
+      fs.cpSync(path.join(legacyUserData, entry.name), target, {
+        recursive: true,
+        force: false,
+      });
+    }
+  }
+}
+
 function migrateLegacyDataDirectories() {
   try {
     const currentUserData = app.getPath("userData");
-    const legacyUserData = path.join(app.getPath("appData"), "PoE Economy Widget");
-    if (
-      legacyUserData !== currentUserData &&
-      !fs.existsSync(currentUserData) &&
-      fs.existsSync(legacyUserData)
-    ) {
-      const entries = fs.readdirSync(legacyUserData, { withFileTypes: true });
-      const hasSettings = entries.some(
-        (entry) => entry.name !== "Update Cache" && entry.name.toLowerCase() !== "crashpad",
-      );
-      if (hasSettings) {
-        fs.mkdirSync(currentUserData, { recursive: true });
-        for (const entry of entries) {
-          fs.cpSync(
-            path.join(legacyUserData, entry.name),
-            path.join(currentUserData, entry.name),
-            { recursive: true, force: true },
-          );
+    const currentSettings = path.join(currentUserData, "settings.json");
+    if (fs.existsSync(currentSettings)) return;
+    for (const legacyName of LEGACY_USER_DATA_DIRS) {
+      const legacyUserData = path.join(app.getPath("appData"), legacyName);
+      if (legacyUserData === currentUserData || !fs.existsSync(legacyUserData)) {
+        continue;
+      }
+      try {
+        if (
+          fs.existsSync(path.join(legacyUserData, "settings.json")) ||
+          fs.existsSync(path.join(legacyUserData, "Local Storage"))
+        ) {
+          copyMissingUserDataEntries(legacyUserData, currentUserData);
         }
+      } catch {
+        // A specific legacy directory may be concurrently locked; try the next one.
       }
     }
   } catch {

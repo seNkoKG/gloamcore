@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.2
+
+- Fixed the first-launch data migration for the rebrand: packaged applications
+  store their profile under the npm package name (`%APPDATA%\poe-economy-widget`
+  before 2.3.1, `%APPDATA%\ninja-lens` from 2.3.1), so settings are now carried
+  over from both the old product-name directory and the old package-name
+  directory without overwriting anything written by the new profile.
+
 ## 2.3.1
 
 - Completed the Ninja Lens rebrand across the desktop app: the installer,
