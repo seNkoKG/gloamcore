@@ -2438,7 +2438,6 @@ function deactivatePriceCheck({
     requested: focusTarget,
     attached: priceCheckOverlayAttached,
     overlayFocused: Boolean(priceCheckWindow?.isFocused()),
-    interactive: priceCheckOverlayInteractive,
   });
   const generation = ++priceCheckActivationGeneration;
   stopPriceCheckPanelTracker();

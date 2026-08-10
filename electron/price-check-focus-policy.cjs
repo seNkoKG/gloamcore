@@ -1,21 +1,22 @@
 "use strict";
 
 /**
- * A passive price preview never owns foreground input, so closing it must not
- * issue another Windows foreground request. Only return focus after an
- * interactive overlay actually owned it.
+ * A passive price preview never owns foreground input, so closing it outside a
+ * click must not issue another Windows foreground request. Only return focus
+ * when the overlay actually owned foreground at the moment of the close — a
+ * close-button/Escape interaction grants it by OS (the caller is the
+ * foreground owner, so the handoff is permitted without flashing the game's
+ * taskbar button). Blur/Alt-Tab closes pass focusTarget=false and skip this.
  */
 function shouldRestorePriceCheckTargetFocus({
   requested,
   attached,
   overlayFocused,
-  interactive,
 } = {}) {
   return Boolean(
     requested &&
     attached &&
-    overlayFocused &&
-    interactive,
+    overlayFocused,
   );
 }
 
