@@ -3342,6 +3342,28 @@ const deadline = Date.now() + 150_000;
       const panelBeforePin = priceCheckPanelBounds
         ? { ...priceCheckPanelBounds }
         : null;
+      const rendererPinDeadline = Date.now() + 800;
+      let rendererPanelBeforePin = null;
+      do {
+        await new Promise((resolve) => setTimeout(resolve, 35));
+        rendererPanelBeforePin = await priceCheckWindow.webContents
+          .executeJavaScript(`(() => {
+            const rect = document.querySelector('.pco')?.getBoundingClientRect();
+            return rect ? {
+              x: Math.round(rect.x),
+              y: Math.round(rect.y),
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+            } : null;
+          })()`)
+          .catch(() => null);
+      } while (
+        Date.now() < rendererPinDeadline &&
+        rendererPanelBeforePin &&
+        priceCheckPanelBounds &&
+        JSON.stringify(rendererPanelBeforePin) !== JSON.stringify(priceCheckPanelBounds)
+      );
+      panelBeforePin = priceCheckPanelBounds ? { ...priceCheckPanelBounds } : null;
       await priceCheckWindow.webContents.executeJavaScript(
         "window.poeWidget.surfaceAction({ type: 'set-price-check-pinned', value: true })",
       );
@@ -3358,6 +3380,12 @@ const deadline = Date.now() + 150_000;
         ),
         panelBefore: panelBeforePin,
         panelAfter: panelAfterPin,
+        rendererPanelBefore: rendererPanelBeforePin,
+        rendererAligned: Boolean(
+          rendererPanelBeforePin &&
+          panelBeforePin &&
+          JSON.stringify(rendererPanelBeforePin) === JSON.stringify(panelBeforePin)
+        ),
         pinned: priceCheckPinned,
       };
       console.log("PHASE pin-done");

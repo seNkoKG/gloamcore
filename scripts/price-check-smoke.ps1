@@ -770,12 +770,15 @@ try {
     throw "The price-check card was not fully contained inside the PoE overlay."
   }
   if (
-    $result.pinToggle.panelBefore.x -ne $result.result.surfaceBounds.x -or
-    $result.pinToggle.panelBefore.y -ne $result.result.surfaceBounds.y -or
-    $result.pinToggle.panelBefore.width -ne $result.result.surfaceBounds.width -or
-    $result.pinToggle.panelBefore.height -ne $result.result.surfaceBounds.height
+    -not $result.pinToggle.rendererAligned -or
+    -not $result.pinToggle.panelStable
   ) {
-    throw "The settled native click-through shape and rendered compact card are misaligned."
+    $pinState = [pscustomobject]@{
+      Native = $result.pinToggle.panelBefore
+      Rendered = $result.pinToggle.rendererPanelBefore
+      After = $result.pinToggle.panelAfter
+    } | ConvertTo-Json -Compress
+    throw "The settled native click-through shape and rendered compact card are misaligned: $pinState"
   }
   if (-not $result.window.overlayShapeApplied) {
     throw "The native card shape was not applied; transparent pixels could block game clicks."
