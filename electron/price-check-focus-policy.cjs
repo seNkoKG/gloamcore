@@ -12,11 +12,13 @@ function shouldRestorePriceCheckTargetFocus({
   requested,
   attached,
   overlayFocused,
+  interactive,
 } = {}) {
   return Boolean(
     requested &&
     attached &&
-    overlayFocused,
+    overlayFocused &&
+    interactive,
   );
 }
 

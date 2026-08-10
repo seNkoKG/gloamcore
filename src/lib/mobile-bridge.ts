@@ -719,6 +719,30 @@ export const mobileBridge: PoeWidgetBridge = {
   async getPoeCharacter() {
     throw new Error("Character account import currently requires the Windows desktop app.");
   },
+  async getPoeStashLeagues() {
+    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
+  },
+  async listPoeStashTabs() {
+    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
+  },
+  async getPoeStashTab() {
+    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
+  },
+  async syncPoeStash() {
+    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
+  },
+  async connectPoeOAuth() {
+    throw new Error("Connecting your Path of Exile account currently requires the Windows desktop app.");
+  },
+  async getPoeOAuthStatus() {
+    throw new Error("Connecting your Path of Exile account currently requires the Windows desktop app.");
+  },
+  async disconnectPoeOAuth() {
+    throw new Error("Connecting your Path of Exile account currently requires the Windows desktop app.");
+  },
+  onStashProgress() {
+    return () => undefined;
+  },
   async getToolkitWorkspace() {
     return {
       version: 1,

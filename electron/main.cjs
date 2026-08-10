@@ -2444,6 +2444,7 @@ function deactivatePriceCheck({
     requested: focusTarget,
     attached: priceCheckOverlayAttached,
     overlayFocused: Boolean(priceCheckWindow?.isFocused()),
+    interactive: wasInteractiveLocked,
   });
   const generation = ++priceCheckActivationGeneration;
   stopPriceCheckPanelTracker();
@@ -2472,15 +2473,9 @@ function deactivatePriceCheck({
   }
   syncPriceCheckShortcutRegistration();
   if (restoreTargetFocus) {
-    // Match Awakened's next-turn focus return. X/Escape first release and hide
-    // the Electron host; only then does the one deliberate handoff go to PoE.
-    // Alt-Tab and external blur call this function with focusTarget=false.
-    // A passive close releases the host's own activation first so the pending
-    // click focus cannot re-steal the game's foreground; locked closes keep
-    // the host focused so a reopen interaction lands intact.
-    if (!wasInteractiveLocked) {
-      priceCheckWindow?.blur();
-    }
+    // Return focus after native cleanup. External blur/Alt-Tab paths pass
+    // focusTarget=false and never enter this branch.
+    if (!wasInteractiveLocked) priceCheckWindow?.blur();
     setImmediate(() => {
       if (
         generation === priceCheckActivationGeneration &&
@@ -2725,8 +2720,9 @@ const deadline = Date.now() + 150_000;
         const loader = window.poeWidget?.getTradeStatCatalog;
         if (typeof loader !== 'function') return { available: false, length: 0, error: '' };
         try {
-          const text = await loader();
-          return { available: true, length: typeof text === 'string' ? text.length : 0, error: '' };
+          const payload = await loader();
+          const serialized = typeof payload === 'string' ? payload : JSON.stringify(payload);
+          return { available: true, length: serialized?.length || 0, error: '' };
         } catch (error) {
           return { available: true, length: 0, error: error instanceof Error ? error.message : String(error) };
         }
@@ -4612,6 +4608,19 @@ app.whenReady().then(() => {
   migrateLegacyDataDirectories();
   void cleanupRetiredCacheFiles();
   loadSettings();
+  setImmediate(() => {
+    try {
+      loadBundledTradeStatCatalog();
+    } catch {
+      // The normal renderer request reports a precise catalog error if the build is incomplete.
+    }
+  });
+  void getCachedJson(
+    `${MARKET_CACHE_VERSION}-poe1-leagues`,
+    "/poe1/api/economy/leagues",
+    false,
+    "leagues",
+  ).catch(() => undefined);
   getToolkitRuntimeStore();
   if (settingsNeedPersist) persistSettings();
   if (!registerPriceCheckShortcut()) {
@@ -5308,16 +5317,7 @@ ipcMain.handle("price-check:get-overlay-state", (event) => {
   return currentPriceCheckOverlayState();
 });
 
-ipcMain.handle("price-check:get-trade-stat-catalog", (event) => {
-  assertTrustedSender(event);
-  if (
-    !canReadPriceCheckCapture(event.sender, {
-      mainWindow,
-      priceCheckWindow,
-    })
-  ) {
-    throw new Error("Only the dashboard and price-check overlay can read the bundled Trade catalog.");
-  }
+function loadBundledTradeStatCatalog() {
   if (bundledTradeStatCatalogText == null) {
     const catalogPath = path.join(
       __dirname,
@@ -5338,6 +5338,19 @@ ipcMain.handle("price-check:get-trade-stat-catalog", (event) => {
     bundledTradeStatCatalogText = bytes.toString("utf8");
   }
   return bundledTradeStatCatalogText;
+}
+
+ipcMain.handle("price-check:get-trade-stat-catalog", (event) => {
+  assertTrustedSender(event);
+  if (
+    !canReadPriceCheckCapture(event.sender, {
+      mainWindow,
+      priceCheckWindow,
+    })
+  ) {
+    throw new Error("Only the dashboard and price-check overlay can read the bundled Trade catalog.");
+  }
+  return loadBundledTradeStatCatalog();
 });
 
 ipcMain.handle("price-check:get-official-listings", (event, rawRequest) => {

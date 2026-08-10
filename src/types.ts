@@ -12,7 +12,8 @@ export type AppMode =
   | "knowledge"
   | "watchlist"
   | "toolkit"
-  | "planner";
+  | "planner"
+  | "stash";
 export type TrendFilter = "all" | "gainers" | "losers" | "stable";
 export type SortDirection = "asc" | "desc";
 export type SortKey =
@@ -719,6 +720,69 @@ export interface PoeCharacterSummary {
   current?: boolean;
 }
 
+export type PoeStashRealm = "pc" | "xbox" | "sony";
+
+export interface StashSyncRequest {
+  realm: PoeStashRealm;
+  league: string;
+  accessToken?: string;
+}
+
+export interface PoeStashLeague {
+  id: string;
+  name: string;
+  realm: PoeStashRealm;
+}
+
+export interface PoeStashTabSummary {
+  id: string;
+  name: string;
+  type: string;
+  index: number;
+  /** Folder breadcrumb of parent stash tabs, when the tab lives inside one. */
+  path?: string[];
+}
+
+/** Minimal view of the GGG stash API item JSON used by stash valuation. */
+export interface GGGStashItem {
+  id?: string;
+  name?: string;
+  typeLine?: string;
+  baseType?: string;
+  ilvl?: number;
+  frameType?: number;
+  stackSize?: number;
+  maxStackSize?: number;
+  corrupted?: boolean;
+  support?: boolean;
+  inventoryId?: string;
+  properties?: Array<{
+    name?: string;
+    values?: Array<Array<string | number>>;
+    displayMode?: number;
+  }>;
+  category?: Record<string, string[]>;
+  note?: string;
+  icon?: string;
+}
+
+export interface PoeStashTabDetail {
+  id: string;
+  name: string;
+  type: string;
+  index: number;
+  items: GGGStashItem[];
+  /** Folder breadcrumb of parent stash tabs, when the tab lives inside one. */
+  path?: string[];
+}
+
+export interface StashProgressEvent {
+  index: number;
+  total: number;
+  tabName: string;
+  path?: string[];
+}
+
 export interface ToolkitWorkspace {
   version: 1;
   macros: Array<{
@@ -906,6 +970,18 @@ export interface PobEngineCharacterImportSuccess {
 
 export type PobEngineCharacterImportResult = PobEngineCharacterImportSuccess | PobEngineFailure;
 
+export interface PoeOAuthStatus {
+  connected: boolean;
+  scope: string;
+  username?: string;
+}
+
+export interface PoeOAuthConnection {
+  scope: string;
+  username?: string;
+  expiresAt: number | null;
+}
+
 export interface PoeWidgetBridge {
   getLeagues(options?: { force?: boolean }): Promise<CacheEnvelope<EconomyLeague[]>>;
   getOverview(
@@ -967,6 +1043,21 @@ export interface PoeWidgetBridge {
   readPlannerClipboard(): Promise<string>;
   listPoeCharacters(request: PoeCharacterImportRequest): Promise<PoeCharacterSummary[]>;
   getPoeCharacter(request: PoeCharacterImportRequest): Promise<Record<string, unknown>>;
+  getPoeStashLeagues(request: {
+    realm?: PoeStashRealm;
+  }): Promise<PoeStashLeague[]>;
+  listPoeStashTabs(request: StashSyncRequest): Promise<PoeStashTabSummary[]>;
+  getPoeStashTab(
+    request: StashSyncRequest,
+    tabId: string,
+  ): Promise<PoeStashTabDetail>;
+  syncPoeStash(request: StashSyncRequest): Promise<PoeStashTabDetail[]>;
+  connectPoeOAuth(options?: {
+    scope?: string;
+    port?: number;
+  }): Promise<PoeOAuthConnection>;
+  getPoeOAuthStatus(): Promise<PoeOAuthStatus>;
+  disconnectPoeOAuth(): Promise<boolean>;
   getToolkitWorkspace(): Promise<ToolkitWorkspace>;
   recoverToolkitWorkspace(): Promise<{ workspace: ToolkitWorkspace; backupName: string | null }>;
   saveToolkitWorkspace(value: ToolkitWorkspace): Promise<{
@@ -997,6 +1088,7 @@ export interface PoeWidgetBridge {
     callback: (state: PriceCheckOverlayState) => void,
   ): () => void;
   onSurfaceState(callback: (state: SurfaceState) => void): () => void;
+  onStashProgress(callback: (event: StashProgressEvent) => void): () => void;
   onUpdateState(callback: (state: UpdateState) => void): () => void;
 }
 

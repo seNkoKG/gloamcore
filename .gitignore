@@ -30,6 +30,10 @@ mobile-signing.local.properties
 .env
 .env.*
 !.env.example
+oauth-credentials.json
+oauth-credentials.*.json
+!oauth-credentials.example.json
+ggg-oauth-request.txt
 *.jks
 *.keystore
 *.p12

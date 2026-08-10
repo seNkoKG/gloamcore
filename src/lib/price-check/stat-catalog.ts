@@ -399,6 +399,22 @@ export function isValidTradeStatCatalogPack(value: unknown): value is TradeStatC
   );
 }
 
+function isTrustedDesktopTradeStatCatalogPack(
+  value: unknown,
+): value is TradeStatCatalogPack {
+  if (!value || typeof value !== "object") return false;
+  const pack = value as Partial<TradeStatCatalogPack>;
+  return (
+    pack.schema === EXPECTED_SCHEMA &&
+    pack.source?.commit === EXPECTED_COMMIT &&
+    Array.isArray(pack.groups) &&
+    pack.groups.length === EXPECTED_RESOLVER_GROUPS &&
+    Array.isArray(pack.entries) &&
+    pack.entries.length > 1_000 &&
+    pack.entries.length <= MAX_CATALOG_ENTRIES
+  );
+}
+
 export async function loadTradeStatCatalog() {
   if (catalogPromise) return catalogPromise;
   catalogPromise = (async () => {
@@ -408,10 +424,10 @@ export async function loadTradeStatCatalog() {
       let pack: unknown;
       let integrityVerifiedByDesktop = false;
       if (typeof desktopText === "string") {
+        integrityVerifiedByDesktop = true;
         // The sandboxed file:// renderer does not expose SubtleCrypto on all
         // supported Electron/Windows combinations. The main process reads the
         // exact bundled path and verifies this same SHA-256 before IPC.
-        integrityVerifiedByDesktop = true;
         pack = JSON.parse(desktopText) as unknown;
       } else {
         const response = await fetch(
@@ -426,12 +442,15 @@ export async function loadTradeStatCatalog() {
         }
         pack = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
       }
-      if (!isValidTradeStatCatalogPack(pack)) {
+      const validPack = integrityVerifiedByDesktop
+        ? isTrustedDesktopTradeStatCatalogPack(pack)
+        : isValidTradeStatCatalogPack(pack);
+      if (!validPack) {
         catalogDiagnostic = "invalid-pack";
         return null;
       }
       catalogDiagnostic = integrityVerifiedByDesktop ? "ready-desktop" : "ready-web";
-      return pack;
+      return pack as TradeStatCatalogPack;
     } catch (error) {
       catalogDiagnostic = `error:${error instanceof Error ? error.message : String(error)}`;
       return null;

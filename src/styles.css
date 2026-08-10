@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   font-family:
     "Segoe UI Variable", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
   color: #e8eef5;
@@ -24,7 +24,6 @@
   --blue: #68a9ff;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
 }
-
 * {
   box-sizing: border-box;
 }
@@ -7003,4 +7002,555 @@ html[data-surface="quick"] #root {
   .app-shell--mobile .knowledge-capabilities {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* Stash wealth panel */
+.stash-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 32px;
+}
+
+.stash-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stash-header h1 {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.stash-header-side {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.stash-connect {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.stash-connect-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.stash-token-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 320px;
+}
+
+.stash-token-field > span {
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.stash-token-field small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.stash-token-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  padding: 0 4px 0 10px;
+}
+
+.stash-token-input input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.stash-token-toggle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.stash-token-toggle:hover {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+.value-display-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.value-display-select:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.stash-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.stash-button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--line);
+  background: var(--bg-3);
+}
+
+.stash-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stash-button--primary {
+  border-color: rgba(46, 230, 184, 0.4);
+  background: rgba(46, 230, 184, 0.09);
+  color: var(--teal);
+}
+
+.stash-button--primary:hover:not(:disabled) {
+  border-color: rgba(46, 230, 184, 0.65);
+  background: rgba(46, 230, 184, 0.14);
+  color: var(--teal);
+}
+
+.stash-connected-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--teal);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: pulse-dot 2.2s ease-out infinite;
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(46, 230, 184, 0.45); }
+  70% { box-shadow: 0 0 0 7px rgba(46, 230, 184, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 230, 184, 0); }
+}
+
+.stash-last-sync {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.stash-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 95, 110, 0.35);
+  border-radius: 8px;
+  background: var(--red-soft);
+  color: #ff9aa5;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.stash-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.stash-progress-label {
+  color: var(--text-2);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.stash-progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--bg-3);
+}
+
+.stash-progress-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--teal-2), var(--teal));
+  transition: width 220ms ease;
+}
+
+.stash-tabs-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-1);
+}
+
+.stash-tabs-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.stash-tabs-head strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.stash-tabs-hint {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.stash-link {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.stash-tab-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow-y: auto;
+  gap: 2px;
+}
+
+.stash-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.stash-tab-row:hover {
+  background: var(--bg-2);
+}
+
+.stash-tab-row input {
+  accent-color: var(--teal);
+}
+
+.stash-tab-name {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.stash-tab-path {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.stash-tab-type {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.stash-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 200px;
+  padding: 24px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.stash-empty svg {
+  color: var(--teal);
+  opacity: 0.8;
+}
+
+.stash-empty h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stash-empty p {
+  max-width: 380px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.stash-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stash-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.stash-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-1);
+}
+
+.stash-card-label {
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.stash-card-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.stash-card-value .currency-mark {
+  font-size: 10px;
+}
+
+.stash-card-sub {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.stash-money {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--text);
+}
+
+.stash-money strong {
+  font-size: inherit;
+  font-weight: 700;
+}
+
+.is-up {
+  color: var(--teal) !important;
+}
+
+.is-down {
+  color: var(--red) !important;
+}
+
+.stash-chart-card {
+  padding: 12px 14px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-1);
+}
+
+.stash-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.stash-chart-head h3 {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.stash-chart-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.stash-chart {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+
+.stash-family-card,
+.stash-table-card {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-1);
+}
+
+.stash-family-card h3,
+.stash-table-card h3 {
+  margin: 0 0 10px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.stash-family-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stash-family-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(80px, 2fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.stash-family-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stash-family-name small {
+  color: var(--text-3);
+  font-size: 9px;
+}
+
+.stash-family-bar-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--bg-3);
+}
+
+.stash-family-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--teal-2), var(--teal));
+}
+
+.stash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.stash-table th {
+  padding: 5px 8px;
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.stash-table td {
+  padding: 6px 8px;
+  color: var(--text-2);
+  border-bottom: 1px solid rgba(107, 135, 161, 0.07);
+}
+
+.stash-table .is-numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stash-item-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.stash-item-family {
+  color: var(--text-3);
+}
+
+@media (max-width: 640px) {
+  .stash-family-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .stash-connect-row--active {
+    align-items: flex-start;
+  }
+}
+.stash-connect-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }

@@ -31,6 +31,7 @@ import { Titlebar } from "./components/Titlebar";
 import { WatchlistPanel } from "./components/WatchlistPanel";
 import { ToolkitPanel } from "./components/ToolkitPanel";
 import { BuildPlannerPanel } from "./components/BuildPlannerPanel";
+import { StashWealthPanel } from "./components/StashWealthPanel";
 import PriceCheckApp from "./PriceCheckApp";
 import { resetPriceCheckSurfaceScroll } from "./components/PriceCheckSurface";
 import { MobileEconomyList } from "./components/MobileEconomyList";
@@ -1511,6 +1512,8 @@ export default function App() {
             <ToolkitPanel league={league} />
           ) : mode === "planner" ? (
             <BuildPlannerPanel />
+          ) : mode === "stash" ? (
+            <StashWealthPanel league={league} />
           ) : (
             <WatchlistPanel
               entries={preferences.watchlist}

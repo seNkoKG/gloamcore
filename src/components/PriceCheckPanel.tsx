@@ -7,7 +7,6 @@ import {
   Clipboard,
   Copy,
   ExternalLink,
-  LoaderCircle,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -147,21 +146,16 @@ function PriceCheckStatus({
   const loading = session.status === "parsing" || session.status === "resolving";
   if (loading) {
     return (
-      <section className="pc-state pc-state--loading" aria-live="polite">
-        <span className="pc-state-icon">
-          <LoaderCircle size={27} aria-hidden />
-        </span>
+        <section className="pc-state pc-state--loading" aria-live="polite">
+          <span className="pc-state-icon">
+            <span className="pc-state-pulse" aria-hidden />
+          </span>
         <div>
           <strong>
             {session.status === "parsing"
               ? "Reading item"
               : "Matching market"}
           </strong>
-        </div>
-        <div className="pc-loading-lines" aria-hidden>
-          <i />
-          <i />
-          <i />
         </div>
       </section>
     );
@@ -955,7 +949,7 @@ export function PriceCheckPanel(props: PriceCheckPanelProps) {
               disabled={session.status === "parsing" || session.status === "resolving"}
             >
               {session.status === "parsing" || session.status === "resolving" ? (
-                <LoaderCircle className="pc-spin" size={15} aria-hidden />
+                <span className="pc-state-pulse pc-state-pulse--small" aria-hidden />
               ) : session.status === "idle" ? (
                 <Clipboard size={15} aria-hidden />
               ) : (

@@ -322,6 +322,20 @@ html[data-surface="price-check"] #root {
   animation: pc-spin 1.05s linear infinite;
 }
 
+.pc-state-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pc-teal);
+  box-shadow: 0 0 0 4px rgba(49, 226, 183, 0.1);
+}
+
+.pc-state-pulse--small {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 0 3px rgba(49, 226, 183, 0.1);
+}
+
 .pc-loading-lines {
   display: flex;
   grid-column: 1 / -1;

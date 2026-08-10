@@ -7,6 +7,7 @@ import {
 } from "react";
 import { PriceCheckSurface } from "./components/PriceCheckSurface";
 import { compactPriceCheckPanelHeight } from "./components/CompactPriceCheckOverlay";
+import { categoryById, defaultSource } from "./config/categories";
 import type {
   PriceCheckMode,
 } from "./components/PriceCheckPanel";
@@ -227,6 +228,15 @@ function sourceFreshness(groups: LoadedRows[], rowKey?: string) {
 
 type PriceCheckSettingKey = keyof PriceCheckSettings;
 
+const PRICE_CHECK_WARMUP_CATEGORY_IDS = [
+  "currency",
+  "divination-cards",
+  "unique-armours",
+  "skill-gems",
+  "maps",
+  "base-types",
+] as const;
+
 export default function PriceCheckApp({
   embedded = false,
   leagueOverride,
@@ -282,6 +292,8 @@ export default function PriceCheckApp({
   >(undefined);
   const loadedGroups = useRef<LoadedRows[]>([]);
   const lastRefreshAttempt = useRef(0);
+  const leagueRequest = useRef<Promise<Awaited<ReturnType<typeof bridge.getLeagues>>> | null>(null);
+  const warmedLeague = useRef("");
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -513,8 +525,9 @@ export default function PriceCheckApp({
         // Safe defaults keep the checker usable in a browser preview.
       });
     if (!leagueOverride) {
-      bridge
-        .getLeagues()
+      const pendingLeagues = bridge.getLeagues();
+      leagueRequest.current = pendingLeagues;
+      void pendingLeagues
         .then((envelope) => {
           if (!active) return;
           const preferred = loadPreferences().league;
@@ -527,6 +540,9 @@ export default function PriceCheckApp({
         })
         .catch(() => {
           // A later check retries league resolution with a visible error.
+        })
+        .finally(() => {
+          if (leagueRequest.current === pendingLeagues) leagueRequest.current = null;
         });
     }
     return () => {
@@ -541,7 +557,16 @@ export default function PriceCheckApp({
     if (leagueRef.current && !force && (!preferred || preferred === leagueRef.current)) {
       return leagueRef.current;
     }
-    const envelope = await bridge.getLeagues({ force });
+    const pendingLeagues = force
+      ? bridge.getLeagues({ force: true })
+      : leagueRequest.current || bridge.getLeagues();
+    leagueRequest.current = pendingLeagues;
+    let envelope: Awaited<typeof pendingLeagues>;
+    try {
+      envelope = await pendingLeagues;
+    } finally {
+      if (leagueRequest.current === pendingLeagues) leagueRequest.current = null;
+    }
     const league =
       envelope.data.find((entry) => entry.id === preferred)?.id ||
       envelope.data[0]?.id ||
@@ -550,6 +575,30 @@ export default function PriceCheckApp({
     leagueRef.current = league;
     return league;
   }, [leagueOverride]);
+
+  useEffect(() => {
+    if (!desktopOverlay) return;
+    let active = true;
+    void resolveLeague().then(async (league) => {
+      if (!active || !league || warmedLeague.current === league) return;
+      warmedLeague.current = league;
+      for (let index = 0; index < PRICE_CHECK_WARMUP_CATEGORY_IDS.length; index += 2) {
+        const requests = PRICE_CHECK_WARMUP_CATEGORY_IDS.slice(index, index + 2)
+          .map((categoryId) => categoryById[categoryId])
+          .filter(Boolean)
+          .map((category) => bridge.getOverview({
+            league,
+            type: category.apiType,
+            source: defaultSource(category),
+          }).catch(() => undefined));
+        await Promise.all(requests);
+        if (!active) return;
+      }
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [desktopOverlay, resolveLeague]);
 
   const checkText = useCallback(
     async (
@@ -664,6 +713,10 @@ export default function PriceCheckApp({
         status: "resolving",
         item: parsedItem,
       });
+      const hydrationPromise = hydrateTradeStatIds(parsedItem).then(
+        (item) => ({ ok: true as const, item }),
+        (error) => ({ ok: false as const, error }),
+      );
       const league = await (
         preservedLeague
           ? Promise.resolve(preservedLeague)
@@ -687,7 +740,9 @@ export default function PriceCheckApp({
       await Promise.resolve();
 
       try {
-        const hydratedItem = await hydrateTradeStatIds(parsedItem);
+        const hydration = await hydrationPromise;
+        if (!hydration.ok) throw hydration.error;
+        const hydratedItem = hydration.item;
         const uniqueCandidates =
           hydratedItem.rarity === "unique" &&
           !hydratedItem.identified &&

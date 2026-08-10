@@ -9,6 +9,7 @@ import {
   ScanSearch,
   Scissors,
   Star,
+  Gem,
 } from "lucide-react";
 import {
   categories,
@@ -110,6 +111,19 @@ export function Sidebar({
           <Network size={18} />
           {!collapsed && <span>Build planner</span>}
           {!collapsed && <small>BUILD</small>}
+        </button>
+        <button
+          type="button"
+          className={clsx(
+            "sidebar-primary-item",
+            mode === "stash" && "is-active",
+          )}
+          onClick={() => onMode("stash")}
+          title="Stash wealth"
+        >
+          <Gem size={18} />
+          {!collapsed && <span>Stash wealth</span>}
+          {!collapsed && <small>WEALTH</small>}
         </button>
       </div>
 

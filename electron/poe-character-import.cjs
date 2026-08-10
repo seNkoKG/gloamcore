@@ -26,20 +26,26 @@ function validatedRequest(request, needsCharacter = false) {
   return { realm, mode, accessToken, accountName, character };
 }
 
+function httpError(status, label) {
+  const error = new Error(label);
+  error.status = status;
+  return error;
+}
+
 async function readJson(response) {
   const declared = Number(response.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) throw new Error("Character response is too large.");
   const buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.length > MAX_JSON_BYTES) throw new Error("Character response is too large.");
   if (!response.ok) {
-    if (response.status === 401) throw new Error("Character authorization expired or is invalid.");
-    if (response.status === 403) throw new Error("The profile is private or the token lacks account:characters access.");
-    if (response.status === 404) throw new Error("The account or character was not found.");
+    if (response.status === 401) throw httpError(401, "Character authorization expired or is invalid.");
+    if (response.status === 403) throw httpError(403, "The profile is private or the token lacks account:characters access.");
+    if (response.status === 404) throw httpError(404, "The account or character was not found.");
     if (response.status === 429) {
       const retry = response.headers.get("retry-after");
-      throw new Error(`Path of Exile rate limit reached${retry ? `; retry in ${retry} seconds` : ""}.`);
+      throw httpError(429, `Path of Exile rate limit reached${retry ? `; retry in ${retry} seconds` : ""}.`);
     }
-    throw new Error(`Path of Exile character request failed (${response.status}).`);
+    throw httpError(response.status, `Path of Exile character request failed (${response.status}).`);
   }
   try {
     return JSON.parse(buffer.toString("utf8"));

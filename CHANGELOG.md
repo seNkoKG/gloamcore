@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.3.3
+
+- Added desktop Path of Exile OAuth plumbing for stash and character access,
+  including PKCE, refresh handling, session-only renderer access, and the
+  Stash Wealth dashboard with valuation history.
+- Matched the price-check overlay's native focus lifecycle to
+  `electron-overlay-window` and Awakened's target/overlay handoff contract.
+- Warmed the bundled Trade catalog and league/market caches before the first
+  price check, parallelized league and stat resolution, and removed animated
+  loading indicators from the initial check state.
+
 ## 2.3.2
 
 - Fixed the first-launch data migration for the rebrand: packaged applications
