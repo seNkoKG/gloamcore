@@ -2732,6 +2732,7 @@ const deadline = Date.now() + 150_000;
     let lastObservedBounds = null;
     let lastListingRows = -1;
     let lastMarketRows = -1;
+    let uniqueCapture = false;
     let optionalStatsExpanded = false;
     const pollTrace = [];
     while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
@@ -2925,7 +2926,7 @@ const deadline = Date.now() + 150_000;
         // fixtures), identical renderer and native bounds, and stable
         // market/listing row counts across consecutive polls, held for a full
         // settle window — before the back-to-back repeat is measured.
-        const uniqueCapture = /Rarity: Unique/.test(lastPriceCheckCapture?.text || "");
+        uniqueCapture = /Rarity: Unique/.test(lastPriceCheckCapture?.text || "");
         const listingSurfaceMounted = Boolean(
           result?.liveListings || !uniqueCapture
         );
@@ -3145,6 +3146,7 @@ const deadline = Date.now() + 150_000;
         let priorBounds = null;
         let priorListingRows = -1;
         let priorMarketRows = -1;
+        console.log("STATE settle-enter win=" + Boolean(priceCheckWindow));
         while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
           try {
             const poll = await priceCheckWindow.webContents.executeJavaScript(`(() => {
@@ -3165,6 +3167,7 @@ const deadline = Date.now() + 150_000;
                 } : null,
               };
             })()`);
+            console.log("STATE settle-poll-raw " + JSON.stringify(poll));
             const nativePanelAligned = Boolean(
               poll?.surfaceBounds &&
               priceCheckPanelBounds &&
@@ -3211,6 +3214,7 @@ const deadline = Date.now() + 150_000;
               rowCountsSettled &&
               boundsSettled
             );
+            console.log("STATE settle-poll " + JSON.stringify({ l: poll?.listingLoading, m: modeStable, na: nativePanelAligned, lsm: listingSurfaceMounted, lsp: listingsSettled, lrp: listingRowsPresent, rcs: rowCountsSettled, bs: boundsSettled, sbH: poll?.surfaceBounds?.height, npH: priceCheckPanelBounds?.height, pmode: priceCheckPresentationMode, vis: priceCheckOverlayVisible, tgt: OverlayController.targetHasFocus, foc: priceCheckWindow.isFocused(), timer: Boolean(priceCheckGeometryTimer) }));
             if (settled) {
               if (!stableSince) stableSince = Date.now();
               if (Date.now() - stableSince >= 1000) {
@@ -3225,7 +3229,8 @@ const deadline = Date.now() + 150_000;
             priorBounds = poll.surfaceBounds ? { ...poll.surfaceBounds } : null;
             priorListingRows = poll.listingRows ?? -1;
             priorMarketRows = poll.marketRows ?? -1;
-          } catch {
+          } catch (error) {
+            console.log("STATE settle-poll-error " + String(error?.message || error));
             stableSince = 0;
           }
           await new Promise((resolve) => setTimeout(resolve, 250));
