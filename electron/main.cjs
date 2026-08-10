@@ -3359,9 +3359,11 @@ const deadline = Date.now() + 150_000;
           .catch(() => null);
       } while (
         Date.now() < rendererPinDeadline &&
-        rendererPanelBeforePin &&
-        priceCheckPanelBounds &&
-        JSON.stringify(rendererPanelBeforePin) !== JSON.stringify(priceCheckPanelBounds)
+        (
+          !priceCheckPanelBounds ||
+          !rendererPanelBeforePin ||
+          JSON.stringify(rendererPanelBeforePin) !== JSON.stringify(priceCheckPanelBounds)
+        )
       );
       panelBeforePin = priceCheckPanelBounds ? { ...priceCheckPanelBounds } : null;
       await priceCheckWindow.webContents.executeJavaScript(
