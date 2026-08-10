@@ -66,6 +66,14 @@ uses a separately installed, verified Path of Building Community engine. It
 fails closed when that engine is missing or does not match the supported
 fingerprint; it does not invent calculated DPS.
 
+### Track stash wealth
+
+The Stash Wealth workspace connects through the official Path of Exile desktop
+OAuth flow, syncs the tabs the account authorizes, values supported item
+families with poe.ninja, and keeps local wealth snapshots, deltas, history,
+and top-item views. Only the application owner registers the public OAuth
+client; each user authorizes their own account from inside Ninja Lens.
+
 ### Bring practical tools together
 
 The Player Toolkit includes an item-filter editor, a source-tracked regex
@@ -113,8 +121,8 @@ checksum before choosing to run it.
 
 ## Updates
 
-Version **2.2.8** is the first build connected to the stable GitHub update
-channel. Users of an earlier build must install 2.2.8 manually once.
+Version **2.3.3** is the current stable build connected to the GitHub update
+channel. Users of an earlier build must install 2.3.3 manually once.
 
 With automatic checks enabled, installed builds check shortly after launch and
 then periodically. A newer stable release is downloaded in the background, but
