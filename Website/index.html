@@ -3,28 +3,35 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#07110f">
+    <meta name="theme-color" content="#060908">
     <meta name="color-scheme" content="dark">
+    <script>document.documentElement.classList.add("js");</script>
+    <meta name="robots" content="index, follow">
     <meta
       name="description"
-      content="GloamCore is a focused Path of Exile 1 companion for Windows with fast Ctrl+D price checks, live economy data, Build Lab, Player Toolkit, and embedded Wealthy Exile."
+      content="Download GloamCore for Windows: Ctrl+D PoE 1 price checks, current economy tracking, item research, PoB build planning, stash wealth, and player tools."
     >
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="GloamCore">
-    <meta property="og:title" content="GloamCore | Path of Exile companion for Windows">
+    <meta property="og:title" content="GloamCore | PoE 1 Price Checker & Economy App">
     <meta
       property="og:description"
-      content="Price the item, read the market, inspect stash wealth, and plan the build from one focused desktop companion."
+      content="One focused Windows companion for PoE 1 price checks, economy context, item research, stash wealth, build planning, and player tools."
     >
     <meta property="og:url" content="https://senkokg.github.io/gloamcore/">
-    <meta property="og:image" content="https://senkokg.github.io/gloamcore/assets/img/example-market.jpg">
-    <meta property="og:image:alt" content="GloamCore live Path of Exile economy dashboard">
+    <meta property="og:image" content="https://senkokg.github.io/gloamcore/assets/img/og.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="GloamCore Path of Exile 1 companion with the live Market Explorer">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="GloamCore | Path of Exile companion for Windows">
+    <meta name="twitter:title" content="GloamCore | PoE 1 Price Checker & Economy App">
     <meta
       name="twitter:description"
-      content="Fast Ctrl+D checks, live economy context, Build Lab, Player Toolkit, and embedded Wealthy Exile."
+      content="Read the market, price the item, and plan the build from one focused Windows companion."
     >
+    <meta name="twitter:image" content="https://senkokg.github.io/gloamcore/assets/img/og.png">
+    <meta name="twitter:image:alt" content="GloamCore Path of Exile 1 companion with the live Market Explorer">
     <link rel="canonical" href="https://senkokg.github.io/gloamcore/">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,23 +40,29 @@
       rel="stylesheet"
     >
     <link rel="icon" type="image/png" href="assets/img/logo.png">
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <title>GloamCore | Path of Exile companion for Windows</title>
+    <link rel="stylesheet" href="assets/css/styles.css?v=20260812-2">
+    <title>GloamCore | PoE 1 Price Checker & Economy App</title>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "GloamCore",
         "applicationCategory": "GameApplication",
-        "operatingSystem": "Windows 10, Windows 11",
-        "softwareVersion": "2.8.1",
+        "operatingSystem": "Windows x64",
         "downloadUrl": "https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe",
         "url": "https://senkokg.github.io/gloamcore/",
         "codeRepository": "https://github.com/seNkoKG/gloamcore",
-        "description": "A focused Path of Exile 1 companion with one-key price checks, live economy tools, Build Lab, Player Toolkit, and embedded Wealthy Exile."
+        "description": "A Path of Exile 1 companion for one-key price checks, economy tracking, item research, stash wealth, build planning, and player tools.",
+        "featureList": [
+          "Ctrl+D item price checks",
+          "Current league economy tracking",
+          "PoE Wiki item research",
+          "Path of Building workspace",
+          "Isolated Wealthy Exile session",
+          "Player toolkit"
+        ]
       }
     </script>
-    <script>document.documentElement.classList.add('js');</script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -57,12 +70,11 @@
     <header class="site-header" data-header>
       <div class="container site-header__inner">
         <a class="brand" href="#top" aria-label="GloamCore home">
-          <span class="brand__mark"><img src="assets/img/logo.png" alt="" width="40" height="40"></span>
+          <span class="brand__mark"><img src="assets/img/logo.png" alt="" width="44" height="44"></span>
           <span class="brand__copy">
             <strong>GloamCore</strong>
-            <small>PoE 1 economy</small>
+            <small>PoE 1 desktop intelligence</small>
           </span>
-          <span class="brand__version" data-version-chip>v2.8.1</span>
         </a>
 
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" data-nav-toggle>
@@ -71,10 +83,12 @@
         </button>
 
         <nav class="site-nav" id="primary-navigation" aria-label="Primary navigation" data-nav>
-          <a href="#workflows">Workflows</a>
-          <a href="#new">What is new</a>
-          <a href="#showcase">Showcase</a>
+          <a href="#first-check">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#tour">Product tour</a>
           <a href="#trust">Trust</a>
+          <a href="#install">Install</a>
+          <a class="site-nav__support" data-support-nav hidden>Support</a>
           <a class="site-nav__download" href="#download">Download</a>
         </nav>
       </div>
@@ -82,216 +96,250 @@
 
     <main id="main">
       <section class="hero" id="top">
-        <div class="hero__glow hero__glow--one" aria-hidden="true"></div>
-        <div class="hero__glow hero__glow--two" aria-hidden="true"></div>
-        <div class="container hero__grid">
-          <div class="hero__copy">
-            <a class="release-pill" href="https://github.com/seNkoKG/gloamcore/releases/latest" data-release-link>
-              <span class="release-pill__pulse" aria-hidden="true"></span>
-              <span>Version <span data-version>2.8.1</span> is available</span>
-              <span aria-hidden="true">&#8599;</span>
+        <div class="hero__aura hero__aura--one" aria-hidden="true"></div>
+        <div class="hero__aura hero__aura--two" aria-hidden="true"></div>
+        <div class="container hero__inner">
+          <div class="hero__copy" data-reveal>
+            <a class="release-chip" href="https://github.com/seNkoKG/gloamcore/releases/latest" data-release-link>
+              <span class="status-dot" aria-hidden="true"></span>
+              <span>Latest stable release</span>
+              <strong data-version-chip>View release</strong>
+              <span aria-hidden="true">↗</span>
             </a>
-            <p class="eyebrow">A sharper Path of Exile desktop companion</p>
-            <h1>Your market.<br><span>Your build.</span><br>Your edge.</h1>
+            <p class="eyebrow">Path of Exile 1 companion for Windows</p>
+            <h1>One desktop.<br><span>Every PoE decision.</span></h1>
+            <p class="hero__promise">Read the market. Price the item. Plan the build.</p>
             <p class="hero__lede">
-              Price the item under your cursor, read the live economy, inspect stash wealth,
-              and work on builds without stitching together a dozen disconnected tabs.
+              GloamCore turns one Ctrl+D item copy into a compact, roll-aware market check,
+              then keeps economy tracking, item research, stash wealth, build planning, and
+              practical player tools in one focused workspace.
             </p>
             <div class="hero__actions">
               <a class="button button--primary" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>
-                <span class="button__icon" aria-hidden="true">&#8595;</span>
-                Download for Windows
+                <span class="button__symbol" aria-hidden="true">↓</span>
+                <span><strong>Download for Windows x64</strong><small>Installer, latest stable release</small></span>
               </a>
-              <a class="button button--ghost" href="#showcase">See the app</a>
+              <a class="button button--quiet" href="#tour">See the real app</a>
             </div>
-            <ul class="hero__proof" aria-label="Product facts">
-              <li><span aria-hidden="true">01</span> One-key Ctrl+D checks</li>
-              <li><span aria-hidden="true">02</span> Local-first workspace</li>
-              <li><span aria-hidden="true">03</span> No POESESSID</li>
+            <ul class="hero__proof" aria-label="GloamCore product boundaries">
+              <li><span aria-hidden="true">✓</span> One ordinary item copy</li>
+              <li><span aria-hidden="true">✓</span> No game-memory access</li>
+              <li><span aria-hidden="true">✓</span> No POESESSID</li>
             </ul>
           </div>
 
-          <div class="hero-stage" aria-label="GloamCore application preview">
-            <div class="hero-stage__frame">
-              <div class="window-bar" aria-hidden="true">
-                <div class="window-bar__brand"><img src="assets/img/logo.png" alt="" width="24" height="24"><span>MARKET EXPLORER</span></div>
-                <div class="window-bar__status"><i></i> LIVE MARKET</div>
-                <div class="window-bar__controls"><span></span><span></span><span></span></div>
+          <figure class="hero-product" data-reveal>
+            <div class="product-frame">
+              <div class="product-frame__bar" aria-hidden="true">
+                <div><i></i><span>GLOAMCORE / MARKET EXPLORER</span></div>
+                <strong><i></i> LIVE MARKET</strong>
+                <span>— □ ×</span>
               </div>
               <img
-                class="hero-stage__dashboard"
-                src="assets/img/example-market.jpg"
-                alt="GloamCore Market Explorer with live Path of Exile economy rows and trends"
+                src="assets/img/example-market.jpg?v=20260812"
+                alt="GloamCore Market Explorer showing current Path of Exile currency values, trends, liquidity, and league controls"
                 width="1798"
                 height="1144"
               >
-              <div class="hero-stage__scan" aria-hidden="true"></div>
             </div>
-            <figure class="hero-stage__price">
-              <img
-                src="assets/img/example-price-check.png"
-                alt="GloamCore compact Ctrl+D price-check overlay"
-                width="460"
-                height="900"
-              >
-            </figure>
-            <div class="hero-stage__note hero-stage__note--top">
-              <span>CAPTURE</span>
-              <strong>Ctrl + D</strong>
-              <small>Native item read</small>
-            </div>
-            <div class="hero-stage__note hero-stage__note--bottom">
-              <span>SESSION</span>
-              <strong>Local and private</strong>
-              <small>No game-memory access</small>
-            </div>
+            <figcaption>
+              <span><i aria-hidden="true"></i> Real product capture</span>
+              <p><strong>Market Explorer</strong> Current values, movement, liquidity, league controls, and local watch targets.</p>
+              <a href="#tour">Open product tour <span aria-hidden="true">↓</span></a>
+            </figcaption>
+          </figure>
+
+          <div class="hero-metrics" data-reveal>
+            <div><small>First action</small><strong>Ctrl + D</strong><span>Hover an item</span></div>
+            <div><small>Connected workspaces</small><strong>Six</strong><span>One focused app</span></div>
+            <div><small>Item capture</small><strong>One copy</strong><span>Parsed locally</span></div>
+            <div><small>Public release</small><strong data-version-label>Latest stable</strong><span>GitHub Releases</span></div>
           </div>
         </div>
       </section>
 
-      <section class="signal-strip" aria-label="Release summary">
-        <div class="container signal-strip__grid">
-          <div><small>Current release</small><strong>v<span data-version>2.8.1</span></strong></div>
-          <div><small>Platform</small><strong>Windows x64</strong></div>
-          <div><small>Game</small><strong>Path of Exile 1</strong></div>
-          <div><small>Update channel</small><strong>GitHub Releases</strong></div>
+      <section class="trust-ribbon" aria-label="Product facts">
+        <div class="container trust-ribbon__inner">
+          <span>Windows x64</span>
+          <i aria-hidden="true"></i>
+          <span>English PoE 1 client</span>
+          <i aria-hidden="true"></i>
+          <span>Source-available repository</span>
+          <i aria-hidden="true"></i>
+          <span>Checksums published</span>
         </div>
       </section>
 
-      <section class="section workflows" id="workflows">
+      <section class="section first-check" id="first-check">
         <div class="container">
-          <div class="section-heading section-heading--split">
+          <div class="section-heading section-heading--center" data-reveal>
+            <p class="eyebrow">From download to useful</p>
+            <h2>Three steps to your first check.</h2>
+            <p>No account-session cookie. No game-memory inspection. No setup maze.</p>
+          </div>
+
+          <ol class="step-grid">
+            <li data-reveal>
+              <span class="step-grid__number">01</span>
+              <div class="step-grid__visual step-grid__visual--download" aria-hidden="true"><i>↓</i></div>
+              <h3>Download and launch</h3>
+              <p>Install the Windows x64 build, launch GloamCore, and leave it available from the system tray.</p>
+              <small>Portable build also available</small>
+            </li>
+            <li data-reveal>
+              <span class="step-grid__number">02</span>
+              <div class="step-grid__visual step-grid__visual--keys" aria-label="Control plus D"><kbd>Ctrl</kbd><b>+</b><kbd>D</kbd></div>
+              <h3>Hover and press Ctrl+D</h3>
+              <p>Use the English PoE 1 client in Borderless or Windowed Fullscreen and hover the item you want to inspect.</p>
+              <small>One ordinary copy action</small>
+            </li>
+            <li data-reveal>
+              <span class="step-grid__number">03</span>
+              <div class="step-grid__visual step-grid__visual--signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <h3>Compare and decide</h3>
+              <p>Tune exact modifiers, review current asking-price evidence, then open the full official Trade query when needed.</p>
+              <small>Seller rows are asking prices</small>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section features" id="features">
+        <div class="container">
+          <div class="section-heading section-heading--split" data-reveal>
             <div>
-              <p class="eyebrow">One companion, five focused workflows</p>
-              <h2>Less switching.<br>More signal.</h2>
+              <p class="eyebrow">Your league loop, connected</p>
+              <h2>Less tab juggling.<br>Better calls.</h2>
             </div>
             <p>
-              The app keeps high-value PoE work close together while each external
-              service remains inside a clear security boundary.
+              Six focused workspaces put the item, the market, the reference data,
+              the stash, the build, and the tools beside each other without blurring their trust boundaries.
             </p>
           </div>
 
-          <div class="workflow-grid">
-            <article class="workflow-card workflow-card--feature">
-              <div class="workflow-card__number">01</div>
-              <div class="workflow-card__body">
-                <p class="workflow-card__label">Price checker</p>
-                <h3>Hover. Press Ctrl+D. Decide.</h3>
-                <p>
-                  Parse copied item text locally, tune the exact modifier plan, compare
-                  anonymous official Trade listings, and open the complete query when needed.
-                </p>
-                <ul class="tag-list"><li>Uniques</li><li>Rares</li><li>Maps</li><li>Gems</li></ul>
+          <div class="feature-grid">
+            <article class="feature-card feature-card--wide feature-card--price" data-reveal>
+              <div class="feature-card__top"><span>01</span><small>Core workflow</small></div>
+              <div>
+                <p class="feature-card__label">Price Checker</p>
+                <h3>Price the actual item, not just its base.</h3>
+                <p>Parse copied item text locally, edit rolls and state filters, review anonymous official Trade listings, and hand the exact plan to the full Trade site.</p>
               </div>
-              <div class="workflow-card__shortcut" aria-label="Keyboard shortcut Control D"><kbd>Ctrl</kbd><span>+</span><kbd>D</kbd></div>
+              <ul class="chip-list"><li>Uniques</li><li>Rares</li><li>Maps</li><li>Gems</li><li>Jewels</li></ul>
+              <div class="feature-card__key" aria-hidden="true"><kbd>Ctrl</kbd><span>+</span><kbd>D</kbd></div>
             </article>
 
-            <article class="workflow-card">
-              <div class="workflow-card__number">02</div>
-              <p class="workflow-card__label">Market Explorer</p>
-              <h3>Read the live economy.</h3>
-              <p>Search current poe.ninja markets with trends, liquidity context, league filters, targets, and resilient last-good data.</p>
-              <div class="mini-signal" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <article class="feature-card feature-card--market" data-reveal>
+              <div class="feature-card__top"><span>02</span><small>Current economy</small></div>
+              <p class="feature-card__label">Market + Watchlist</p>
+              <h3>See movement before the tooltip lies by omission.</h3>
+              <p>Browse current-league poe.ninja markets, official Faustus completed-hour observations, liquidity, source age, and local price targets.</p>
+              <div class="mini-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             </article>
 
-            <article class="workflow-card workflow-card--wealth">
-              <div class="workflow-card__number">03</div>
-              <p class="workflow-card__label">Stash Wealth</p>
-              <h3>Wealthy Exile, in your workspace.</h3>
-              <p>Keep the real Wealthy Exile dashboard open in an isolated browser session with persistent sign-in and scoped ads-only filtering.</p>
-              <div class="boundary-mark"><span>&#9671;</span><strong>Isolated session</strong><small>The app cannot read its cookies or stash responses</small></div>
+            <article class="feature-card feature-card--intel" data-reveal>
+              <div class="feature-card__top"><span>03</span><small>Public reference data</small></div>
+              <p class="feature-card__label">Item Intel</p>
+              <h3>Research without losing the market.</h3>
+              <p>Search PoE Wiki item and modifier data, then inspect artwork, requirements, restrictions, provenance, and trusted specialist links.</p>
+              <div class="intel-lines" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
             </article>
 
-            <article class="workflow-card">
-              <div class="workflow-card__number">04</div>
-              <p class="workflow-card__label">Build Lab</p>
-              <h3>Work with the build, not around it.</h3>
-              <p>Import PoB data, edit passive trees and masteries, compare saved specs, and export the result to Path of Building.</p>
-              <div class="node-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <article class="feature-card feature-card--build" data-reveal>
+              <div class="feature-card__top"><span>04</span><small>PoB-compatible workspace</small></div>
+              <p class="feature-card__label">Build Lab</p>
+              <h3>Work with the build, then send it home.</h3>
+              <p>Import PoB data, edit trees and masteries, manage items, skills, and configuration sets, compare saved specs, and export to Path of Building.</p>
+              <div class="node-map" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><b></b><b></b><b></b></div>
             </article>
 
-            <article class="workflow-card">
-              <div class="workflow-card__number">05</div>
-              <p class="workflow-card__label">Player Toolkit</p>
-              <h3>Practical tools stay close.</h3>
-            <p>Check map mods, follow the local PoE event feed, solve Large Cluster Jewel ordering, compose regex, and edit filters.</p>
-              <ul class="tag-list"><li>Maps</li><li>Events</li><li>Clusters</li><li>Regex</li></ul>
+            <article class="feature-card feature-card--wealth" data-reveal>
+              <div class="feature-card__top"><span>05</span><small>Isolated browser session</small></div>
+              <p class="feature-card__label">Stash Wealth</p>
+              <h3>Keep Wealthy Exile inside your workspace.</h3>
+              <p>Its sign-in, cookies, OAuth tokens, and stash responses stay inside a dedicated browser profile that GloamCore cannot read.</p>
+              <div class="boundary-badge"><span aria-hidden="true">◇</span><div><strong>Session boundary</strong><small>Persistent and isolated</small></div></div>
+            </article>
+
+            <article class="feature-card feature-card--wide feature-card--tools" data-reveal>
+              <div class="feature-card__top"><span>06</span><small>Practical utilities</small></div>
+              <div>
+                <p class="feature-card__label">Player Toolkit</p>
+                <h3>The small tools that usually cost five tabs.</h3>
+                <p>Check map mods, follow an in-memory event feed, solve Large Cluster Jewel back ordering, build regex, edit filters, compare socket colours, and audit economy data.</p>
+              </div>
+              <ul class="tool-list">
+                <li><span>MAP</span> Mod Check</li>
+                <li><span>LOG</span> Event Feed</li>
+                <li><span>8P</span> Cluster Back</li>
+                <li><span>RX</span> Regex</li>
+                <li><span>RGB</span> Sockets</li>
+              </ul>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section release-section" id="new">
-        <div class="container release-panel">
-          <div class="release-panel__intro">
-            <p class="eyebrow">New in <span data-version>2.8.1</span></p>
-            <h2>Complete Faustus coverage. Faster official checks.</h2>
-            <p>This patch restores official Faustus coverage through authoritative item metadata, retains recent official observations with warnings, and discovers new completed-hour data sooner.</p>
-            <a class="text-link" href="https://github.com/seNkoKG/gloamcore/releases/latest" data-release-link>Read the release notes <span aria-hidden="true">&#8599;</span></a>
+      <section class="section price-story">
+        <div class="container price-story__grid">
+          <div class="price-story__visual" data-reveal>
+            <div class="overlay-frame">
+              <div class="overlay-frame__glow" aria-hidden="true"></div>
+              <img
+                src="assets/img/example-price-check.png?v=20260812"
+                alt="GloamCore compact Ctrl+D price checker showing editable modifiers and current seller listings"
+                width="460"
+                height="900"
+                loading="lazy"
+              >
+            </div>
           </div>
-          <div class="release-list">
-            <article>
-              <span>01</span>
-              <div><h3>Authoritative item identity</h3><p>Every supported economy item is resolved through its current PoE Wiki metadata ID instead of assuming an image texture path is an item ID.</p></div>
-            </article>
-            <article>
-              <span>02</span>
-              <div><h3>Complete Currency coverage</h3><p>All 102 audited Currency rows remain present, including catalysts, influenced currency, Eldritch currency, and shards without a usable newest-hour range.</p></div>
-            </article>
-            <article>
-              <span>03</span>
-              <div><h3>Warnings without hiding</h3><p>Thin, wide, or last-observed completed-hour markets remain visible and clearly warned, while movers and trends use reliable newest-hour observations only.</p></div>
-            </article>
-            <article>
-              <span>04</span>
-              <div><h3>Five-minute discovery</h3><p>GloamCore checks every five minutes and catches up every minute after an hour boundary, while prices remain official completed-hour observations.</p></div>
-            </article>
+          <div class="price-story__copy" data-reveal>
+            <p class="eyebrow">The item stays the subject</p>
+            <h2>A result you can inspect, not a magic number.</h2>
+            <p>
+              GloamCore keeps the copied state visible. You can see which modifiers are active,
+              tune their ranges, change availability, and inspect the evidence before acting.
+            </p>
+            <ul class="check-list">
+              <li><span>01</span><div><strong>Identity and item state</strong><p>Corruption, influences, links, item level, map state, and other relevant context stay explicit.</p></div></li>
+              <li><span>02</span><div><strong>Editable roll-aware filters</strong><p>Enable the stats that define value and adjust supported minimums, maximums, and exact matches.</p></div></li>
+              <li><span>03</span><div><strong>Official Trade evidence</strong><p>Review a bounded anonymous seller snapshot, then open the full mapped query for valuable items.</p></div></li>
+            </ul>
+            <p class="accuracy-note"><span aria-hidden="true">i</span> Seller rows are current asking prices, not completed sales. Thin, stale, or fuzzy evidence should be verified on the full Trade site.</p>
           </div>
         </div>
       </section>
 
-      <section class="section showcase" id="showcase">
+      <section class="section tour" id="tour">
         <div class="container">
-          <div class="section-heading section-heading--split">
+          <div class="section-heading section-heading--split" data-reveal>
             <div>
               <p class="eyebrow">Real product captures</p>
-              <h2>Built for dense information.<br>Designed to stay readable.</h2>
+              <h2>See the workspace.<br>Keep every pixel.</h2>
             </div>
-            <p>Switch between the real workspaces below. No concept art and no simulated UI.</p>
+            <p>Every image is displayed at its natural ratio. No fake UI, no concept art, and no screenshot cropped to hide the product.</p>
           </div>
 
-          <div class="showcase-shell" data-gallery>
-            <div class="showcase-tabs" role="tablist" aria-label="Application screenshots">
-              <button type="button" role="tab" aria-selected="true" aria-controls="shot-market" id="tab-market" data-gallery-tab="market">
-                <span>01</span> Market Explorer
-              </button>
-              <button type="button" role="tab" aria-selected="false" aria-controls="shot-build" id="tab-build" tabindex="-1" data-gallery-tab="build">
-                <span>02</span> Build Lab
-              </button>
-              <button type="button" role="tab" aria-selected="false" aria-controls="shot-regex" id="tab-regex" tabindex="-1" data-gallery-tab="regex">
-                <span>03</span> Regex Workbench
-              </button>
-              <button type="button" role="tab" aria-selected="false" aria-controls="shot-price" id="tab-price" tabindex="-1" data-gallery-tab="price">
-                <span>04</span> Ctrl+D Overlay
-              </button>
+          <div class="gallery" data-gallery data-reveal>
+            <div class="gallery-tabs" role="tablist" aria-label="GloamCore application screenshots">
+              <button type="button" role="tab" aria-selected="true" aria-controls="panel-market" id="tab-market" data-gallery-tab="market"><span>01</span> Market Explorer</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="panel-build" id="tab-build" data-gallery-tab="build"><span>02</span> Build Lab</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="panel-regex" id="tab-regex" data-gallery-tab="regex"><span>03</span> Regex Workbench</button>
             </div>
 
-            <div class="showcase-view">
-              <figure id="shot-market" role="tabpanel" aria-labelledby="tab-market" data-gallery-panel="market">
-                <img src="assets/img/example-market.jpg" alt="GloamCore Market Explorer dashboard" width="1798" height="1144" loading="lazy">
-                <figcaption><strong>Market Explorer</strong><span>Current values, movement, liquidity, league controls, and watch targets.</span></figcaption>
+            <div class="gallery-stage">
+              <figure class="gallery-panel" id="panel-market" role="tabpanel" aria-labelledby="tab-market" tabindex="0" data-gallery-panel="market">
+                <img src="assets/img/example-market.jpg?v=20260812" alt="GloamCore Market Explorer dashboard" width="1798" height="1144" loading="lazy">
+                <figcaption><span>01 / MARKET</span><div><strong>Read the current league</strong><p>Values, movement, liquidity, filters, watch targets, source age, and labelled fallback data.</p></div></figcaption>
               </figure>
-              <figure id="shot-build" role="tabpanel" aria-labelledby="tab-build" data-gallery-panel="build" hidden>
-                <img src="assets/img/example-buildlab.jpg" alt="GloamCore Build Lab passive tree workspace" width="1798" height="1144" loading="lazy">
-                <figcaption><strong>Build Lab</strong><span>PoB import, passive-tree editing, saved specs, comparisons, and export.</span></figcaption>
+              <figure class="gallery-panel" id="panel-build" role="tabpanel" aria-labelledby="tab-build" tabindex="0" data-gallery-panel="build">
+                <img src="assets/img/example-buildlab.jpg?v=20260812" alt="GloamCore Build Lab passive tree workspace" width="1798" height="1144" loading="lazy">
+                <figcaption><span>02 / BUILD</span><div><strong>Work inside the passive tree</strong><p>PoB import, tree editing, mastery choices, saved specs, item and skill sets, comparison, and export.</p></div></figcaption>
               </figure>
-              <figure id="shot-regex" role="tabpanel" aria-labelledby="tab-regex" data-gallery-panel="regex" hidden>
-                <img src="assets/img/example-regex.jpg" alt="GloamCore source-tracked regex workbench" width="1798" height="1144" loading="lazy">
-                <figcaption><strong>Regex Workbench</strong><span>Length-aware WANT and AVOID rules with visible source provenance.</span></figcaption>
-              </figure>
-              <figure class="showcase-view__portrait" id="shot-price" role="tabpanel" aria-labelledby="tab-price" data-gallery-panel="price" hidden>
-                <img src="assets/img/example-price-check.png" alt="GloamCore compact Ctrl+D price checker" width="460" height="900" loading="lazy">
-                <figcaption><strong>Ctrl+D Price Check</strong><span>Editable exact-state filters and anonymous public Trade listings.</span></figcaption>
+              <figure class="gallery-panel" id="panel-regex" role="tabpanel" aria-labelledby="tab-regex" tabindex="0" data-gallery-panel="regex">
+                <img src="assets/img/example-regex.jpg?v=20260812" alt="GloamCore source-tracked regex workbench" width="1798" height="1144" loading="lazy">
+                <figcaption><span>03 / TOOLKIT</span><div><strong>Build rules you can explain</strong><p>Explicit WANT and AVOID choices, length-aware output, source provenance, profiles, and map properties.</p></div></figcaption>
               </figure>
             </div>
           </div>
@@ -300,105 +348,165 @@
 
       <section class="section trust" id="trust">
         <div class="container trust__grid">
-          <div class="trust__intro">
+          <div class="trust__intro" data-reveal>
             <p class="eyebrow">Clear boundaries</p>
             <h2>Useful without becoming intrusive.</h2>
-            <p>The app is explicit about what it reads, where data goes, and which service owns each session.</p>
-            <a class="text-link" href="https://github.com/seNkoKG/gloamcore/blob/main/SECURITY.md">Read the security policy <span aria-hidden="true">&#8599;</span></a>
+            <p>Each feature states what it reads, which service receives data, and where the boundary lives.</p>
+            <div class="trust__links">
+              <a class="text-link" href="https://github.com/seNkoKG/gloamcore/blob/main/SECURITY.md">Security policy <span aria-hidden="true">↗</span></a>
+              <a class="text-link" href="https://github.com/seNkoKG/gloamcore/blob/main/docs/DATA_PROVENANCE.md">Data provenance <span aria-hidden="true">↗</span></a>
+            </div>
           </div>
-          <div class="trust__list">
-            <article><span>LOCAL</span><div><h3>Local item parsing</h3><p>Ctrl+D uses one ordinary item copy. It does not inspect game memory or inject into Path of Exile.</p></div></article>
-            <article><span>NONE</span><div><h3>No POESESSID</h3><p>Market checks use public data and anonymous Trade routes. Account-session cookies are never requested.</p></div></article>
-            <article><span>BOUND</span><div><h3>Isolated web sessions</h3><p>Wealthy Exile owns its OAuth flow, cookies, and stash responses inside a dedicated sandboxed partition.</p></div></article>
-            <article><span>OPEN</span><div><h3>Auditable releases</h3><p>Installers, portable builds, updater metadata, checksums, source tags, and release notes are published together.</p></div></article>
+
+          <div class="boundary-grid">
+            <article data-reveal><span>LOCAL</span><div><h3>Copied item parsing</h3><p>Ctrl+D performs one ordinary item copy and parses the resulting text locally. It does not inspect game memory or inject into PoE.</p></div></article>
+            <article data-reveal><span>NONE</span><div><h3>No POESESSID</h3><p>Market checks use public sources and anonymous Trade routes. GloamCore never asks for your account-session cookie.</p></div></article>
+            <article data-reveal><span>BOUND</span><div><h3>Isolated Wealthy Exile session</h3><p>Wealthy Exile owns its login, cookies, OAuth tokens, and stash responses inside a dedicated browser profile.</p></div></article>
+            <article data-reveal><span>OPEN</span><div><h3>Inspectable releases</h3><p>The source-available repository, release notes, installers, portable builds, updater metadata, and checksums are published together.</p></div></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section install" id="install">
+        <div class="container">
+          <div class="section-heading section-heading--center" data-reveal>
+            <p class="eyebrow">Know before you download</p>
+            <h2>Everything needed for a clean first launch.</h2>
+            <p>Choose the normal installer for the easiest update path or use the portable build when you prefer manual control.</p>
+          </div>
+
+          <div class="install-guide" data-reveal>
+            <div class="install-guide__steps">
+              <article><span>1</span><div><h3>Install GloamCore</h3><p>Download the official Windows x64 installer from GitHub Releases and choose the install location.</p></div></article>
+              <article><span>2</span><div><h3>Launch from the tray</h3><p>Keep the app available while Path of Exile runs. Global shortcuts can be changed in Settings.</p></div></article>
+              <article><span>3</span><div><h3>Use the right display mode</h3><p>Run the English PoE 1 client in Borderless or Windowed Fullscreen so Windows can place the overlay above the game.</p></div></article>
+              <article><span>4</span><div><h3>Match privilege levels if needed</h3><p>If the overlay cannot attach, make sure Path of Exile and GloamCore run at the same Windows privilege level.</p></div></article>
+            </div>
+
+            <aside class="requirements-card">
+              <p class="requirements-card__label">Requirements</p>
+              <h3>Windows x64 desktop build</h3>
+              <ul>
+                <li><span aria-hidden="true">✓</span> English Path of Exile 1 client</li>
+                <li><span aria-hidden="true">✓</span> Borderless or Windowed Fullscreen</li>
+                <li><span aria-hidden="true">✓</span> Internet for current market services</li>
+                <li><span aria-hidden="true">✓</span> Supported PoB Community install for full Build Lab engine workflows</li>
+              </ul>
+              <p><strong>SmartScreen notice.</strong> Current binaries are not Authenticode-signed. Windows may show an Unknown publisher warning. Download only from the official release and verify the checksum when needed.</p>
+            </aside>
           </div>
         </div>
       </section>
 
       <section class="section download" id="download">
         <div class="container">
-          <div class="download-card">
-            <div class="download-card__copy">
-              <p class="eyebrow">Windows x64</p>
-              <h2>Put it on your desktop.</h2>
-              <p>The installer supports in-app updates. The portable build is available when you prefer to manage updates manually.</p>
+          <div class="download-panel" data-reveal>
+            <div class="download-panel__glow" aria-hidden="true"></div>
+            <div class="download-panel__copy">
+              <div class="download-panel__version"><span class="status-dot" aria-hidden="true"></span><strong data-version-label>Latest stable</strong><small>GitHub release channel</small></div>
+              <p class="eyebrow">Ready for the next drop</p>
+              <h2>Put GloamCore on your desktop.</h2>
+              <p>Start with the installer for user-confirmed updates. Use the portable executable when you want to manage replacements yourself.</p>
               <ul>
-                <li>Windows 10 or 11, x64</li>
-                <li>Path of Exile 1 in Borderless or Windowed Fullscreen</li>
-                <li>Current stable version <span data-version>2.8.1</span></li>
+                <li>Windows x64</li>
+                <li>Installer and portable options</li>
+                <li>SHA-256 checksums published</li>
               </ul>
             </div>
-            <div class="download-card__actions">
+            <div class="download-panel__actions">
               <a class="button button--primary button--wide" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>
-                <span class="button__icon" aria-hidden="true">&#8595;</span>
-                <span><strong>Download installer</strong><small>Recommended, Windows x64</small></span>
+                <span class="button__symbol" aria-hidden="true">↓</span>
+                <span><strong>Download installer</strong><small>Recommended, user-confirmed updates</small></span>
               </a>
-              <a class="button button--secondary button--wide" href="https://github.com/seNkoKG/gloamcore/releases/download/v2.8.1/GloamCore-Portable-2.8.1-x64.exe" data-download-portable>
-                <span class="button__icon" aria-hidden="true">&#9633;</span>
-                <span><strong>Portable build</strong><small>Manual updates</small></span>
+              <a class="button button--secondary button--wide" href="https://github.com/seNkoKG/gloamcore/releases/latest" data-download-portable>
+                <span class="button__symbol" aria-hidden="true">□</span>
+                <span><strong>Get portable build</strong><small>Manual updates, release page</small></span>
               </a>
-              <div class="download-card__links">
-                <a href="https://github.com/seNkoKG/gloamcore/releases/latest/download/SHA256SUMS.txt">SHA256SUMS</a>
+              <div class="download-panel__links">
+                <a href="https://github.com/seNkoKG/gloamcore/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>
                 <a href="https://github.com/seNkoKG/gloamcore/releases/latest" data-release-link>All release files</a>
                 <button type="button" data-copy-download>Copy installer link</button>
               </div>
-              <p class="download-card__notice">Binaries are currently unsigned. Windows SmartScreen may ask you to confirm the publisher.</p>
               <p class="copy-status" role="status" aria-live="polite" data-copy-status></p>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="section shortcuts">
-        <div class="container">
-          <div class="section-heading section-heading--split">
-            <div><p class="eyebrow">Keyboard first</p><h2>Fast paths stay fast.</h2></div>
-            <p>Desktop shortcuts are rebindable in Settings. Conflicts are rejected without replacing the working binding.</p>
+      <section class="section faq" id="faq">
+        <div class="container faq__grid">
+          <div class="faq__intro" data-reveal>
+            <p class="eyebrow">Before you install</p>
+            <h2>Straight answers.</h2>
+            <p>Limits and trust boundaries belong on the download page, not behind fine print.</p>
           </div>
-          <div class="shortcut-grid">
-            <article><div><kbd>Ctrl</kbd><span>+</span><kbd>D</kbd></div><p><strong>Price check</strong><small>Read the item under the cursor</small></p></article>
-            <article><div><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>E</kbd></div><p><strong>Show or hide</strong><small>Toggle the app globally</small></p></article>
-            <article><div><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>Space</kbd></div><p><strong>Instant search</strong><small>Open the market search</small></p></article>
-            <article><div><kbd>Ctrl</kbd><span>+</span><kbd>K</kbd></div><p><strong>Item Intel</strong><small>Open and focus reference search</small></p></article>
+          <div class="faq__items" data-reveal>
+            <details>
+              <summary>What does Ctrl+D actually do?<span aria-hidden="true">+</span></summary>
+              <p>It performs one ordinary copy action on the hovered item, parses the copied English item text locally, and opens a compact result. It does not inspect game memory, inject into PoE, automate gameplay, or send whispers.</p>
+            </details>
+            <details>
+              <summary>Why does the overlay need Borderless or Windowed Fullscreen?<span aria-hidden="true">+</span></summary>
+              <p>Exclusive fullscreen can hide normal desktop overlays. Borderless or Windowed Fullscreen lets Windows keep the GloamCore overlay above the game.</p>
+            </details>
+            <details>
+              <summary>Are the prices guaranteed?<span aria-hidden="true">+</span></summary>
+              <p>No. poe.ninja values are aggregate market context, seller rows are current asking prices rather than completed sales, and Faustus values are completed-hour observations. Verify valuable items on the full official Trade site.</p>
+            </details>
+            <details>
+              <summary>Do I need Path of Building?<span aria-hidden="true">+</span></summary>
+              <p>Most of GloamCore does not. Full Build Lab tree and recalculation workflows use a separately installed, supported Path of Building Community installation and fail closed when the engine is unknown.</p>
+            </details>
+            <details>
+              <summary>Installer or portable build?<span aria-hidden="true">+</span></summary>
+              <p>The installer supports the normal update path. New versions download in the background only when enabled, and installation waits for an explicit Restart &amp; install action. Portable users replace the executable manually.</p>
+            </details>
+            <details>
+              <summary>Why can Windows show an Unknown publisher warning?<span aria-hidden="true">+</span></summary>
+              <p>Current binaries are not Authenticode-signed. Download only from the official GitHub release and verify SHA256SUMS.txt when needed.</p>
+            </details>
+            <details>
+              <summary>Is GloamCore open source or affiliated with GGG?<span aria-hidden="true">+</span></summary>
+              <p>No. The public repository is source-available under an UNLICENSED declaration, not open source. GloamCore is independent and is not affiliated with or endorsed by Grinding Gear Games.</p>
+            </details>
           </div>
         </div>
       </section>
 
-      <section class="section faq" id="faq">
-        <div class="container faq__grid">
-          <div class="faq__intro"><p class="eyebrow">Questions</p><h2>Before you install.</h2></div>
-          <div class="faq__items">
-            <details><summary>Is this app affiliated with Grinding Gear Games?<span aria-hidden="true">+</span></summary><p>No. It is an independent companion and is not affiliated with or endorsed by Grinding Gear Games.</p></details>
-            <details><summary>Does it automate gameplay or read game memory?<span aria-hidden="true">+</span></summary><p>No. One Ctrl+D check performs one ordinary copy action, parses that copied text, and shows a result. It does not inject, automate gameplay, send whispers, or inspect game memory.</p></details>
-            <details><summary>Does Stash Wealth share my Wealthy Exile login with the app?<span aria-hidden="true">+</span></summary><p>No. Wealthy Exile runs inside a dedicated sandboxed Electron session. Its cookies, OAuth tokens, and stash responses are not exposed to the app renderer.</p></details>
-            <details><summary>Why can Windows show a SmartScreen warning?<span aria-hidden="true">+</span></summary><p>The current Windows binaries are not Authenticode-signed. Download only from this repository and use SHA256SUMS.txt to verify the file when needed.</p></details>
-            <details><summary>How do updates work?<span aria-hidden="true">+</span></summary><p>Installed builds can check the public GitHub release channel and download a newer stable installer. Installation waits for you to choose Restart and install. Portable users update manually.</p></details>
+      <section class="section support" id="support" data-support-section hidden>
+        <div class="container">
+          <div class="support-card">
+            <div><p class="eyebrow">Independent development</p><h2>Keep GloamCore moving.</h2><p>If GloamCore earns a place in your setup, an optional contribution can support maintenance, release testing, and future improvements.</p></div>
+            <a class="button button--gold" data-support-link><span aria-hidden="true">◇</span> Support GloamCore</a>
           </div>
         </div>
       </section>
 
       <section class="final-cta">
-        <div class="container final-cta__inner">
-          <img src="assets/img/logo.png" alt="" width="88" height="88">
-          <p class="eyebrow">Ready when the item drops</p>
-          <h2>Price less blindly.</h2>
-          <p>One focused companion for the market, the item, the stash, and the build.</p>
+        <div class="container final-cta__inner" data-reveal>
+          <img src="assets/img/logo.png" alt="" width="108" height="108">
+          <p class="eyebrow">One focused companion</p>
+          <h2>Know more before you click Trade.</h2>
+          <p>Price the item, read the league, research the drop, inspect the stash, and work on the build without rebuilding your workflow from browser tabs.</p>
           <div>
-            <a class="button button--primary" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>Download for Windows <span data-version>2.8.1</span></a>
-            <a class="button button--ghost" href="https://github.com/seNkoKG/gloamcore">View on GitHub</a>
+            <a class="button button--primary" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>Download for Windows x64</a>
+            <a class="button button--quiet" href="https://github.com/seNkoKG/gloamcore">View repository</a>
           </div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <div class="container site-footer__grid">
+      <div class="container site-footer__top">
         <div class="site-footer__brand">
-          <a class="brand" href="#top" aria-label="Back to top"><span class="brand__mark"><img src="assets/img/logo.png" alt="" width="40" height="40"></span></a>
-          <p>An independent Path of Exile companion for Windows.</p>
+          <a class="brand" href="#top" aria-label="Back to top">
+            <span class="brand__mark"><img src="assets/img/logo.png" alt="" width="44" height="44"></span>
+            <span class="brand__copy"><strong>GloamCore</strong><small>PoE 1 desktop intelligence</small></span>
+          </a>
+          <p>An independent, source-available Path of Exile 1 companion for Windows.</p>
         </div>
-        <div><strong>Product</strong><a href="#workflows">Workflows</a><a href="#showcase">Showcase</a><a href="#download">Download</a><a href="https://github.com/seNkoKG/gloamcore/releases">Releases</a></div>
-        <div><strong>Project</strong><a href="https://github.com/seNkoKG/gloamcore">Source</a><a href="https://github.com/seNkoKG/gloamcore/issues">Issues</a><a href="https://github.com/seNkoKG/gloamcore/blob/main/CHANGELOG.md">Changelog</a><a href="https://github.com/seNkoKG/gloamcore/blob/main/SECURITY.md">Security</a></div>
+        <div class="site-footer__links"><strong>Product</strong><a href="#first-check">How it works</a><a href="#features">Features</a><a href="#tour">Product tour</a><a href="#download">Download</a></div>
+        <div class="site-footer__links"><strong>Project</strong><a href="https://github.com/seNkoKG/gloamcore">Repository</a><a href="https://github.com/seNkoKG/gloamcore/releases">Releases</a><a href="https://github.com/seNkoKG/gloamcore/issues">Issues</a><a href="https://github.com/seNkoKG/gloamcore/blob/main/SECURITY.md">Security</a></div>
       </div>
       <div class="container site-footer__bottom">
         <p>&copy; <span data-year></span> seNkoKG.</p>
@@ -406,6 +514,6 @@
       </div>
     </footer>
 
-    <script src="assets/js/main.js" defer></script>
+    <script src="assets/js/main.js?v=20260812-2" defer></script>
   </body>
 </html>
