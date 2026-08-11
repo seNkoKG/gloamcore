@@ -618,6 +618,8 @@ export interface PassiveTreeVisualAssets {
   sheets: Record<string, { src: string; width: number; height: number }>;
   backgrounds: Record<string, PassiveTreeSpriteRect>;
   frames: Record<string, PassiveTreeSpriteRect>;
+  jewels: Record<string, PassiveTreeSpriteRect>;
+  jewelRadii: Record<string, PassiveTreeSpriteRect>;
   startNodes: Record<string, PassiveTreeSpriteRect>;
   groupBackgrounds: Record<string, PassiveTreeSpriteRect>;
   ascendancies: Record<string, PassiveTreeSpriteRect>;
@@ -720,6 +722,12 @@ export interface PoeCharacterSummary {
   current?: boolean;
 }
 
+export interface PlannerItemArtworkRequest {
+  items: Array<{ id: number; name: string; baseType: string }>;
+}
+
+export type PlannerItemArtworkResult = Record<number, string>;
+
 export type PoeStashRealm = "pc" | "xbox" | "sony";
 
 export interface StashSyncRequest {
@@ -812,6 +820,58 @@ export interface ToolkitWorkspace {
   plugins: ToolkitPlugin[];
 }
 
+export type MapModRating = "good" | "warn" | "bad" | "ignore";
+
+export interface MapModCheckSettings {
+  version: 1;
+  enabled: boolean;
+  hotkey: string;
+  rules: Record<string, MapModRating>;
+  customRules: Record<string, MapModRating>;
+}
+
+export interface MapModifierDefinition {
+  id: string;
+  label: string;
+  exact: string;
+  canonical: string;
+}
+
+export interface MapModCheckResult {
+  ok: boolean;
+  error?: string;
+  name: string;
+  baseType: string;
+  itemClass: string;
+  overall: MapModRating | "unknown";
+  results: Array<{
+    id: string;
+    label: string;
+    line: string;
+    rating: MapModRating | "unset";
+    known: boolean;
+    canonical?: string;
+  }>;
+}
+
+export type PoeEventLogCategory = "zone" | "level" | "death" | "status" | "whisper" | "trade" | "chat" | "party" | "items" | "other";
+
+export interface PoeEventLogEntry {
+  id: number;
+  timestamp: number;
+  time: string;
+  category: PoeEventLogCategory;
+  title: string;
+  message: string;
+}
+
+export interface PoeEventLogState {
+  settings: { version: 1; logPath: string };
+  status: "idle" | "watching" | "missing" | "error";
+  error: string;
+  events: PoeEventLogEntry[];
+}
+
 export interface ToolkitPlugin {
   id: string;
   name: string;
@@ -888,7 +948,17 @@ export interface PobEngineSkillGroup {
   index: number;
   label: string;
   mainActiveSkill: number;
-  activeSkills: Array<{ index: number; name: string; parts: string[] }>;
+  activeSkills: Array<{
+    index: number;
+    name: string;
+    parts: string[];
+    /** One-based index in the source socket group's gem list; zero for item-granted skills. */
+    sourceGemIndex: number;
+    stages?: { min: number; max: number };
+    mine: boolean;
+    minions: Array<{ label: string; minionId?: string; itemSetId?: number }>;
+    minionSkills: string[];
+  }>;
 }
 
 export interface PobEngineFailure {
@@ -1205,6 +1275,7 @@ export interface PoeWidgetBridge {
     character: Record<string, unknown>;
   }): Promise<PobEngineCharacterImportResult>;
   readPlannerClipboard(): Promise<string>;
+  resolvePlannerItemArtwork(request: PlannerItemArtworkRequest): Promise<PlannerItemArtworkResult>;
   listPoeCharacters(request: PoeCharacterImportRequest): Promise<PoeCharacterSummary[]>;
   getPoeCharacter(request: PoeCharacterImportRequest): Promise<Record<string, unknown>>;
   getPoeStashLeagues(request: {
@@ -1231,6 +1302,17 @@ export interface PoeWidgetBridge {
   showToolkitOverlay(kind: "cheats" | "whiteboard"): Promise<void>;
   hideToolkitOverlay(): Promise<void>;
   captureToolkitGameWindow(): Promise<{ dataUrl: string; width: number; height: number } | null>;
+  getMapModCheck(): Promise<{ settings: MapModCheckSettings; definitions: MapModifierDefinition[]; shortcutError: string }>;
+  saveMapModCheck(settings: MapModCheckSettings): Promise<{ settings: MapModCheckSettings; shortcutError: string }>;
+  checkMapMods(text: string): Promise<MapModCheckResult>;
+  getMapModOverlayResult(): Promise<MapModCheckResult | null>;
+  hideMapModOverlay(): Promise<void>;
+  getPoeEventLog(): Promise<PoeEventLogState>;
+  startPoeEventLog(logPath?: string): Promise<PoeEventLogState>;
+  stopPoeEventLog(): Promise<PoeEventLogState>;
+  clearPoeEventLog(): Promise<PoeEventLogState>;
+  selectPoeEventLogPath(): Promise<PoeEventLogState | null>;
+  onPoeEventLog(callback: (state: PoeEventLogState) => void): () => void;
   getSettings(): Promise<DesktopSettings>;
   saveSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings>;
   windowAction(action: string, payload?: unknown): Promise<DesktopSettings | null>;

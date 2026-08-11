@@ -365,7 +365,7 @@ describe("Path of Building XML import", () => {
         <SkillSet id="1" title="Inactive"><Skill slot="Weapon 1"><Gem nameSpec="Inactive Gem" skillId="InactiveGem" level="1" quality="0"/></Skill></SkillSet>
         <SkillSet id="2" title="Active" customSet="keep">
           <Skill slot="Helmet" label="Aura" enabled="true" includeInFullDPS="false" imbuedSupport="Advanced Traps" mainActiveSkill="2" mainActiveSkillCalcs="3" groupCount="4" source="Item" customSkill="keep">
-            <Gem nameSpec="Firestorm of Pelting" skillId="FirestormAltY" gemId="Metadata/Items/Gems/SkillGemFirestorm" variantId="FirestormAltY" level="20" quality="0" enabled="true" enableGlobal1="false" enableGlobal2="true" qualityId="Divergent" skillPart="2" count="3" customGem="keep"><GemMeta value="keep"/></Gem>
+            <Gem nameSpec="Firestorm of Pelting" skillId="FirestormAltY" gemId="Metadata/Items/Gems/SkillGemFirestorm" variantId="FirestormAltY" level="20" quality="0" enabled="true" enableGlobal1="false" enableGlobal2="true" qualityId="Divergent" skillPart="2" skillPartCalcs="3" skillStageCount="4" skillStageCountCalcs="5" skillMineCount="6" skillMineCountCalcs="7" skillMinion="Metadata/Monsters/Test" skillMinionCalcs="Metadata/Monsters/TestCalcs" skillMinionItemSet="8" skillMinionItemSetCalcs="9" skillMinionSkill="2" skillMinionSkillCalcs="3" count="3" customGem="keep"><GemMeta value="keep"/></Gem>
             <Gem nameSpec="Grace" skillId="Grace" gemId="Metadata/Items/Gems/SkillGemGrace" level="19" quality="1" enabled="true" enableGlobal1="true" enableGlobal2="nil" count="nil"/>
             <SkillMeta value="keep"/>
           </Skill>
@@ -392,6 +392,18 @@ describe("Path of Building XML import", () => {
       enableGlobal1: false,
       enableGlobal2: true,
       count: 3,
+      skillPart: 2,
+      skillPartCalcs: 3,
+      skillStageCount: 4,
+      skillStageCountCalcs: 5,
+      skillMineCount: 6,
+      skillMineCountCalcs: 7,
+      skillMinion: "Metadata/Monsters/Test",
+      skillMinionCalcs: "Metadata/Monsters/TestCalcs",
+      skillMinionItemSet: 8,
+      skillMinionItemSetCalcs: 9,
+      skillMinionSkill: 2,
+      skillMinionSkillCalcs: 3,
     });
     expect(build.skillGroups[0].gems[1]).toMatchObject({
       name: "Grace",
@@ -415,6 +427,17 @@ describe("Path of Building XML import", () => {
     expect(xml).toContain('customSet="keep"');
     expect(xml).toMatch(/<Skill\b(?=[^>]*enabled="false")(?=[^>]*includeInFullDPS="true")(?=[^>]*imbuedSupport="Advanced Traps")(?=[^>]*mainActiveSkill="2")(?=[^>]*mainActiveSkillCalcs="3")(?=[^>]*groupCount="4")(?=[^>]*source="Item")(?=[^>]*customSkill="keep")[^>]*>/);
     expect(xml).toMatch(/<Gem\b(?=[^>]*nameSpec="Firestorm of Pelting")(?=[^>]*skillId="FirestormAltY")(?=[^>]*gemId="Metadata\/Items\/Gems\/SkillGemFirestorm")(?=[^>]*variantId="FirestormAltY")(?=[^>]*level="20")(?=[^>]*quality="20")(?=[^>]*enabled="false")(?=[^>]*enableGlobal1="false")(?=[^>]*enableGlobal2="true")(?=[^>]*qualityId="Divergent")(?=[^>]*skillPart="2")(?=[^>]*count="3")(?=[^>]*customGem="keep")[^>]*>/);
+    expect(xml).toMatch(/skillPartCalcs="3"/);
+    expect(xml).toMatch(/skillStageCount="4"/);
+    expect(xml).toMatch(/skillStageCountCalcs="5"/);
+    expect(xml).toMatch(/skillMineCount="6"/);
+    expect(xml).toMatch(/skillMineCountCalcs="7"/);
+    expect(xml).toMatch(/skillMinion="Metadata\/Monsters\/Test"/);
+    expect(xml).toMatch(/skillMinionCalcs="Metadata\/Monsters\/TestCalcs"/);
+    expect(xml).toMatch(/skillMinionItemSet="8"/);
+    expect(xml).toMatch(/skillMinionItemSetCalcs="9"/);
+    expect(xml).toMatch(/skillMinionSkill="2"/);
+    expect(xml).toMatch(/skillMinionSkillCalcs="3"/);
     expect(xml).toMatch(/<Gem\b(?=[^>]*nameSpec="Grace")(?=[^>]*gemId="Metadata\/Items\/Gems\/SkillGemGrace")(?=[^>]*enableGlobal1="true")(?=[^>]*enableGlobal2="nil")(?=[^>]*count="nil")[^>]*\/>/);
     expect(xml).toContain('<GemMeta value="keep"/>');
     expect(xml).toContain('<SkillMeta value="keep"/>');
@@ -602,6 +625,8 @@ describe("planner saved builds and comparisons", () => {
     });
     const unknownTab = JSON.stringify({ version: 1, tab: "secrets", savedAt: 1, snapshot });
     expect(parseActivePlannerWorkspace(unknownTab).tab).toBe("tree");
+    const retiredGalaxyTab = JSON.stringify({ version: 1, tab: "galaxy", savedAt: 1, snapshot });
+    expect(parseActivePlannerWorkspace(retiredGalaxyTab).tab).toBe("calcs");
   });
 
   it("locks malformed, wrong-shaped, partially invalid, and oversized saved libraries", () => {

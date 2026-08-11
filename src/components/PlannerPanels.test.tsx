@@ -156,7 +156,7 @@ Allow Duplicate Variants: true`,
         },
       ],
     };
-    const markup = renderToStaticMarkup(<PlannerItemsPanel build={build} onChange={() => undefined}/>);
+    const markup = renderToStaticMarkup(<PlannerItemsPanel build={build} artwork={new Map()} onChange={() => undefined}/>);
 
     expect(markup).toContain("planner-paper-doll");
     expect(markup).toContain("Cluster jewels");
@@ -180,7 +180,7 @@ Allow Duplicate Variants: true`,
         enabled: true,
         includeInFullDps: true,
         mainActiveSkill: 1,
-        activeSkills: [{ index: 1, name: "Kinetic Blast", parts: ["Projectile", "Explosion"] }],
+        activeSkills: [{ index: 1, name: "Kinetic Blast", parts: ["Projectile", "Explosion"], sourceGemIndex: 1, stages: { min: 1, max: 10 }, mine: true }],
         gems: [{
           name: "Kinetic Blast",
           skillId: "KineticBlast",
@@ -197,6 +197,9 @@ Allow Duplicate Variants: true`,
     expect(markup).toContain("Main socket group");
     expect(markup).toContain("Selected for calculations");
     expect(markup).toContain("Main active skill");
+    expect(markup).toContain("Skill part");
+    expect(markup).toContain("Skill stages");
+    expect(markup).toContain("Active mines");
     expect(markup).toContain("web.poecdn.com/image/Art/2DItems/Gems/KineticBlast.png");
     expect(markup).toContain("MAIN");
   });

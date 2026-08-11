@@ -66,6 +66,13 @@ const { createPobEngineDispatcher } = require("./pob-engine-dispatch.cjs");
 const { createPobPlannerDispatcher } = require("./pob-planner-dispatch.cjs");
 const { createPoeCharacterService } = require("./poe-character-import.cjs");
 const { createToolkitRuntimeStore } = require("./toolkit-runtime.cjs");
+const { createMapModCheckService } = require("./map-mod-check.cjs");
+const { createPoeEventLogService } = require("./poe-event-log.cjs");
+const {
+  normalizedWikiArtworkTitle,
+  plannerArtworkCargoUrl,
+  selectPlannerArtworkRow,
+} = require("./planner-artwork.cjs");
 const {
   createWealthyExileView,
   fitViewBounds,
@@ -107,6 +114,8 @@ let toolkitRuntimeStore = null;
 let registeredToolkitMacros = new Set();
 let toolkitStashScrollProcess = null;
 let toolkitStashScrollConfig = "";
+let mapModCheckService = null;
+let poeEventLogService = null;
 
 function getToolkitFileService() {
   if (!toolkitFileService) {
@@ -124,6 +133,26 @@ function getToolkitRuntimeStore() {
     toolkitRuntimeStore.load();
   }
   return toolkitRuntimeStore;
+}
+
+function getMapModCheckService() {
+  if (!mapModCheckService) {
+    mapModCheckService = createMapModCheckService({
+      settingsPath: path.join(app.getPath("userData"), "map-mod-check.json"),
+      dataPath: path.join(__dirname, "..", "dist", "data", "toolkit", "regex-v1.json"),
+    });
+  }
+  return mapModCheckService;
+}
+
+function getPoeEventLogService() {
+  if (!poeEventLogService) {
+    poeEventLogService = createPoeEventLogService({
+      settingsPath: path.join(app.getPath("userData"), "poe-event-log.json"),
+    });
+    poeEventLogService.subscribe((state) => safeSend(mainWindow, "poe-event-log:update", state));
+  }
+  return poeEventLogService;
 }
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 const MAX_MARKET_STALE_MS = 2 * 60 * 60 * 1000;
@@ -251,6 +280,7 @@ let mainWindow;
 let trayWindow;
 let quickWindow;
 let priceCheckWindow;
+let mapModCheckWindow;
 let wealthyExileView;
 const toolkitOverlayWindows = new Map();
 const toolkitOverlayGeometryTimers = new Map();
@@ -292,6 +322,10 @@ let priceCheckPromotionTracksPointerExit = false;
 const priceCheckLifecycleEvents = [];
 let registeredDesktopShortcuts = {};
 let desktopShortcutWarning = "";
+let registeredMapModCheckHotkey = "";
+let mapModCheckShortcutError = "";
+let lastMapModCheckResult = null;
+let mapModCheckHideTimer = null;
 let priceCheckQaScheduled = false;
 let bundledTradeStatCatalogText = null;
 let bundledRegexDataText = null;
@@ -1011,6 +1045,62 @@ async function getKnowledgeImages(items, force) {
     // Search content stays useful if artwork resolution is temporarily down.
     return undefined;
   }
+}
+
+function validatePlannerArtworkRequest(value) {
+  const items = Array.isArray(value?.items) ? value.items : null;
+  if (!items || items.length > 128) throw new Error("Invalid planner artwork request.");
+  return items.flatMap((entry) => {
+    const id = Number(entry?.id);
+    const name = limitedTooltipString(entry?.name, 180);
+    const baseType = limitedTooltipString(entry?.baseType, 180);
+    if (!Number.isSafeInteger(id) || id < 1 || (!name && !baseType)) return [];
+    return [{ id, name, baseType }];
+  });
+}
+
+function hydratedWikiArtworkMap(payload) {
+  const result = new Map();
+  for (const page of payload?.query?.pages || []) {
+    const key = normalizedWikiArtworkTitle(page?.title);
+    const dataUrl = page?.imageinfo?.[0]?.dataUrl;
+    if (key && typeof dataUrl === "string" && /^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(dataUrl)) {
+      result.set(key, dataUrl);
+    }
+  }
+  return result;
+}
+
+async function resolvePlannerItemArtwork(request) {
+  const items = validatePlannerArtworkRequest(request);
+  const resolved = {};
+  for (let offset = 0; offset < items.length; offset += 20) {
+    const batch = items.slice(offset, offset + 20);
+    const values = [...new Set(batch.flatMap((item) => [item.name, item.baseType]).filter(Boolean))];
+    if (!values.length) continue;
+    const digest = crypto.createHash("sha256").update(values.slice().sort().join("\0")).digest("hex");
+    const cargo = await getCachedRemoteJson(
+      `planner-artwork-items-${digest}`,
+      plannerArtworkCargoUrl(WIKI_API_ROOT, values),
+      false,
+      {
+        defaultTtlMs: WIKI_KNOWLEDGE_TTL_MS,
+        minimumTtlMs: WIKI_KNOWLEDGE_TTL_MS,
+        sourceName: "PoE Wiki planner artwork",
+        validate: isWikiCargoPayload,
+      },
+    );
+    const images = await getKnowledgeImages(cargo.data, false);
+    const artwork = hydratedWikiArtworkMap(images?.data);
+    const rows = (cargo.data?.cargoquery || []).map((entry) => entry?.title || {});
+    for (const item of batch) {
+      const row = selectPlannerArtworkRow(rows, item);
+      const key = normalizedWikiArtworkTitle(row?.inventory_icon || row?.["inventory icon"]);
+      const dataUrl = key && artwork.get(key);
+      if (dataUrl) resolved[item.id] = dataUrl;
+    }
+  }
+  return resolved;
 }
 
 function trustedWikiArtworkUrl(value) {
@@ -1847,6 +1937,116 @@ function handleLockedPriceCheckShortcut() {
     mode: "locked",
     accelerator: DEFAULT_LOCKED_PRICE_CHECK_HOTKEY,
   });
+}
+
+function hideMapModCheckOverlay() {
+  clearTimeout(mapModCheckHideTimer);
+  mapModCheckHideTimer = null;
+  if (mapModCheckWindow && !mapModCheckWindow.isDestroyed()) mapModCheckWindow.hide();
+}
+
+function createMapModCheckWindow() {
+  const window = new BrowserWindow({
+    width: 430,
+    height: 470,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    focusable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  });
+  configureWindowSecurity(window);
+  window.setAlwaysOnTop(true, "screen-saver", 1);
+  window.on("closed", () => {
+    if (mapModCheckWindow === window) mapModCheckWindow = null;
+  });
+  void loadRenderer(window, "map-mod-check");
+  mapModCheckWindow = window;
+  return window;
+}
+
+function presentMapModCheckResult(result) {
+  lastMapModCheckResult = result;
+  const window = mapModCheckWindow && !mapModCheckWindow.isDestroyed()
+    ? mapModCheckWindow
+    : createMapModCheckWindow();
+  const pointer = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(pointer).workArea;
+  const bounds = window.getBounds();
+  window.setPosition(
+    Math.max(display.x, Math.min(display.x + display.width - bounds.width, pointer.x + 18)),
+    Math.max(display.y, Math.min(display.y + display.height - bounds.height, pointer.y + 18)),
+    false,
+  );
+  const show = () => {
+    if (window.isDestroyed()) return;
+    window.showInactive();
+    clearTimeout(mapModCheckHideTimer);
+    mapModCheckHideTimer = setTimeout(hideMapModCheckOverlay, 8_000);
+  };
+  if (window.webContents.isLoadingMainFrame()) window.webContents.once("did-finish-load", show);
+  else show();
+}
+
+async function handleMapModCheckShortcut() {
+  const service = getMapModCheckService();
+  const current = service.getSettings();
+  try {
+    const capture = await captureHoveredPoeItem({ accelerator: current.hotkey, mode: "passive" });
+    presentMapModCheckResult(service.analyse(capture.text));
+  } catch (error) {
+    presentMapModCheckResult({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      name: "Map Mod Check",
+      baseType: "",
+      itemClass: "",
+      overall: "unknown",
+      results: [],
+    });
+  }
+}
+
+function registerMapModCheckSettings(candidate, fallback = null) {
+  if (registeredMapModCheckHotkey) globalShortcut.unregister(registeredMapModCheckHotkey);
+  registeredMapModCheckHotkey = "";
+  mapModCheckShortcutError = "";
+  if (!candidate.enabled) return true;
+  const shortcutError = validateShortcut(candidate.hotkey, { global: true, priceCheck: true });
+  if (shortcutError) mapModCheckShortcutError = shortcutError;
+  else {
+    try {
+      if (globalShortcut.register(candidate.hotkey, () => { void handleMapModCheckShortcut(); })) {
+        registeredMapModCheckHotkey = candidate.hotkey;
+        return true;
+      }
+      mapModCheckShortcutError = `${candidate.hotkey} is already in use.`;
+    } catch {
+      mapModCheckShortcutError = `${candidate.hotkey} could not be activated.`;
+    }
+  }
+  if (fallback?.enabled) {
+    try {
+      if (globalShortcut.register(fallback.hotkey, () => { void handleMapModCheckShortcut(); })) {
+        registeredMapModCheckHotkey = fallback.hotkey;
+      }
+    } catch {
+      registeredMapModCheckHotkey = "";
+    }
+  }
+  return false;
 }
 
 function sanitizePriceCheckPanelPosition(value) {
@@ -4828,6 +5028,7 @@ app.whenReady().then(() => {
   }
   const toolkitMacroFailures = syncToolkitMacroShortcuts(getToolkitRuntimeStore().get());
   syncToolkitStashScroll(getToolkitRuntimeStore().get());
+  registerMapModCheckSettings(getMapModCheckService().getSettings());
   if (toolkitMacroFailures.length) {
     safeSend(mainWindow, "toolkit:macro-result", {
       ok: false,
@@ -4841,6 +5042,8 @@ app.on("before-quit", () => {
   app.isQuitting = true;
   pobEngineDispatcher.dispose();
   pobPlannerDispatcher.dispose();
+  poeEventLogService?.dispose();
+  poeEventLogService = null;
   stopPriceCheckPanelTracker();
   globalShortcut.unregisterAll();
   if (
@@ -4856,10 +5059,13 @@ app.on("before-quit", () => {
   trayClickTimer = null;
   clearTimeout(priceCheckGeometryTimer);
   priceCheckGeometryTimer = null;
+  clearTimeout(mapModCheckHideTimer);
+  mapModCheckHideTimer = null;
   for (const timer of toolkitOverlayGeometryTimers.values()) clearTimeout(timer);
   toolkitOverlayGeometryTimers.clear();
   trayWindow?.destroy();
   quickWindow?.destroy();
+  mapModCheckWindow?.destroy();
   if (wealthyExileView) {
     mainWindow?.contentView.removeChildView(wealthyExileView);
     if (!wealthyExileView.webContents.isDestroyed()) wealthyExileView.webContents.close();
@@ -4868,6 +5074,7 @@ app.on("before-quit", () => {
   toolkitOverlayWindows.clear();
   trayWindow = null;
   quickWindow = null;
+  mapModCheckWindow = null;
   wealthyExileView = null;
   tray?.destroy();
   tray = null;
@@ -5348,6 +5555,75 @@ ipcMain.handle("toolkit:capture-game", (event) => {
   return captureToolkitGameWindow();
 });
 
+ipcMain.handle("map-mod-check:get", (event) => {
+  assertDashboardSender(event);
+  const service = getMapModCheckService();
+  return {
+    settings: service.getSettings(),
+    definitions: service.getDefinitions(),
+    shortcutError: mapModCheckShortcutError,
+  };
+});
+
+ipcMain.handle("map-mod-check:save", (event, value) => {
+  assertDashboardSender(event);
+  const service = getMapModCheckService();
+  const next = service.saveSettings(value);
+  registerMapModCheckSettings(next);
+  return { settings: next, shortcutError: mapModCheckShortcutError };
+});
+
+ipcMain.handle("map-mod-check:analyse", (event, text) => {
+  assertDashboardSender(event);
+  return getMapModCheckService().analyse(text);
+});
+
+ipcMain.handle("map-mod-check:get-overlay-result", (event) => {
+  assertTrustedSender(event);
+  return lastMapModCheckResult;
+});
+
+ipcMain.handle("map-mod-check:hide-overlay", (event) => {
+  assertTrustedSender(event);
+  hideMapModCheckOverlay();
+});
+
+ipcMain.handle("poe-event-log:get", (event) => {
+  assertDashboardSender(event);
+  return getPoeEventLogService().getState();
+});
+
+ipcMain.handle("poe-event-log:start", (event, logPath) => {
+  assertDashboardSender(event);
+  return getPoeEventLogService().start(typeof logPath === "string" ? logPath : undefined);
+});
+
+ipcMain.handle("poe-event-log:stop", (event) => {
+  assertDashboardSender(event);
+  return getPoeEventLogService().stop();
+});
+
+ipcMain.handle("poe-event-log:clear", (event) => {
+  assertDashboardSender(event);
+  return getPoeEventLogService().clear();
+});
+
+ipcMain.handle("poe-event-log:select-path", async (event) => {
+  assertDashboardSender(event);
+  const selected = await dialog.showOpenDialog(mainWindow, {
+    title: "Choose Path of Exile Client.txt",
+    defaultPath: getPoeEventLogService().getState().settings.logPath || undefined,
+    properties: ["openFile"],
+    filters: [{ name: "Path of Exile Client log", extensions: ["txt"] }],
+  });
+  if (selected.canceled || selected.filePaths.length !== 1) return null;
+  const selectedPath = path.resolve(selected.filePaths[0]);
+  if (path.basename(selectedPath).toLocaleLowerCase() !== "client.txt") {
+    throw new Error("Choose Path of Exile's logs\\Client.txt file.");
+  }
+  return getPoeEventLogService().start(selectedPath);
+});
+
 ipcMain.handle("planner:get-passive-tree", (event, options) => {
   assertDashboardSender(event);
   return pobPlannerDispatcher.load({
@@ -5427,6 +5703,11 @@ ipcMain.handle("planner:import-character-pob", (event, request) => {
 ipcMain.handle("planner:read-clipboard", (event) => {
   assertDashboardSender(event);
   return clipboard.readText().replace(/\0/g, "").slice(0, 24 * 1024 * 1024);
+});
+
+ipcMain.handle("planner:resolve-item-artwork", (event, request) => {
+  assertDashboardSender(event);
+  return resolvePlannerItemArtwork(request);
 });
 
 ipcMain.handle("planner:list-characters", (event, request) => {

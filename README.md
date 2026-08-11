@@ -33,9 +33,9 @@ in one tray-first app.
 | **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware Trade check over the game. |
 | **Market Explorer** | Current league prices, trends, liquidity, filters, local watchlists, and target alerts. |
 | **Item Intel** | Searchable PoE Wiki reference data, artwork, requirements, modifiers, and trusted handoffs. |
-| **Build Lab** | Import, edit, compare, save, and export PoB-compatible builds on the passive tree. |
+| **Build Lab** | Import, edit, compare, save, and export PoB-compatible builds with exact item and jewel visuals. |
 | **Stash Wealth** | Wealthy Exile inside an isolated browser profile that remembers its own sign-in. |
-| **Player Toolkit** | Regex, item filters, socket colours, economy audits, references, and opt-in overlays. |
+| **Player Toolkit** | Map Mod Check, PoE Event Log, Cluster Back, regex, filters, socket colours, audits, and overlays. |
 
 ## Ctrl+D that stays out of your way
 
@@ -72,8 +72,9 @@ upstream source is temporarily unavailable.
 ### Plan without inventing numbers
 
 Build Lab imports PoB XML, codes, and supported build links into an interactive
-passive-tree workspace with mastery choices, multiple specs, skills, items,
-configuration, notes, comparison, undo/redo, and PoB export. Explicit
+passive-tree workspace with mastery choices, multiple specs, exact equipment
+artwork, cluster and Timeless Jewel socket visuals, PoB-style main-skill
+selectors, configuration, notes, comparison, undo/redo, and PoB export. Explicit
 recalculation uses a separately installed, fingerprint-verified Path of
 Building Community engine and fails closed when that engine is unavailable.
 
@@ -89,9 +90,10 @@ sign-in pages.
 ### Put reference data beside the market
 
 Item Intel combines searchable PoE Wiki Cargo data with current market context
-and safe links to specialist sources. The Player Toolkit adds source-tracked
-regex, item-filter editing, socket-colour comparison, economy audits, pinned
-reference sheets, and isolated opt-in overlay tools.
+and safe links to specialist sources. The Player Toolkit adds a local map-mod
+verdict overlay, a read-only in-memory `Client.txt` event feed, an exact Large
+Cluster Jewel back-notable finder, source-tracked regex, item-filter editing,
+socket-colour comparison, economy audits, and isolated opt-in overlay tools.
 
 ## Product tour
 
@@ -130,6 +132,7 @@ contract.
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+D` | Price-check the item under the cursor in PoE |
+| `Ctrl+Alt+M` | Check the map under the cursor with local Map Mod rules |
 | `Ctrl+Alt+D` | Open the price checker in deliberate locked interaction mode |
 | `Ctrl+Shift+E` | Show or hide GloamCore globally |
 | `Ctrl+Shift+L` | Toggle click-through mode |
@@ -147,6 +150,9 @@ rejected without replacing the last working binding.
   or request `POESESSID` account-session cookies.
 - Preferences, watchlists, saved workspaces, and normal caches stay on the
   local computer.
+- PoE Event Log reads the selected `Client.txt` in place. Events stay in memory
+  and are neither saved nor uploaded; only the selected path and filter choices
+  persist.
 - Optional private-character import keeps its narrowly scoped official OAuth
   token in memory for the import only and does not cache authenticated
   character responses.

@@ -59,12 +59,22 @@ PoB map-modifier data can also corroborate entries in the generated regex pack.
 That pack records the exact PoB input file, version, license, and SHA-256 used
 for its build.
 
+`public/data/toolkit/cluster-back-v1.json` records the SHA-256 of the installed
+PoB `src/Data/ClusterJewels.lua` used to derive notable display order. It does
+not ship PoB runtime code or the source database. The generator combines that
+order with separately retrieved Wiki spawn-weight records and the app's pinned
+official Trade stat snapshot.
+
 ## Path of Exile Wiki and Cargo
 
 Item Intel queries the public
 [Path of Exile Wiki](https://www.poewiki.net/) MediaWiki and Cargo interfaces
 for item and modifier reference data. The regex pack also transforms selected
-Area-modifier records returned by Cargo.
+Area-modifier records returned by Cargo. Cluster Back transforms current
+cluster-notable mod groups, generation types, and spawn weights from Cargo.
+Build Lab requests exact item records and inventory-icon titles at runtime;
+downloaded image data remains an ephemeral cache and is not written into PoB
+XML or saved planner workspaces.
 
 PoE Wiki textual content that the wiki licenses is available under
 [CC BY-NC-SA 3.0](https://www.poewiki.net/wiki/Path_of_Exile_Wiki:Copyrights).
@@ -87,6 +97,10 @@ sanitized listing fields to the renderer.
 
 No GloamCore project license is asserted over Grinding Gear Games names,
 artwork, APIs, or game data.
+
+Cluster Back uses Trade stat IDs from the pinned local Trade stat pack and
+opens a user-requested query on the official Trade website. The bundled
+cluster pack records the exact local pack hash used during generation.
 
 ## Live poe.ninja data
 

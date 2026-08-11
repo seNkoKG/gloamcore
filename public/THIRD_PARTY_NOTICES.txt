@@ -46,6 +46,22 @@ The transformed Cargo-derived portion of the regex reference pack retains that
 attribution and license. Path of Exile content and materials remain the
 intellectual property of their respective owners.
 
+Cluster Back reference data
+---------------------------
+
+The bundled PoE 1 Cluster Back reference pack is generated from public
+Grinding Gear Games Trade API data, Path of Building Community data, and
+Cluster Jewel modifier records queried from PoE Wiki Cargo. Its source
+identities, retrieval timestamps, input hashes, transformations, and known
+limitations are embedded in public/data/toolkit/cluster-back-v1.json.
+
+PoE Wiki textual content that the wiki may license is provided under CC
+BY-NC-SA 3.0. Source: https://www.poewiki.net/ and
+https://www.poewiki.net/wiki/Path_of_Exile_Wiki:Copyrights
+The transformed Cargo-derived portion of the Cluster Back reference pack
+retains that attribution and license. Path of Exile content and materials
+remain the intellectual property of their respective owners.
+
 Path of Building calculation bridge
 -----------------------------------
 

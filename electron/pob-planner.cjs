@@ -328,6 +328,8 @@ function createTreeVisuals(rawSprites, assetRoot) {
       Object.assign(ascendancies, rectMap(setName));
     }
     const frames = rectMap("frame");
+    const jewels = rectMap("jewel");
+    const jewelRadii = rectMap("jewelRadius");
     const startNodes = rectMap("startNode");
     const groupBackgrounds = rectMap("groupBackground");
     const backgrounds = rectMap("background");
@@ -335,6 +337,8 @@ function createTreeVisuals(rawSprites, assetRoot) {
       sheets: Object.fromEntries(sheets),
       backgrounds,
       frames,
+      jewels,
+      jewelRadii,
       startNodes,
       groupBackgrounds,
       ascendancies,

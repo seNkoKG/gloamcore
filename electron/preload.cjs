@@ -37,6 +37,16 @@ contextBridge.exposeInMainWorld("poeWidget", {
   showToolkitOverlay: (kind) => ipcRenderer.invoke("toolkit:show-overlay", kind),
   hideToolkitOverlay: () => ipcRenderer.invoke("toolkit:hide-overlay"),
   captureToolkitGameWindow: () => ipcRenderer.invoke("toolkit:capture-game"),
+  getMapModCheck: () => ipcRenderer.invoke("map-mod-check:get"),
+  saveMapModCheck: (settings) => ipcRenderer.invoke("map-mod-check:save", settings),
+  checkMapMods: (text) => ipcRenderer.invoke("map-mod-check:analyse", text),
+  getMapModOverlayResult: () => ipcRenderer.invoke("map-mod-check:get-overlay-result"),
+  hideMapModOverlay: () => ipcRenderer.invoke("map-mod-check:hide-overlay"),
+  getPoeEventLog: () => ipcRenderer.invoke("poe-event-log:get"),
+  startPoeEventLog: (logPath) => ipcRenderer.invoke("poe-event-log:start", logPath),
+  stopPoeEventLog: () => ipcRenderer.invoke("poe-event-log:stop"),
+  clearPoeEventLog: () => ipcRenderer.invoke("poe-event-log:clear"),
+  selectPoeEventLogPath: () => ipcRenderer.invoke("poe-event-log:select-path"),
   getPassiveTreeData: (options) => ipcRenderer.invoke("planner:get-passive-tree", options),
   decodePobBuild: (input) => ipcRenderer.invoke("planner:decode-pob", input),
   encodePobBuild: (input) => ipcRenderer.invoke("planner:encode-pob", input),
@@ -47,6 +57,7 @@ contextBridge.exposeInMainWorld("poeWidget", {
   huntPobTimeless: (request) => ipcRenderer.invoke("planner:hunt-timeless", request),
   importPobCharacter: (request) => ipcRenderer.invoke("planner:import-character-pob", request),
   readPlannerClipboard: () => ipcRenderer.invoke("planner:read-clipboard"),
+  resolvePlannerItemArtwork: (request) => ipcRenderer.invoke("planner:resolve-item-artwork", request),
   listPoeCharacters: (request) => ipcRenderer.invoke("planner:list-characters", request),
   getPoeCharacter: (request) => ipcRenderer.invoke("planner:get-character", request),
   getPoeStashLeagues: (request) => ipcRenderer.invoke("stash:get-leagues", request),
@@ -101,5 +112,10 @@ contextBridge.exposeInMainWorld("poeWidget", {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on("update:state", listener);
     return () => ipcRenderer.removeListener("update:state", listener);
+  },
+  onPoeEventLog: (callback) => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on("poe-event-log:update", listener);
+    return () => ipcRenderer.removeListener("poe-event-log:update", listener);
   },
 });

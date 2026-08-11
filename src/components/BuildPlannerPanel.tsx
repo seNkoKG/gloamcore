@@ -77,6 +77,11 @@ import { readMigratedStorage } from "../lib/storage-migration";
 import { materializeImportedPassiveSpec, materializeImportedPassiveTree } from "../lib/planner/cluster-jewel-graph";
 import { PlannerAsyncRevisionGuard, type PlannerAsyncRequestToken } from "../lib/planner/planner-async-guard";
 import {
+  jewelSocketOverlayName,
+  timelessJewelSprites,
+  timelessJewelVisual,
+} from "../lib/planner/jewel-visuals";
+import {
   allocatePassivePath,
   buildPassiveAllocationContext,
   classStartNode,
@@ -114,7 +119,6 @@ import {
   PlannerBuildsPanel,
   PlannerCalcsPanel,
   PlannerConfigPanel,
-  PlannerGalaxyPanel,
   PlannerItemsPanel,
   PlannerSkillsPanel,
   presentPlannerItem,
@@ -130,7 +134,7 @@ type MasteryPicker = { nodeId: number; path: number[] };
 type NodePowerMetric = "blend" | "offence" | "defence";
 type TreeViewCommand = { action: "zoom-in" | "zoom-out" | "fit" | "focus"; nodeId?: number; nonce: number };
 
-const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "galaxy", "builds", "notes", "history"];
+const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "builds", "notes", "history"];
 
 function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
   switch (tab) {
@@ -139,7 +143,6 @@ function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
     case "skills": return <Swords size={14}/>;
     case "config": return <Settings2 size={14}/>;
     case "calcs": return <Activity size={14}/>;
-    case "galaxy": return <Sparkles size={14}/>;
     case "builds": return <Boxes size={14}/>;
     case "notes": return <BookOpen size={14}/>;
     case "history": return <History size={14}/>;
@@ -202,6 +205,11 @@ function buildWithEngineCalculation(
           index: skill.index,
           name: skill.name,
           ...(skill.parts.length ? { parts: skill.parts } : {}),
+          ...(skill.sourceGemIndex > 0 ? { sourceGemIndex: skill.sourceGemIndex } : {}),
+          ...(skill.stages ? { stages: skill.stages } : {}),
+          ...(skill.mine ? { mine: true } : {}),
+          ...(skill.minions.length ? { minions: skill.minions } : {}),
+          ...(skill.minionSkills.length ? { minionSkills: skill.minionSkills } : {}),
         })),
       } : group;
     }),
@@ -635,6 +643,7 @@ function PassiveTreeCanvas({
   ascendancyName,
   secondaryAscendancyName,
   socketedItems,
+  itemArtwork,
   powerScores,
   powerMetric,
   powerMax,
@@ -654,6 +663,7 @@ function PassiveTreeCanvas({
   ascendancyName: string;
   secondaryAscendancyName: string;
   socketedItems: ReadonlyMap<number, ImportedPobItem>;
+  itemArtwork: ReadonlyMap<number, string>;
   powerScores: ReadonlyMap<number, PobNodePower> | null;
   powerMetric: NodePowerMetric;
   powerMax: Readonly<Record<string, number>>;
@@ -710,18 +720,19 @@ function PassiveTreeCanvas({
     const images = new Map<number, HTMLImageElement>();
     jewelImagesRef.current = images;
     for (const [nodeId, item] of socketedItems) {
-      if (!item.icon) continue;
+      const source = item.icon || itemArtwork.get(item.id);
+      if (!source) continue;
       const image = new Image();
       images.set(nodeId, image);
       image.onload = image.onerror = () => active && setRevision((value) => value + 1);
-      image.src = item.icon;
+      image.src = source;
     }
     setRevision((value) => value + 1);
     return () => {
       active = false;
       for (const image of images.values()) image.onload = image.onerror = null;
     };
-  }, [socketedItems]);
+  }, [itemArtwork, socketedItems]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -785,6 +796,26 @@ function PassiveTreeCanvas({
       return true;
     };
 
+    const drawSpriteSized = (
+      sprite: PassiveTreeSpriteRect | null | undefined,
+      x: number,
+      y: number,
+      size: number,
+      rotation: number,
+      opacity: number,
+    ) => {
+      if (!sprite || size < 0.35) return false;
+      const image = images.get(sprite.sheet);
+      if (!image?.complete || !image.naturalWidth || sprite.w <= 0 || sprite.h <= 0) return false;
+      context.save();
+      context.globalAlpha *= opacity;
+      context.translate(x, y);
+      context.rotate(rotation);
+      context.drawImage(image, sprite.x, sprite.y, sprite.w, sprite.h, -size / 2, -size / 2, size, size);
+      context.restore();
+      return true;
+    };
+
     for (const group of visibleGroups) {
       const x = group.x * view.scale + view.x;
       const y = group.y * view.scale + view.y;
@@ -804,6 +835,18 @@ function PassiveTreeCanvas({
           { half: group.background.isHalfImage, opacity: 0.78 },
         );
       }
+    }
+
+    for (const [nodeId, item] of socketedItems) {
+      if (!allocated.has(nodeId)) continue;
+      const node = visibleNodes.find((entry) => entry.id === nodeId);
+      const visual = timelessJewelVisual(item);
+      if (!node || !visual) continue;
+      const point = screen(node);
+      const diameter = visual.radius * view.scale * 2;
+      const sprites = timelessJewelSprites(tree.assets?.jewelRadii, visual);
+      drawSpriteSized(sprites[0], point.x, point.y, diameter, -0.7, 0.7);
+      drawSpriteSized(sprites[1], point.x, point.y, diameter, 0.7, 0.7);
     }
 
     for (const connection of connections) {
@@ -907,6 +950,14 @@ function PassiveTreeCanvas({
           rendered = drawSprite(tree.assets?.frames[frameName] || tree.assets?.ascendancies[frameName], point.x, point.y) || rendered;
         }
       }
+      const socketedItem = node.jewelSocket ? socketedItems.get(node.id) : null;
+      if (socketedItem && active) {
+        const overlayName = jewelSocketOverlayName(
+          socketedItem,
+          Boolean(node.expansionJewel && node.expansionJewel.size < 2),
+        );
+        if (overlayName) rendered = drawSprite(tree.assets?.jewels[overlayName], point.x, point.y) || rendered;
+      }
       const fallbackRadius = node.keystone ? 6 : node.notable || node.mastery ? 4.4 : node.jewelSocket ? 4 : 2.35;
       if (!rendered) {
         context.beginPath();
@@ -914,7 +965,6 @@ function PassiveTreeCanvas({
         context.fillStyle = refunding ? "#ff5b5b" : active ? "#39dcb9" : preview ? "#d9f4ff" : match ? "#ffd76c" : start ? "#ef9f45" : node.ascendancyName ? "#8a6de9" : "#314551";
         context.fill();
       }
-      const socketedItem = node.jewelSocket ? socketedItems.get(node.id) : null;
       const jewelImage = socketedItem && jewelImagesRef.current.get(node.id);
       if (jewelImage?.complete && jewelImage.naturalWidth) {
         const radius = Math.max(3.3, Math.min(20, 42 * view.scale * 2.66));
@@ -1105,6 +1155,7 @@ function PassiveTreeCanvas({
 export function BuildPlannerPanel() {
   const [tree, setTree] = useState<PassiveTreeData | null>(null);
   const [build, setBuild] = useState<ImportedPobBuild | null>(null);
+  const [itemArtwork, setItemArtwork] = useState<Map<number, string>>(new Map());
   const [specs, setSpecs] = useState<ImportedPassiveSpec[]>([]);
   const [activeSpecId, setActiveSpecId] = useState("");
   const [allocated, setAllocated] = useState<Set<number>>(new Set());
@@ -1154,6 +1205,28 @@ export function BuildPlannerPanel() {
   const asyncGuardRef = useRef(new PlannerAsyncRevisionGuard());
   const plannerIdentityRef = useRef({ build, specs, activeSpecId, tree });
   plannerIdentityRef.current = { build, specs, activeSpecId, tree };
+
+  useEffect(() => {
+    let active = true;
+    const items = (build?.items || [])
+      .filter((item) => !item.icon && (item.name || item.baseType))
+      .map((item) => ({ id: item.id, name: item.name, baseType: item.baseType }));
+    setItemArtwork(new Map());
+    if (!items.length) return () => { active = false; };
+    void (async () => {
+      const resolved = new Map<number, string>();
+      for (let offset = 0; offset < items.length; offset += 128) {
+        const batch = await bridge.resolvePlannerItemArtwork({ items: items.slice(offset, offset + 128) });
+        for (const [rawId, source] of Object.entries(batch)) {
+          if (typeof source === "string" && source.startsWith("data:image/")) resolved.set(Number(rawId), source);
+        }
+      }
+      if (active) setItemArtwork(resolved);
+    })().catch(() => {
+      if (active) setItemArtwork(new Map());
+    });
+    return () => { active = false; };
+  }, [build?.items]);
 
   const markPlannerChanged = () => asyncGuardRef.current.markChanged();
   const beginReplacement = () => asyncGuardRef.current.begin("replacement");
@@ -2502,7 +2575,7 @@ export function BuildPlannerPanel() {
           <label className="planner-context-card"><small>Ascendancy · LV {build?.level || 1}</small><select aria-label="Ascendancy" value={ascendancyId} onChange={(event) => changeAscendancy(Number(event.target.value))}><option value={0}>None</option>{currentClass?.ascendancies.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
           <label className="planner-context-card planner-context-spec"><small>Tree spec</small><span><select value={activeSpecId} onChange={(event) => { void selectSpec(event.target.value); }}><option value="">Current tree</option>{specs.map((spec) => <option key={spec.id} value={spec.id}>{spec.title}</option>)}</select><button type="button" aria-label="Duplicate tree spec" onClick={addSpec}><Plus size={12}/></button></span></label>
         </div>
-        <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">{PLANNER_TABS.slice(0, 7).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}><PlannerTabGlyph tab={value}/><span>{value}</span></button>)}</nav>
+        <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">{PLANNER_TABS.slice(0, 6).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}><PlannerTabGlyph tab={value}/><span>{value}</span></button>)}</nav>
         <div className="planner-command-actions">
           <label className="planner-game-select"><select aria-label="Game" value={tree.game} disabled={busy} onChange={(event) => { void changeGame(event.target.value as "poe1" | "poe2"); }}><option value="poe1">PoE 1</option><option value="poe2">PoE 2</option></select></label>
           {Boolean(tree.alternateAscendancies?.length) && <label className="planner-bloodline-select"><select aria-label="Bloodline" value={secondaryAscendancyId} onChange={(event) => changeSecondaryAscendancy(Number(event.target.value))}><option value={0}>No bloodline</option>{tree.alternateAscendancies?.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
@@ -2519,7 +2592,7 @@ export function BuildPlannerPanel() {
         {tab === "tree" && (
           <div className="passive-tree-stage">
             {materializedTree
-              ? <PassiveTreeCanvas tree={materializedTree} allocated={allocated} previewed={previewed} refundPreview={hoverDependents} highlighted={highlighted} hoveredId={hoverNodeId} classId={classId} ascendancyName={currentAscendancy?.internalId || ""} secondaryAscendancyName={secondaryAscendancyName} socketedItems={socketedItems} powerScores={nodePowers.length ? nodePowerMap : null} powerMetric={powerMetric} powerMax={nodePowerMax} viewCommand={viewCommand} onAllocate={(node) => allocate(node, traceMode && tracePath[tracePath.length - 1] === node.id ? tracePath : undefined)} onRefund={refund} onMastery={openMasteryPicker} onHover={(node, point) => setHover(node && point ? { node, ...point } : null)} />
+              ? <PassiveTreeCanvas tree={materializedTree} allocated={allocated} previewed={previewed} refundPreview={hoverDependents} highlighted={highlighted} hoveredId={hoverNodeId} classId={classId} ascendancyName={currentAscendancy?.internalId || ""} secondaryAscendancyName={secondaryAscendancyName} socketedItems={socketedItems} itemArtwork={itemArtwork} powerScores={nodePowers.length ? nodePowerMap : null} powerMetric={powerMetric} powerMax={nodePowerMax} viewCommand={viewCommand} onAllocate={(node) => allocate(node, traceMode && tracePath[tracePath.length - 1] === node.id ? tracePath : undefined)} onRefund={refund} onMastery={openMasteryPicker} onHover={(node, point) => setHover(node && point ? { node, ...point } : null)} />
               : <div className="planner-loading"><LoaderCircle className="is-spinning" /><strong>Loading the matching PoB {activePassiveSpec?.treeVersion} tree…</strong></div>}
             <div className="tree-toolbar">
               <button type="button" title="Zoom in" onClick={() => setViewCommand({ action: "zoom-in", nonce: Date.now() })}><ZoomIn size={14}/></button>
@@ -2568,11 +2641,10 @@ export function BuildPlannerPanel() {
             })()}
           </div>
         )}
-        {tab === "items" && <PlannerItemsPanel build={build} onChange={editBuild} />}
+        {tab === "items" && <PlannerItemsPanel build={build} artwork={itemArtwork} onChange={editBuild} />}
         {tab === "skills" && <PlannerSkillsPanel build={build} onChange={editBuild} />}
         {tab === "config" && <PlannerConfigPanel build={build} onChange={editBuild} />}
         {tab === "calcs" && <PlannerCalcsPanel build={build} editedSinceImport={editedSinceImport} comparison={comparison} />}
-        {tab === "galaxy" && <PlannerGalaxyPanel build={build} />}
         {tab === "builds" && <PlannerBuildsPanel builds={savedBuilds} activeId={activeSavedId} baselineId={baselineId} libraryError={savedLibraryError} recoveringLibrary={recoveringSavedLibrary} onRecoverLibrary={recoverSavedLibrary} onSave={saveToLibrary} onLoad={loadSnapshot} onDelete={(id) => { if (!persistSavedBuilds(savedBuilds.filter((entry) => entry.id !== id))) return; if (activeSavedId === id) setActiveSavedId(""); if (baselineId === id) setBaselineId(""); }} onDuplicate={duplicateSnapshot} onBaseline={setBaselineId} onExport={exportSnapshot} />}
         {tab === "notes" && <div className="planner-notes"><textarea aria-label="Build notes" value={build?.notes || ""} placeholder="Build notes, campaign reminders, gearing steps…" onChange={(event) => editNotes(event.target.value)} /></div>}
         {tab === "history" && <div className="planner-history"><header><History size={16} /><strong>Tree timeline</strong><button type="button" onClick={() => { const initial = history[0]; if (initial) { restoreHistory(0); setHistory([initial]); } }}><RotateCcw size={13} /> Reset to start</button></header>{[...history].reverse().map((entry, reverseIndex) => { const index = history.length - reverseIndex - 1; return <button type="button" key={`${entry.at}-${index}`} className={index === historyIndex ? "is-active" : ""} onClick={() => restoreHistory(index)}><span>{entry.label}</span><small>{historyPointLabel(entry)} · {new Date(entry.at).toLocaleTimeString()}</small></button>; })}</div>}

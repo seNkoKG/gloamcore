@@ -5,6 +5,7 @@ import PriceCheckApp from "./PriceCheckApp";
 import { QuickSearchSurface } from "./components/QuickSearchSurface";
 import { TraySurface } from "./components/TraySurface";
 import { ToolkitOverlaySurface } from "./components/ToolkitOverlaySurface";
+import { MapModCheckOverlaySurface } from "./components/MapModCheckOverlaySurface";
 import { hydratePreferences } from "./lib/preferences";
 import { configureMobileRuntime, isMobileApp } from "./lib/platform";
 import "./styles.css";
@@ -14,7 +15,9 @@ document.documentElement.dataset.surface = surface || "dashboard";
 if (isMobileApp) document.documentElement.dataset.mobile = "true";
 
 const Root =
-  surface?.startsWith("toolkit-overlay-")
+  surface === "map-mod-check"
+    ? MapModCheckOverlaySurface
+    : surface?.startsWith("toolkit-overlay-")
     ? ToolkitOverlaySurface
     : surface === "tray"
     ? TraySurface

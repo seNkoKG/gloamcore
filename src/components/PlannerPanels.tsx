@@ -11,11 +11,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { pobInputLabel, type ImportedPobBuild, type ImportedPobItem, type ImportedPobStat, type PobStatCategory } from "../lib/planner/pob-build";
+import { pobInputLabel, type ImportedPobActiveSkill, type ImportedPobBuild, type ImportedPobItem, type ImportedPobStat, type PobStatCategory } from "../lib/planner/pob-build";
 import {
   comparePlannerBuilds,
   formatPobStatValue,
-  groupPobStats,
   type PlannerWorkspaceSnapshot,
 } from "../lib/planner/planner-workspace";
 
@@ -102,10 +101,11 @@ function itemKind(item: ImportedPobItem) {
   return "item";
 }
 
-function ItemArtwork({ item, compact = false }: { item: ImportedPobItem; compact?: boolean }) {
+function ItemArtwork({ item, artwork, compact = false }: { item: ImportedPobItem; artwork?: string; compact?: boolean }) {
+  const image = item.icon || artwork;
   return <span className={clsx("planner-item-art", `is-${itemKind(item)}`, compact && "is-compact")}>
-    {item.icon
-      ? <img src={item.icon} alt="" draggable={false}/>
+    {image
+      ? <img src={image} alt="" draggable={false}/>
       : <b title="Official artwork is unavailable for this imported item">{(item.baseType || item.name).replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "?"}</b>}
   </span>;
 }
@@ -268,7 +268,7 @@ function slotMatches(itemSlot: string, choices: readonly string[], swap = false)
   return choices.some((choice) => withoutSwap === choice.toLowerCase());
 }
 
-export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild | null; onChange: (build: ImportedPobBuild) => void }) {
+export function PlannerItemsPanel({ build, artwork, onChange }: { build: ImportedPobBuild | null; artwork: ReadonlyMap<number, string>; onChange: (build: ImportedPobBuild) => void }) {
   const [selectedId, setSelectedId] = useState(0);
   const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
   if (!build?.items.length) return <PlannerEmpty>Import a character or PoB build to inspect and edit its item loadout.</PlannerEmpty>;
@@ -306,12 +306,12 @@ export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild
       onClick={() => entry && setSelectedId(entry.item.id)}
       title={entry ? `${definition.label}: ${entry.item.name}` : `${definition.label}: empty`}
     >
-      {entry ? <><ItemArtwork item={entry.item}/><span>{entry.item.name}</span></> : <><i/><span>{definition.label}</span></>}
+      {entry ? <><ItemArtwork item={entry.item} artwork={artwork.get(entry.item.id)}/><span>{entry.item.name}</span></> : <><i/><span>{definition.label}</span></>}
     </button>;
   };
   const jewelTray = (title: string, entries: typeof jewels) => entries.length > 0 && <section className="planner-jewel-tray">
     <header><strong>{title}</strong><small>{entries.length}</small></header>
-    <div>{entries.map(({ item, view }) => <button type="button" key={item.id} className={clsx(`is-${view.rarity}`, item.id === selected.item.id && "is-selected")} onClick={() => setSelectedId(item.id)} title={`${item.name} · ${view.slotLabel}`}><ItemArtwork item={item} compact/><span>{item.name}</span></button>)}</div>
+    <div>{entries.map(({ item, view }) => <button type="button" key={item.id} className={clsx(`is-${view.rarity}`, item.id === selected.item.id && "is-selected")} onClick={() => setSelectedId(item.id)} title={`${item.name} · ${view.slotLabel}`}><ItemArtwork item={item} artwork={artwork.get(item.id)} compact/><span>{item.name}</span></button>)}</div>
   </section>;
   const selectedEquipped = Boolean(selected.item.equipped && selected.item.slot);
   return <div className="planner-items-panel">
@@ -320,14 +320,14 @@ export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild
       <div className="planner-paper-doll">{PAPER_DOLL_SLOTS.map(paperSlot)}</div>
       <section className="planner-flask-belt"><header><strong>Flasks</strong></header><div>{[1, 2, 3, 4, 5].map((index) => {
         const entry = flasks[index - 1];
-        return <button type="button" key={index} className={clsx("planner-flask-slot", entry && `is-${entry.view.rarity}`, entry?.item.id === selected.item.id && "is-selected")} onClick={() => entry && setSelectedId(entry.item.id)} title={entry?.item.name || `Flask ${index}: empty`}>{entry ? <ItemArtwork item={entry.item}/> : <i/>}</button>;
+        return <button type="button" key={index} className={clsx("planner-flask-slot", entry && `is-${entry.view.rarity}`, entry?.item.id === selected.item.id && "is-selected")} onClick={() => entry && setSelectedId(entry.item.id)} title={entry?.item.name || `Flask ${index}: empty`}>{entry ? <ItemArtwork item={entry.item} artwork={artwork.get(entry.item.id)}/> : <i/>}</button>;
       })}</div></section>
       {jewelTray("Cluster jewels", clusterJewels)}
       {jewelTray("Base & Timeless jewels", baseJewels)}
-      {alternatives.length > 0 && <section className="planner-item-alternatives"><header><strong>Imported alternatives</strong><small>{alternatives.length}</small></header><div>{alternatives.map(({ item, view }) => <button type="button" key={item.id} className={clsx(`is-${view.rarity}`, item.id === selected.item.id && "is-selected")} onClick={() => setSelectedId(item.id)} title={`${item.name} · ${view.slotLabel}`}><ItemArtwork item={item} compact/><span><strong>{item.name}</strong><small>{view.slotLabel}</small></span></button>)}</div></section>}
+      {alternatives.length > 0 && <section className="planner-item-alternatives"><header><strong>Imported alternatives</strong><small>{alternatives.length}</small></header><div>{alternatives.map(({ item, view }) => <button type="button" key={item.id} className={clsx(`is-${view.rarity}`, item.id === selected.item.id && "is-selected")} onClick={() => setSelectedId(item.id)} title={`${item.name} · ${view.slotLabel}`}><ItemArtwork item={item} artwork={artwork.get(item.id)} compact/><span><strong>{item.name}</strong><small>{view.slotLabel}</small></span></button>)}</div></section>}
     </section>
     <aside className={clsx("planner-item-inspector", `is-${selected.view.rarity}`)}>
-      <header><ItemArtwork item={selected.item}/><span><small>{selected.view.slotLabel}</small><strong>{selected.item.name}</strong></span></header>
+      <header><ItemArtwork item={selected.item} artwork={artwork.get(selected.item.id)}/><span><small>{selected.view.slotLabel}</small><strong>{selected.item.name}</strong></span></header>
       <div className="planner-item-identity"><small>{selected.view.rarityLabel}</small>{selected.item.baseType && selected.item.baseType !== selected.item.name && <span>{selected.item.baseType}</span>}</div>
       <label className="planner-item-loadout" title={selected.item.slot ? `${selectedEquipped ? "Remove" : "Equip"} ${selected.item.name}` : "This imported item has no saved equipment slot"}><input type="checkbox" checked={selectedEquipped} disabled={!selected.item.slot} onChange={() => toggle(selected.item.id)}/><span>{selectedEquipped ? "Equipped" : selected.item.slot ? "Equip in this slot" : "No saved slot"}</span></label>
       {selected.view.statuses.length > 0 && <div className="planner-item-badges">{selected.view.statuses.map((status) => <b key={status}>{status}</b>)}</div>}
@@ -354,10 +354,26 @@ export function PlannerSkillsPanel({ build, onChange }: { build: ImportedPobBuil
   const selectedGroupIndex = Math.max(0, build.skillGroups.findIndex((group) => group.id === selectedGroupId));
   const selected = build.skillGroups[selectedGroupIndex];
   const isSupport = (gem: typeof selected.gems[number]) => gem.support === true || /support/i.test(`${gem.skillId} ${gem.gemId || ""}`);
-  const activeSkills = selected.activeSkills?.length
+  const activeSkills: ImportedPobActiveSkill[] = selected.activeSkills?.length
     ? selected.activeSkills
-    : selected.gems.filter((gem) => gem.enabled && !isSupport(gem)).map((gem, index) => ({ index: index + 1, name: gem.name }));
+    : selected.gems.flatMap((gem, gemIndex) => gem.enabled && !isSupport(gem)
+      ? [{ name: gem.name, sourceGemIndex: gemIndex + 1 }]
+      : []).map((skill, index) => ({ ...skill, index: index + 1 }));
   const selectedActiveSkill = activeSkills.find((skill) => skill.index === (selected.mainActiveSkill || 1)) || activeSkills[0];
+  const selectedGemIndex = (selectedActiveSkill?.sourceGemIndex || 0) - 1;
+  const selectedGem = selectedGemIndex >= 0 ? selected.gems[selectedGemIndex] : undefined;
+  const updateSelectedGem = (patch: Partial<ImportedPobBuild["skillGroups"][number]["gems"][number]>) => {
+    if (selectedGemIndex >= 0) updateGem(selectedGroupIndex, selectedGemIndex, patch);
+  };
+  const minionValue = selectedGem?.skillMinionItemSetCalcs || selectedGem?.skillMinionItemSet
+    ? `item:${selectedGem.skillMinionItemSetCalcs || selectedGem.skillMinionItemSet}`
+    : selectedGem?.skillMinionCalcs || selectedGem?.skillMinion
+      ? `minion:${selectedGem.skillMinionCalcs || selectedGem.skillMinion}`
+      : selectedActiveSkill?.minions?.[0]?.itemSetId
+        ? `item:${selectedActiveSkill.minions[0].itemSetId}`
+        : selectedActiveSkill?.minions?.[0]?.minionId
+          ? `minion:${selectedActiveSkill.minions[0].minionId}`
+          : "";
   const gemArtwork = (gem: typeof selected.gems[number], compact = false) => <span className={clsx("planner-gem-art", compact && "is-compact", isSupport(gem) && "is-support")}>
     {gem.icon ? <img src={gem.icon} alt="" draggable={false}/> : <b title="Official gem artwork is unavailable">{gem.name.slice(0, 1)}</b>}
   </span>;
@@ -372,7 +388,15 @@ export function PlannerSkillsPanel({ build, onChange }: { build: ImportedPobBuil
     </aside>
     <section className="planner-skill-editor">
       <header><span><small>{selected.slot}</small><strong>{selected.label || selected.gems[0]?.name || "Socket group"}</strong></span><label><input type="checkbox" checked={selected.enabled} onChange={(event) => updateGroup(selectedGroupIndex, { enabled: event.target.checked })}/> Group enabled</label></header>
-      <div className="planner-main-skill-controls"><label><span>Main socket group</span><button type="button" className={build.mainSocketGroup === selectedGroupIndex + 1 ? "is-active" : ""} onClick={() => onChange({ ...build, mainSocketGroup: selectedGroupIndex + 1 })}>{build.mainSocketGroup === selectedGroupIndex + 1 ? "Selected for calculations" : "Use this group"}</button></label><label><span>Main active skill</span><select aria-label="Main active skill" value={selectedActiveSkill?.index || 1} disabled={!activeSkills.length} onChange={(event) => updateGroup(selectedGroupIndex, { mainActiveSkill: Number(event.target.value), mainActiveSkillCalcs: Number(event.target.value) })}>{activeSkills.map((skill) => <option key={`${skill.index}-${skill.name}`} value={skill.index}>{skill.name}</option>)}</select></label></div>
+      <div className="planner-main-skill-controls">
+        <label><span>Main socket group</span><button type="button" className={build.mainSocketGroup === selectedGroupIndex + 1 ? "is-active" : ""} onClick={() => onChange({ ...build, mainSocketGroup: selectedGroupIndex + 1 })}>{build.mainSocketGroup === selectedGroupIndex + 1 ? "Selected for calculations" : "Use this group"}</button></label>
+        <label><span>Main active skill</span><select aria-label="Main active skill" value={selectedActiveSkill?.index || 1} disabled={!activeSkills.length} onChange={(event) => updateGroup(selectedGroupIndex, { mainActiveSkill: Number(event.target.value), mainActiveSkillCalcs: Number(event.target.value) })}>{activeSkills.map((skill) => <option key={`${skill.index}-${skill.name}`} value={skill.index}>{skill.name}</option>)}</select></label>
+        {(selectedActiveSkill?.parts?.length || 0) > 1 && <label><span>Skill part</span><select aria-label="Main skill part" value={selectedGem?.skillPartCalcs || selectedGem?.skillPart || 1} disabled={!selectedGem} onChange={(event) => { const value = Number(event.target.value); updateSelectedGem({ skillPart: value, skillPartCalcs: value }); }}>{selectedActiveSkill?.parts?.map((part, index) => <option key={`${index}-${part}`} value={index + 1}>{part}</option>)}</select></label>}
+        {selectedActiveSkill?.stages && <label><span>Skill stages</span><input aria-label="Main skill stages" type="number" min={selectedActiveSkill.stages.min} max={selectedActiveSkill.stages.max} value={selectedGem?.skillStageCountCalcs || selectedGem?.skillStageCount || selectedActiveSkill.stages.max} disabled={!selectedGem} onChange={(event) => { const value = Math.max(selectedActiveSkill.stages!.min, Math.min(selectedActiveSkill.stages!.max, Number(event.target.value) || selectedActiveSkill.stages!.min)); updateSelectedGem({ skillStageCount: value, skillStageCountCalcs: value }); }}/></label>}
+        {selectedActiveSkill?.mine && <label><span>Active mines</span><input aria-label="Active mine count" type="number" min="0" value={selectedGem?.skillMineCountCalcs ?? selectedGem?.skillMineCount ?? ""} placeholder="PoB default" disabled={!selectedGem} onChange={(event) => { const value = event.target.value === "" ? undefined : Math.max(0, Number(event.target.value) || 0); updateSelectedGem({ skillMineCount: value, skillMineCountCalcs: value }); }}/></label>}
+        {(selectedActiveSkill?.minions?.length || 0) > 0 && <label><span>Minion</span><select aria-label="Main skill minion" value={minionValue} disabled={!selectedGem} onChange={(event) => { const [kind, rawValue] = event.target.value.split(":"); if (kind === "item") { const value = Number(rawValue); updateSelectedGem({ skillMinionItemSet: value, skillMinionItemSetCalcs: value, skillMinion: undefined, skillMinionCalcs: undefined }); } else { updateSelectedGem({ skillMinion: rawValue, skillMinionCalcs: rawValue, skillMinionItemSet: undefined, skillMinionItemSetCalcs: undefined }); } }}>{selectedActiveSkill?.minions?.map((minion) => { const value = minion.itemSetId ? `item:${minion.itemSetId}` : `minion:${minion.minionId}`; return <option key={value} value={value}>{minion.label}</option>; })}</select></label>}
+        {(selectedActiveSkill?.minionSkills?.length || 0) > 0 && <label><span>Minion skill</span><select aria-label="Main minion skill" value={selectedGem?.skillMinionSkillCalcs || selectedGem?.skillMinionSkill || 1} disabled={!selectedGem} onChange={(event) => { const value = Number(event.target.value); updateSelectedGem({ skillMinionSkill: value, skillMinionSkillCalcs: value }); }}>{selectedActiveSkill?.minionSkills?.map((skill, index) => <option key={`${index}-${skill}`} value={index + 1}>{skill}</option>)}</select></label>}
+      </div>
       <div className="planner-skill-options"><label><input type="checkbox" checked={selected.includeInFullDps} onChange={(event) => updateGroup(selectedGroupIndex, { includeInFullDps: event.target.checked })}/> Include in Full DPS</label><span>{selected.gems.filter((gem) => gem.enabled).length}/{selected.gems.length} enabled · recalculation uses the selected group and skill</span></div>
       <div className="planner-gem-editor-list">{selected.gems.map((gem, gemIndex) => <article key={`${gem.skillId}-${gemIndex}`} className={!gem.enabled ? "is-disabled" : ""}>
         <label className="planner-gem-toggle"><input type="checkbox" checked={gem.enabled} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { enabled: event.target.checked })}/>{gemArtwork(gem)}<span><strong>{gem.name}</strong><small>{isSupport(gem) ? "Support gem" : "Active gem"} · {gem.skillId || gem.gemId}</small></span></label>
@@ -453,25 +477,6 @@ export function PlannerCalcsPanel({
     {comparison && <div className="planner-comparison-summary"><GitCompare size={15}/><strong>Compared with saved baseline</strong><span>+{comparison.addedNodes.length}/−{comparison.removedNodes.length} nodes · +{comparison.addedItems.length}/−{comparison.removedItems.length} items · +{comparison.addedGems.length}/−{comparison.removedGems.length} gems</span></div>}
     <div className={clsx("planner-stat-table", comparison && "has-comparison")}><header><span>Output</span><span>Value</span>{comparison && <span>Delta</span>}</header>{filtered.map((stat) => { const delta = comparison?.stats.find((entry) => entry.name === stat.name)?.delta || 0; return <div key={stat.name}><span><small>{stat.category}</small>{stat.label}</span><strong>{formatPobStatValue(stat)}</strong>{comparison && <b className={delta > 0 ? "is-positive" : delta < 0 ? "is-negative" : ""}>{delta ? `${delta > 0 ? "+" : ""}${Number(delta.toFixed(2)).toLocaleString("en-US")}${stat.percent ? "%" : ""}` : "—"}</b>}</div>; })}</div>
     </div>
-  </div>;
-}
-
-export function PlannerGalaxyPanel({ build }: { build: ImportedPobBuild | null }) {
-  const [selected, setSelected] = useState<PobStatCategory>("offence");
-  const grouped = useMemo(() => groupPobStats(build?.playerStats || []), [build?.playerStats]);
-  const categories = CATEGORY_ORDER.map((category) => ({ category, stats: grouped.get(category) || [] })).filter((entry) => entry.stats.length);
-  if (!categories.length) return <PlannerEmpty>Galaxy needs a PoB build containing evaluated PlayerStat outputs.</PlannerEmpty>;
-  const selectedStats = grouped.get(selected) || categories[0].stats;
-  const actualSelected = selectedStats === categories[0].stats && !grouped.get(selected)?.length ? categories[0].category : selected;
-  return <div className="planner-galaxy">
-    <div className="planner-galaxy-map" aria-label="Build stat galaxy">{categories.map((entry, index) => {
-      const angle = (Math.PI * 2 * index) / categories.length - Math.PI / 2;
-      const left = 50 + Math.cos(angle) * 35;
-      const top = 50 + Math.sin(angle) * 35;
-      const magnitude = entry.stats.reduce((sum, stat) => sum + Math.log10(Math.abs(stat.value) + 1), 0);
-      return <button type="button" key={entry.category} className={actualSelected === entry.category ? "is-active" : ""} style={{ left: `${left}%`, top: `${top}%`, width: `${Math.min(92, 48 + magnitude)}px`, height: `${Math.min(92, 48 + magnitude)}px` }} onClick={() => setSelected(entry.category)}><strong>{entry.category}</strong><small>{entry.stats.length} outputs</small></button>;
-    })}<div className="planner-galaxy-core"><strong>{build?.ascendancyName || build?.className}</strong><small>LEVEL {build?.level}</small></div></div>
-    <section><header><strong>{actualSelected}</strong><span>{selectedStats.length} imported outputs</span></header>{selectedStats.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 24).map((stat) => <div key={stat.name}><span>{stat.label}</span><strong>{formatPobStatValue(stat)}</strong></div>)}</section>
   </div>;
 }
 

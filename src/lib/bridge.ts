@@ -540,6 +540,9 @@ const browserBridge: PoeWidgetBridge = {
   async readPlannerClipboard() {
     return navigator.clipboard.readText();
   },
+  async resolvePlannerItemArtwork() {
+    return {};
+  },
   async listPoeCharacters() {
     throw new Error("Character account import requires the desktop app.");
   },
@@ -648,6 +651,39 @@ const browserBridge: PoeWidgetBridge = {
   },
   async captureToolkitGameWindow() {
     return null;
+  },
+  async getMapModCheck() {
+    return { settings: { version: 1 as const, enabled: false, hotkey: "CommandOrControl+Alt+M", rules: {}, customRules: {} }, definitions: [], shortcutError: "Map capture requires the Windows desktop app." };
+  },
+  async saveMapModCheck(settings) {
+    return { settings, shortcutError: "Map capture requires the Windows desktop app." };
+  },
+  async checkMapMods() {
+    throw new Error("Map Mod Check requires the Windows desktop app.");
+  },
+  async getMapModOverlayResult() {
+    return null;
+  },
+  async hideMapModOverlay() {
+    return undefined;
+  },
+  async getPoeEventLog() {
+    return { settings: { version: 1 as const, logPath: "" }, status: "missing" as const, error: "PoE Event Log requires the Windows app.", events: [] };
+  },
+  async startPoeEventLog() {
+    return browserBridge.getPoeEventLog();
+  },
+  async stopPoeEventLog() {
+    return browserBridge.getPoeEventLog();
+  },
+  async clearPoeEventLog() {
+    return browserBridge.getPoeEventLog();
+  },
+  async selectPoeEventLogPath() {
+    return null;
+  },
+  onPoeEventLog() {
+    return () => undefined;
   },
   async getSettings() {
     return cloneDesktopSettings(browserSettings, browserSettingsRevision);

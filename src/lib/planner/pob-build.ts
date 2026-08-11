@@ -35,6 +35,18 @@ export interface ImportedPobGem {
   enableGlobal1?: boolean;
   enableGlobal2?: boolean;
   count?: number;
+  skillPart?: number;
+  skillPartCalcs?: number;
+  skillStageCount?: number;
+  skillStageCountCalcs?: number;
+  skillMineCount?: number;
+  skillMineCountCalcs?: number;
+  skillMinion?: string;
+  skillMinionCalcs?: string;
+  skillMinionItemSet?: number;
+  skillMinionItemSetCalcs?: number;
+  skillMinionSkill?: number;
+  skillMinionSkillCalcs?: number;
   /** Official game artwork URL. Kept outside PoB XML and stored only in the user's local workspace. */
   icon?: string;
   support?: boolean;
@@ -44,6 +56,11 @@ export interface ImportedPobActiveSkill {
   index: number;
   name: string;
   parts?: string[];
+  sourceGemIndex?: number;
+  stages?: { min: number; max: number };
+  mine?: boolean;
+  minions?: Array<{ label: string; minionId?: string; itemSetId?: number }>;
+  minionSkills?: string[];
 }
 
 export interface ImportedPobSkillGroup {
@@ -452,6 +469,18 @@ export function parsePobXml(xml: string): ImportedPobBuild {
           enableGlobal1: optionalBooleanAttribute(attrs.enableGlobal1),
           enableGlobal2: optionalBooleanAttribute(attrs.enableGlobal2),
           count: optionalNumberAttribute(attrs.count),
+          skillPart: optionalNumberAttribute(attrs.skillPart),
+          skillPartCalcs: optionalNumberAttribute(attrs.skillPartCalcs),
+          skillStageCount: optionalNumberAttribute(attrs.skillStageCount),
+          skillStageCountCalcs: optionalNumberAttribute(attrs.skillStageCountCalcs),
+          skillMineCount: optionalNumberAttribute(attrs.skillMineCount),
+          skillMineCountCalcs: optionalNumberAttribute(attrs.skillMineCountCalcs),
+          skillMinion: attrs.skillMinion || undefined,
+          skillMinionCalcs: attrs.skillMinionCalcs || undefined,
+          skillMinionItemSet: optionalNumberAttribute(attrs.skillMinionItemSet),
+          skillMinionItemSetCalcs: optionalNumberAttribute(attrs.skillMinionItemSetCalcs),
+          skillMinionSkill: optionalNumberAttribute(attrs.skillMinionSkill),
+          skillMinionSkillCalcs: optionalNumberAttribute(attrs.skillMinionSkillCalcs),
         };
       });
       return {
@@ -658,7 +687,7 @@ function serializeConfig(config: ImportedPobBuild["config"]) {
 }
 
 function gemElement(gem: ImportedPobGem, indent = "\t\t\t\t") {
-  return `${indent}<Gem nameSpec="${escapeXmlAttribute(gem.name)}" skillId="${escapeXmlAttribute(gem.skillId)}"${optionalXmlAttribute("gemId", gem.gemId)}${optionalXmlAttribute("variantId", gem.variantId)} level="${gem.level}" quality="${gem.quality}" enabled="${gem.enabled}"${optionalXmlAttribute("enableGlobal1", gem.enableGlobal1)}${optionalXmlAttribute("enableGlobal2", gem.enableGlobal2)}${optionalXmlAttribute("count", gem.count)}/>`;
+  return `${indent}<Gem nameSpec="${escapeXmlAttribute(gem.name)}" skillId="${escapeXmlAttribute(gem.skillId)}"${optionalXmlAttribute("gemId", gem.gemId)}${optionalXmlAttribute("variantId", gem.variantId)} level="${gem.level}" quality="${gem.quality}" enabled="${gem.enabled}"${optionalXmlAttribute("enableGlobal1", gem.enableGlobal1)}${optionalXmlAttribute("enableGlobal2", gem.enableGlobal2)}${optionalXmlAttribute("count", gem.count)}${optionalXmlAttribute("skillPart", gem.skillPart)}${optionalXmlAttribute("skillPartCalcs", gem.skillPartCalcs)}${optionalXmlAttribute("skillStageCount", gem.skillStageCount)}${optionalXmlAttribute("skillStageCountCalcs", gem.skillStageCountCalcs)}${optionalXmlAttribute("skillMineCount", gem.skillMineCount)}${optionalXmlAttribute("skillMineCountCalcs", gem.skillMineCountCalcs)}${optionalXmlAttribute("skillMinion", gem.skillMinion)}${optionalXmlAttribute("skillMinionCalcs", gem.skillMinionCalcs)}${optionalXmlAttribute("skillMinionItemSet", gem.skillMinionItemSet)}${optionalXmlAttribute("skillMinionItemSetCalcs", gem.skillMinionItemSetCalcs)}${optionalXmlAttribute("skillMinionSkill", gem.skillMinionSkill)}${optionalXmlAttribute("skillMinionSkillCalcs", gem.skillMinionSkillCalcs)}/>`;
 }
 
 function patchGemBlock(block: string, gem: ImportedPobGem) {
@@ -675,7 +704,28 @@ function patchGemBlock(block: string, gem: ImportedPobGem) {
   if (gem.enableGlobal1 !== undefined) patch.enableGlobal1 = gem.enableGlobal1;
   if (gem.enableGlobal2 !== undefined) patch.enableGlobal2 = gem.enableGlobal2;
   if (gem.count !== undefined) patch.count = gem.count;
-  return block.replace(opening, updateXmlAttributes(opening, patch));
+  if (gem.skillPart !== undefined) patch.skillPart = gem.skillPart;
+  if (gem.skillPartCalcs !== undefined) patch.skillPartCalcs = gem.skillPartCalcs;
+  if (gem.skillStageCount !== undefined) patch.skillStageCount = gem.skillStageCount;
+  if (gem.skillStageCountCalcs !== undefined) patch.skillStageCountCalcs = gem.skillStageCountCalcs;
+  if (gem.skillMineCount !== undefined) patch.skillMineCount = gem.skillMineCount;
+  if (gem.skillMineCountCalcs !== undefined) patch.skillMineCountCalcs = gem.skillMineCountCalcs;
+  if (gem.skillMinion !== undefined) patch.skillMinion = gem.skillMinion;
+  if (gem.skillMinionCalcs !== undefined) patch.skillMinionCalcs = gem.skillMinionCalcs;
+  if (gem.skillMinionItemSet !== undefined) patch.skillMinionItemSet = gem.skillMinionItemSet;
+  if (gem.skillMinionItemSetCalcs !== undefined) patch.skillMinionItemSetCalcs = gem.skillMinionItemSetCalcs;
+  if (gem.skillMinionSkill !== undefined) patch.skillMinionSkill = gem.skillMinionSkill;
+  if (gem.skillMinionSkillCalcs !== undefined) patch.skillMinionSkillCalcs = gem.skillMinionSkillCalcs;
+  const selectorAttributes = [
+    "skillPart", "skillPartCalcs", "skillStageCount", "skillStageCountCalcs",
+    "skillMineCount", "skillMineCountCalcs", "skillMinion", "skillMinionCalcs",
+    "skillMinionItemSet", "skillMinionItemSetCalcs", "skillMinionSkill", "skillMinionSkillCalcs",
+  ] as const;
+  const updatedOpening = removeXmlAttributes(
+    updateXmlAttributes(opening, patch),
+    selectorAttributes.filter((name) => gem[name] === undefined),
+  );
+  return block.replace(opening, updatedOpening);
 }
 
 function patchSkillBlock(block: string, group: ImportedPobSkillGroup) {
@@ -1070,6 +1120,18 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
         ...(typeof gem.enableGlobal1 === "boolean" ? { enableGlobal1: gem.enableGlobal1 } : {}),
         ...(typeof gem.enableGlobal2 === "boolean" ? { enableGlobal2: gem.enableGlobal2 } : {}),
         ...(Number.isFinite(Number(gem.count)) ? { count: Number(gem.count) } : {}),
+        ...(Number.isFinite(Number(gem.skillPart)) ? { skillPart: Number(gem.skillPart) } : {}),
+        ...(Number.isFinite(Number(gem.skillPartCalcs)) ? { skillPartCalcs: Number(gem.skillPartCalcs) } : {}),
+        ...(Number.isFinite(Number(gem.skillStageCount)) ? { skillStageCount: Number(gem.skillStageCount) } : {}),
+        ...(Number.isFinite(Number(gem.skillStageCountCalcs)) ? { skillStageCountCalcs: Number(gem.skillStageCountCalcs) } : {}),
+        ...(Number.isFinite(Number(gem.skillMineCount)) ? { skillMineCount: Number(gem.skillMineCount) } : {}),
+        ...(Number.isFinite(Number(gem.skillMineCountCalcs)) ? { skillMineCountCalcs: Number(gem.skillMineCountCalcs) } : {}),
+        ...(typeof gem.skillMinion === "string" ? { skillMinion: gem.skillMinion } : {}),
+        ...(typeof gem.skillMinionCalcs === "string" ? { skillMinionCalcs: gem.skillMinionCalcs } : {}),
+        ...(Number.isFinite(Number(gem.skillMinionItemSet)) ? { skillMinionItemSet: Number(gem.skillMinionItemSet) } : {}),
+        ...(Number.isFinite(Number(gem.skillMinionItemSetCalcs)) ? { skillMinionItemSetCalcs: Number(gem.skillMinionItemSetCalcs) } : {}),
+        ...(Number.isFinite(Number(gem.skillMinionSkill)) ? { skillMinionSkill: Number(gem.skillMinionSkill) } : {}),
+        ...(Number.isFinite(Number(gem.skillMinionSkillCalcs)) ? { skillMinionSkillCalcs: Number(gem.skillMinionSkillCalcs) } : {}),
         ...(trustedPoeIconUrl(gem.icon) ? { icon: trustedPoeIconUrl(gem.icon) } : {}),
         ...(typeof gem.support === "boolean" ? { support: gem.support } : {}),
       }];
@@ -1082,7 +1144,33 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
       const parts = Array.isArray(skill.parts)
         ? skill.parts.filter((part): part is string => typeof part === "string" && Boolean(part.trim())).map((part) => part.slice(0, 200)).slice(0, 32)
         : undefined;
-      return [{ index: Math.max(1, finiteInteger(skill.index, skillIndex + 1)), name, ...(parts?.length ? { parts } : {}) }];
+      const stages = skill.stages && typeof skill.stages === "object" ? record(skill.stages) : null;
+      const stageMin = Math.max(1, finiteInteger(stages?.min, 1));
+      const stageMax = Math.max(stageMin, finiteInteger(stages?.max, stageMin));
+      const minions = Array.isArray(skill.minions) ? skill.minions.flatMap((rawMinion) => {
+        if (!rawMinion || typeof rawMinion !== "object") return [];
+        const minion = record(rawMinion);
+        const label = typeof minion.label === "string" ? minion.label.trim().slice(0, 200) : "";
+        if (!label) return [];
+        return [{
+          label,
+          ...(typeof minion.minionId === "string" ? { minionId: minion.minionId.slice(0, 300) } : {}),
+          ...(Number.isFinite(Number(minion.itemSetId)) ? { itemSetId: Number(minion.itemSetId) } : {}),
+        }];
+      }).slice(0, 128) : undefined;
+      const minionSkills = Array.isArray(skill.minionSkills)
+        ? skill.minionSkills.filter((entry): entry is string => typeof entry === "string" && Boolean(entry.trim())).map((entry) => entry.slice(0, 200)).slice(0, 128)
+        : undefined;
+      return [{
+        index: Math.max(1, finiteInteger(skill.index, skillIndex + 1)),
+        name,
+        ...(parts?.length ? { parts } : {}),
+        ...(Number.isFinite(Number(skill.sourceGemIndex)) ? { sourceGemIndex: Math.max(0, finiteInteger(skill.sourceGemIndex)) } : {}),
+        ...(stages ? { stages: { min: stageMin, max: stageMax } } : {}),
+        ...(typeof skill.mine === "boolean" ? { mine: skill.mine } : {}),
+        ...(minions?.length ? { minions } : {}),
+        ...(minionSkills?.length ? { minionSkills } : {}),
+      }];
     }) : undefined;
     const slot = typeof group.slot === "string" ? group.slot : "";
     return [{

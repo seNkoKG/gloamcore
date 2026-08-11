@@ -21,6 +21,36 @@ Optimized tokens are used only after an exhaustive category-universe check;
 otherwise the exact copied wording is retained. A split over PoE's 250-character
 limit is labelled lossless only when every chunk preserves the original logic.
 
+## Map Mod Check
+
+Map Mod Check uses 104 canonical PoE 1 modifier lines from the bundled,
+source-tracked regex pack. The desktop hotkey performs one ordinary copy action
+only while Path of Exile owns the foreground, accepts only `Item Class: Maps`,
+and opens a temporary non-focus-stealing overlay near the cursor. Good, Warn,
+Bad, and Ignore ratings are explicit local preferences. Unrated lines remain
+neutral, Bad always wins, Warn wins when no Bad line exists, and Good appears
+only when every relevant line is Good or Ignore.
+
+## PoE Event Log
+
+The Event Log reads the newest four MiB of the selected PoE 1 `Client.txt`,
+then tails appended UTF-8 bytes with partial-line, truncation, and rotation
+handling. At most 500 parsed entries exist in memory. Event contents are never
+written or uploaded; only the selected file path persists. Zone, level, death,
+status, whisper, trade, party, item, public-chat, and unclassified filters are
+presentation controls only and never trigger game actions.
+
+## Cluster Back
+
+Cluster Back is limited to current, non-legacy, 8-passive Large Cluster Jewels.
+It combines the installed PoB notable order with current Wiki spawn weights,
+mod groups and prefix/suffix generation, plus official Trade stat IDs. A result
+must lie strictly between the two requested front notables, share a valid base,
+have positive spawn weight, avoid mod-group conflicts, and fit PoE's two-prefix
+and two-suffix limit. The generated Trade query requires both requested
+notables, exactly eight passives, and at least one eligible back notable. The
+copied-jewel verifier independently reports the middle PoB-order notable.
+
 ## Sandboxed plugin protocol
 
 Plugins are HTTPS pages in an iframe with `allow-scripts allow-forms` only.
@@ -65,7 +95,11 @@ active item, skill and config sets, items, gems, config, notes, and `PlayerStat`
 snapshots. Tree rendering and editing use the matching installed PoB tree
 version, including deterministic Cluster Jewel graphs, shortest paths,
 dependent refunds, current alternate ascendancies, and supported remote-jewel
-allocation rules. Masteries preserve PoB's source-defined effect order. A
+allocation rules. Socketed jewels use PoB's own colour/family overlays, and
+Timeless Jewels use the matching PoB family radius sprites and radius label.
+Missing imported item art is resolved from exact PoE Wiki item records into an
+ephemeral in-memory cache rather than saved into build XML. Masteries preserve
+PoB's source-defined effect order. A
 left-click opens the chooser for an unallocated mastery or refunds an allocated
 one; a right-click changes an allocated mastery. Effects already used by other
 allocated masteries are unavailable; if that exhausts the choices, the chooser

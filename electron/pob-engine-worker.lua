@@ -238,15 +238,52 @@ local function collectSkillGroups()
 	for groupIndex, group in ipairs(socketGroups) do
 		local activeSkills = { }
 		for skillIndex, activeSkill in ipairs(group.displaySkillList or { }) do
-			local grantedEffect = activeSkill.activeEffect and activeSkill.activeEffect.grantedEffect
+			local activeEffect = activeSkill.activeEffect
+			local grantedEffect = activeEffect and activeEffect.grantedEffect
+			local srcInstance = activeEffect and activeEffect.srcInstance
 			local parts = { }
 			for _, part in ipairs(grantedEffect and grantedEffect.parts or { }) do
 				if type(part.name) == "string" and part.name ~= "" then table.insert(parts, part.name) end
+			end
+			local sourceGemIndex = 0
+			for gemIndex, gem in ipairs(group.gemList or { }) do
+				if gem == srcInstance then sourceGemIndex = gemIndex break end
+			end
+			local selectedPartIndex = math.max(1, math.floor(tonumber(srcInstance and (srcInstance.skillPartCalcs or srcInstance.skillPart)) or 1))
+			local selectedPart = grantedEffect and grantedEffect.parts and grantedEffect.parts[selectedPartIndex]
+			local stageData
+			if (selectedPart and selectedPart.stages)
+				or (activeSkill.skillFlags and activeSkill.skillFlags.multiStage and not (grantedEffect and grantedEffect.parts and #grantedEffect.parts > 1)) then
+				local stageMin = math.max(1, math.floor(tonumber(selectedPart and selectedPart.stagesMin or activeSkill.skillData and activeSkill.skillData.stagesMin) or 1))
+				local stageMax = math.max(stageMin, math.floor(tonumber(activeSkill.skillData and activeSkill.skillData.stagesMax or selectedPart and selectedPart.stagesMax) or stageMin))
+				stageData = { min = stageMin, max = stageMax }
+			end
+			local minions = { }
+			if grantedEffect and grantedEffect.minionHasItemSet then
+				for _, itemSetId in ipairs(build.itemsTab and build.itemsTab.itemSetOrderList or { }) do
+					local itemSet = build.itemsTab.itemSets[itemSetId]
+					table.insert(minions, { label = tostring(itemSet and itemSet.title or "Default Item Set"), itemSetId = itemSetId })
+				end
+			else
+				for _, minionId in ipairs(activeSkill.minionList or { }) do
+					local minion = data.minions and data.minions[minionId]
+					table.insert(minions, { label = tostring(minion and minion.name or minionId), minionId = tostring(minionId) })
+				end
+			end
+			local minionSkills = { }
+			for _, minionSkill in ipairs(activeSkill.minion and activeSkill.minion.activeSkillList or { }) do
+				local minionEffect = minionSkill.activeEffect and minionSkill.activeEffect.grantedEffect
+				if minionEffect and minionEffect.name then table.insert(minionSkills, tostring(minionEffect.name)) end
 			end
 			table.insert(activeSkills, {
 				index = skillIndex,
 				name = tostring(grantedEffect and grantedEffect.name or group.displayLabel or group.label or ("Skill " .. skillIndex)),
 				parts = parts,
+				sourceGemIndex = sourceGemIndex,
+				stages = stageData,
+				mine = activeSkill.skillFlags and activeSkill.skillFlags.mine or false,
+				minions = minions,
+				minionSkills = minionSkills,
 			})
 		end
 		table.insert(groups, {

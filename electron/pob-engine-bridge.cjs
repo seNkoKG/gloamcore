@@ -662,7 +662,20 @@ function validateWorkerPayload(payload, installation) {
         if (!skill || typeof skill !== "object" || !Number.isInteger(skill.index) || skill.index < 1
           || typeof skill.name !== "string" || skill.name.length > 512
           || !Array.isArray(skill.parts) || skill.parts.length > 32
-          || skill.parts.some((part) => typeof part !== "string" || part.length > 512)) {
+          || skill.parts.some((part) => typeof part !== "string" || part.length > 512)
+          || !Number.isInteger(skill.sourceGemIndex) || skill.sourceGemIndex < 0
+          || typeof skill.mine !== "boolean"
+          || (skill.stages != null && (!skill.stages || typeof skill.stages !== "object"
+            || !Number.isInteger(skill.stages.min) || skill.stages.min < 1
+            || !Number.isInteger(skill.stages.max) || skill.stages.max < skill.stages.min))
+          || !Array.isArray(skill.minions) || skill.minions.length > 128
+          || skill.minions.some((minion) => !minion || typeof minion !== "object"
+            || typeof minion.label !== "string" || minion.label.length > 512
+            || (minion.minionId != null && (typeof minion.minionId !== "string" || minion.minionId.length > 512))
+            || (minion.itemSetId != null && (!Number.isInteger(minion.itemSetId) || minion.itemSetId < 1))
+            || (minion.minionId == null && minion.itemSetId == null))
+          || !Array.isArray(skill.minionSkills) || skill.minionSkills.length > 128
+          || skill.minionSkills.some((name) => typeof name !== "string" || name.length > 512)) {
           return failure("POB_RESULT_INVALID", "Path of Building returned a malformed active skill.");
         }
       }

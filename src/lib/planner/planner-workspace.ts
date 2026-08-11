@@ -51,7 +51,7 @@ export interface PlannerWorkspaceSnapshot {
   editedSinceImport: boolean;
 }
 
-export type PlannerWorkspaceTab = "tree" | "items" | "skills" | "config" | "calcs" | "galaxy" | "builds" | "notes" | "history";
+export type PlannerWorkspaceTab = "tree" | "items" | "skills" | "config" | "calcs" | "builds" | "notes" | "history";
 
 export interface ActivePlannerWorkspace {
   version: typeof ACTIVE_PLANNER_WORKSPACE_VERSION;
@@ -60,7 +60,7 @@ export interface ActivePlannerWorkspace {
   snapshot: PlannerWorkspaceSnapshot;
 }
 
-const PLANNER_WORKSPACE_TABS = new Set<PlannerWorkspaceTab>(["tree", "items", "skills", "config", "calcs", "galaxy", "builds", "notes", "history"]);
+const PLANNER_WORKSPACE_TABS = new Set<PlannerWorkspaceTab>(["tree", "items", "skills", "config", "calcs", "builds", "notes", "history"]);
 
 export interface PlannerBuildComparison {
   addedNodes: number[];
@@ -190,10 +190,15 @@ export function parseActivePlannerWorkspace(raw: string): ActivePlannerWorkspace
   if (!envelope || envelope.version !== ACTIVE_PLANNER_WORKSPACE_VERSION || !snapshot) {
     throw new Error("The active planner autosave has an unsupported format and was left unchanged.");
   }
+  const rawTab = typeof (value as { tab?: unknown }).tab === "string"
+    ? (value as { tab: string }).tab
+    : "";
   return {
     version: ACTIVE_PLANNER_WORKSPACE_VERSION,
-    tab: typeof envelope.tab === "string" && PLANNER_WORKSPACE_TABS.has(envelope.tab as PlannerWorkspaceTab)
-      ? envelope.tab as PlannerWorkspaceTab
+    tab: rawTab === "galaxy"
+      ? "calcs"
+      : PLANNER_WORKSPACE_TABS.has(rawTab as PlannerWorkspaceTab)
+      ? rawTab as PlannerWorkspaceTab
       : "tree",
     savedAt: finite(envelope.savedAt, Date.now()),
     snapshot,

@@ -25,6 +25,7 @@ import {
   Sparkles,
   StickyNote,
   Trash2,
+  Waypoints,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { categories, defaultSource } from "../config/categories";
@@ -69,13 +70,19 @@ import {
 } from "../lib/toolkit/plugin-workspace";
 import type { EconomyRow, ToolkitCheckpoint, ToolkitPlugin, ToolkitTextFile, ToolkitWorkspace } from "../types";
 import { RegexWorkbench } from "./RegexWorkbench";
+import { MapModCheckPanel } from "./MapModCheckPanel";
+import { ClusterBackPanel } from "./ClusterBackPanel";
+import { PoeEventLogPanel } from "./PoeEventLogPanel";
 import "../toolkit.css";
 
-type ToolkitTab = "filter" | "regex" | "recolor" | "audit" | "workspace";
+type ToolkitTab = "filter" | "regex" | "map-mods" | "event-log" | "cluster-back" | "recolor" | "audit" | "workspace";
 
 const TABS: Array<{ id: ToolkitTab; label: string; icon: typeof Scissors }> = [
   { id: "filter", label: "Filter editor", icon: FilePenLine },
   { id: "regex", label: "Regex tool", icon: Braces },
+  { id: "map-mods", label: "Map Mod Check", icon: ShieldCheck },
+  { id: "event-log", label: "PoE Event Log", icon: FileClock },
+  { id: "cluster-back", label: "Cluster Back", icon: Waypoints },
   { id: "recolor", label: "Socket recolor", icon: Paintbrush },
   { id: "audit", label: "Economy audit", icon: ShieldCheck },
   { id: "workspace", label: "Overlay workspace", icon: Sparkles },
@@ -163,6 +170,9 @@ export function ToolkitPanel({ league }: { league: string }) {
       <div className="toolkit-content">
         {tab === "filter" && <FilterEditor />}
         {tab === "regex" && <RegexWorkbench />}
+        {tab === "map-mods" && <MapModCheckPanel />}
+        {tab === "event-log" && <PoeEventLogPanel />}
+        {tab === "cluster-back" && <ClusterBackPanel league={league} />}
         {tab === "recolor" && <SocketRecolorWorkbench league={league} />}
         {tab === "audit" && <EconomyAudit league={league} />}
         {tab === "workspace" && <OverlayWorkspace league={league} />}

@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 2.7.0
+
+- Added a native Map Mod Check with 104 source-tracked PoE 1 modifier
+  definitions, local Good/Warn/Bad/Ignore rules, exact worst-severity verdicts,
+  a rebindable one-copy hotkey, and a temporary non-focus-stealing overlay.
+- Added a read-only PoE Event Log that safely tails the detected `Client.txt`,
+  handles UTF-8 partial writes and log rotation, classifies useful game events,
+  and keeps at most 500 entries in memory without uploading or persisting them.
+- Added Cluster Back for exact 8-passive Large Cluster Jewel ordering, using
+  installed Path of Building order, current Wiki spawn weights, official Trade
+  stat IDs, affix/group constraints, official Trade queries, and copied-jewel
+  verification.
+- Repaired Build Planner jewel rendering with PoB's own socket overlays and
+  Timeless Jewel radius sprites, including the correct Karui treatment and
+  Large radius for Lethal Pride.
+- Resolved exact PoE Wiki inventory artwork for imported equipment, flasks,
+  cluster jewels, base jewels, and Timeless Jewels without storing remote image
+  payloads in saved builds.
+- Expanded main-skill editing with PoB-compatible skill parts, stages, mine
+  counts, minion targets, minion item sets, and minion skills, while preserving
+  every selector through XML import, recalculation, and export.
+- Removed the Galaxy planner tab and migrated any workspace that last used it
+  to Calculations.
+- Implemented the three toolkit features independently inside GloamCore; no
+  Scalpel installation, runtime, source, or plugin is required.
+
 ## 2.6.0
 
 - Replaced placeholder planner item rows with a PoE-style equipment paper doll,
