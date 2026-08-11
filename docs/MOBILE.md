@@ -10,7 +10,7 @@ mobile-supported filters, trackers, item descriptions, trends, and trade links.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-2.8.0.apk`
+`deliverables/mobile/GloamCore-Android-2.8.1.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -32,7 +32,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-2.8.0.zip`
+`deliverables/mobile/GloamCore-iOS-Source-2.8.1.zip`
 
 On a Mac:
 
@@ -49,6 +49,8 @@ There is intentionally no unsigned IPA: iOS will not install one.
 ## Live data and tracking
 
 - poe.ninja economy data refreshes according to source cache headers.
+- Official Faustus completed-hour data is checked every five minutes, with
+  one-minute catch-up checks while a newly completed digest is unpublished.
 - The app refreshes while open, immediately on resume, and when connectivity
   returns.
 - Cached snapshots and item descriptions remain available offline.

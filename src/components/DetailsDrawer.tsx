@@ -259,10 +259,15 @@ export function DetailsDrawer({
         <div className="price-integrity-warning">
           <TriangleAlert size={15} />
           <div>
-            <strong>Unreliable market estimate</strong>
+            <strong>
+              {isFaustus
+                ? "Guarded official market observation"
+                : "Unreliable market estimate"}
+            </strong>
             <span>
-              Based on {row.confidenceReason?.toLowerCase() || "very little market data"}.
-              This is not a verified sale; check Trade before acting.
+              {isFaustus
+                ? `Official completed-hour data: ${row.confidenceReason?.toLowerCase() || "very little market data"}. Verify the current exchange before acting.`
+                : `Based on ${row.confidenceReason?.toLowerCase() || "very little market data"}. This is not a verified sale; check Trade before acting.`}
             </span>
           </div>
         </div>
@@ -270,12 +275,24 @@ export function DetailsDrawer({
 
       <div className="details-price-grid">
         <div className="details-price details-price--primary">
-          <span>{row.lowConfidence ? "ESTIMATED CHAOS" : "CHAOS VALUE"}</span>
+          <span>
+            {row.lowConfidence
+              ? isFaustus
+                ? "OBSERVED CHAOS"
+                : "ESTIMATED CHAOS"
+              : "CHAOS VALUE"}
+          </span>
           <strong>{row.lowConfidence ? "~" : ""}{formatPrice(row.chaosValue)}</strong>
           <CurrencyMark unit="chaos" size="medium" />
         </div>
         <div className="details-price">
-          <span>{row.lowConfidence ? "ESTIMATED DIVINE" : "DIVINE VALUE"}</span>
+          <span>
+            {row.lowConfidence
+              ? isFaustus
+                ? "OBSERVED DIVINE"
+                : "ESTIMATED DIVINE"
+              : "DIVINE VALUE"}
+          </span>
           <strong>{row.lowConfidence ? "~" : ""}{formatPrice(row.divineValue)}</strong>
           <CurrencyMark unit="divine" size="medium" />
         </div>

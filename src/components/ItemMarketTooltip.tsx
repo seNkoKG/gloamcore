@@ -223,22 +223,35 @@ export function ItemMarketTooltip({
         <div className="intel-price-warning">
           <TriangleAlert size={13} />
           <span>
-            Unreliable estimate from {row.confidenceReason?.toLowerCase() || "very little market data"}.
-            Verify the current asks on Trade.
+            {isFaustus
+              ? `Guarded official observation: ${row.confidenceReason?.toLowerCase() || "very little market data"}. Verify the current exchange.`
+              : `Unreliable estimate from ${row.confidenceReason?.toLowerCase() || "very little market data"}. Verify the current asks on Trade.`}
           </span>
         </div>
       )}
 
       <div className="intel-prices">
         <div>
-          <small>{row.lowConfidence ? "ESTIMATED CHAOS" : "CHAOS VALUE"}</small>
+          <small>
+            {row.lowConfidence
+              ? isFaustus
+                ? "OBSERVED CHAOS"
+                : "ESTIMATED CHAOS"
+              : "CHAOS VALUE"}
+          </small>
           <span>
             <strong>{row.lowConfidence ? "~" : ""}{formatPrice(row.chaosValue)}</strong>
             <CurrencyMark unit="chaos" />
           </span>
         </div>
         <div>
-          <small>{row.lowConfidence ? "ESTIMATED DIVINE" : "DIVINE VALUE"}</small>
+          <small>
+            {row.lowConfidence
+              ? isFaustus
+                ? "OBSERVED DIVINE"
+                : "ESTIMATED DIVINE"
+              : "DIVINE VALUE"}
+          </small>
           <span>
             <strong>{row.lowConfidence ? "~" : ""}{formatPrice(row.divineValue)}</strong>
             <CurrencyMark unit="divine" />

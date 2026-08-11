@@ -95,6 +95,17 @@ check. These routes are an unofficial convenience rather than a guaranteed
 developer API. Requests omit account credentials and expose only bounded,
 sanitized listing fields to the renderer.
 
+Market Explorer's Faustus source reads Grinding Gear Games' public
+completed-hour Currency Exchange digests from `web.poecdn.com`. Current
+poe.ninja economy item names are resolved to canonical item metadata IDs
+through PoE Wiki Cargo before matching direct Chaos or Divine markets. The app
+does not interpolate between hours or substitute Ninja values when an official
+completed-hour range is absent. It may retain the most recent official
+observation from its eight-hour history with an explicit age warning. It checks
+every five minutes for a newly available digest and every minute while the
+latest completed hour is still unpublished; that discovery cadence does not
+change the hourly source cadence.
+
 No GloamCore project license is asserted over Grinding Gear Games names,
 artwork, APIs, or game data.
 

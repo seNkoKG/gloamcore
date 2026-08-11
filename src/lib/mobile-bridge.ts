@@ -42,6 +42,7 @@ import {
   withMobileHttpDeadline,
 } from "./mobile-network";
 import type { MobileStoredResponse } from "./mobile-network";
+import { resolveFaustusItemMetadata } from "./faustus";
 import { defaultPriceCheckSettings } from "./price-check/types";
 import {
   cloneDesktopSettings,
@@ -610,10 +611,10 @@ function mobileFaustusMetadataUrl(names: string[]) {
 }
 
 async function resolveMobileFaustusItems(request: FaustusOverviewRequest) {
-  const missing = [...new Set(request.items.filter((item) => !item.metadataId).map((item) => item.name))];
-  const metadataByName = new Map<string, string>();
-  for (let offset = 0; offset < missing.length; offset += 35) {
-    const batch = missing.slice(offset, offset + 35);
+  const names = [...new Set(request.items.map((item) => item.name))];
+  const cargoEntries: NonNullable<RawWikiCargoResponse["cargoquery"]> = [];
+  for (let offset = 0; offset < names.length; offset += 35) {
+    const batch = names.slice(offset, offset + 35);
     const envelope = await cachedGet(
       `faustus-metadata:${batch.slice().sort().join("|")}`,
       mobileFaustusMetadataUrl(batch),
@@ -623,21 +624,9 @@ async function resolveMobileFaustusItems(request: FaustusOverviewRequest) {
       Number.POSITIVE_INFINITY,
       { "User-Agent": FAUSTUS_USER_AGENT },
     );
-    for (const entry of envelope.data.cargoquery || []) {
-      const record = entry.title || {};
-      const name = record.name;
-      const metadataId = record["metadata id"] || record.metadata_id;
-      const inGame = String(record["is in game"] ?? record.is_in_game ?? "1");
-      const removed = record["removal version"] || record.removal_version;
-      if (typeof name === "string" && typeof metadataId === "string" && inGame !== "0" && !removed) {
-        metadataByName.set(name.toLocaleLowerCase(), metadataId);
-      }
-    }
+    cargoEntries.push(...(envelope.data.cargoquery || []));
   }
-  return request.items.map((item) => ({
-    ...item,
-    metadataId: item.metadataId || metadataByName.get(item.name.toLocaleLowerCase()),
-  }));
+  return resolveFaustusItemMetadata(request.items, cargoEntries);
 }
 
 function filterMobileFaustusMarkets(markets: RawFaustusMarket[], league: string, targets: ReadonlySet<string>) {

@@ -50,11 +50,11 @@ export function MarketHeader({
         : "Ninja stash";
   const sourceClock =
     source === "faustus"
-      ? "Last completed hour · automatic hourly refresh"
+      ? "Official completed-hour snapshots · 5m checks · 1m catch-up"
       : "Source-timed auto refresh · CDN age verified";
   const refreshTitle =
     source === "faustus"
-      ? "Refresh official Faustus hourly history"
+      ? "Check for the latest official Faustus completed-hour snapshot"
       : "Revalidate with poe.ninja";
 
   return (
@@ -109,7 +109,11 @@ export function MarketHeader({
             </strong>
             <span>
               {fetchedAt ? formatRelativeTime(fetchedAt) : "Connecting"}
-              {expiresAt && !stale ? ` · next ${formatRemaining(expiresAt)}` : ""}
+              {source === "faustus" && !stale
+                ? " · checks every 5m"
+                : expiresAt && !stale
+                  ? ` · next ${formatRemaining(expiresAt)}`
+                  : ""}
             </span>
           </div>
         </div>

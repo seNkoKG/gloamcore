@@ -30,6 +30,16 @@ export const emptyFilters: FilterState = {
   maxPrice: "",
 };
 
+export function defaultFiltersForSource(source: DataSource): FilterState {
+  return {
+    ...emptyFilters,
+    // Completed-hour Faustus markets remain useful when guarded for liquidity,
+    // spread, or observation age.
+    // Show them with warnings; downstream movers and trends still exclude them.
+    includeLowConfidence: source === "faustus",
+  };
+}
+
 function iconUrl(icon?: string) {
   if (!icon) return undefined;
   if (icon.startsWith("http")) return icon;

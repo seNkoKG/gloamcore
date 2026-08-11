@@ -70,6 +70,7 @@ const { createToolkitRuntimeStore } = require("./toolkit-runtime.cjs");
 const { createMapModCheckService } = require("./map-mod-check.cjs");
 const { createPoeEventLogService } = require("./poe-event-log.cjs");
 const {
+  currentWikiItemMetadataByName,
   normalizedWikiArtworkTitle,
   plannerArtworkDimensions,
   plannerArtworkCargoUrl,
@@ -950,10 +951,10 @@ function faustusWikiMetadataUrl(names) {
 }
 
 async function resolveFaustusItems(request) {
-  const missingNames = [...new Set(request.items.filter((item) => !item.metadataId).map((item) => item.name))];
-  const metadataByName = new Map();
-  for (let offset = 0; offset < missingNames.length; offset += 35) {
-    const batch = missingNames.slice(offset, offset + 35);
+  const names = [...new Set(request.items.map((item) => item.name))];
+  const cargoEntries = [];
+  for (let offset = 0; offset < names.length; offset += 35) {
+    const batch = names.slice(offset, offset + 35);
     const digest = crypto.createHash("sha256").update(batch.slice().sort().join("\0")).digest("hex");
     const envelope = await getCachedRemoteJson(
       `wiki-faustus-metadata-${digest}`,
@@ -966,20 +967,14 @@ async function resolveFaustusItems(request) {
         validate: isWikiCargoPayload,
       },
     );
-    for (const entry of envelope.data?.cargoquery || []) {
-      const record = entry?.title || {};
-      const name = record.name;
-      const metadataId = record["metadata id"] || record.metadata_id;
-      const inGame = String(record["is in game"] ?? record.is_in_game ?? "1");
-      const removed = record["removal version"] || record.removal_version;
-      if (typeof name === "string" && typeof metadataId === "string" && inGame !== "0" && !removed) {
-        metadataByName.set(name.toLocaleLowerCase(), metadataId);
-      }
-    }
+    cargoEntries.push(...(envelope.data?.cargoquery || []));
   }
+  const metadataByName = currentWikiItemMetadataByName(cargoEntries);
   return request.items.map((item) => ({
     ...item,
-    metadataId: item.metadataId || metadataByName.get(item.name.toLocaleLowerCase()),
+    // poe.ninja's generated image payload identifies a texture file, which is
+    // not guaranteed to equal the canonical item metadata id.
+    metadataId: metadataByName.get(item.name.toLocaleLowerCase()) || item.metadataId,
   }));
 }
 

@@ -142,7 +142,13 @@ export function MobileEconomyList({
                   {marketLiquidity.icon}
                   <b>{marketLiquidity.value}</b>
                   <span>{marketLiquidity.label}</span>
-                  {row.lowConfidence && <i>UNRELIABLE ESTIMATE</i>}
+                  {row.lowConfidence && (
+                    <i>
+                      {row.source === "faustus"
+                        ? "GUARDED OFFICIAL MARKET"
+                        : "UNRELIABLE ESTIMATE"}
+                    </i>
+                  )}
                 </div>
               </div>
               <div className="mobile-row-market">

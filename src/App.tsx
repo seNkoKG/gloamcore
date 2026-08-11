@@ -42,6 +42,7 @@ import {
 } from "./components/MobileNavigation";
 import { bridge } from "./lib/bridge";
 import {
+  defaultFiltersForSource,
   emptyFilters,
   filterRows,
   marketStats,
@@ -51,6 +52,7 @@ import {
 import { displayPrice, formatCompact, formatPrice, tradeUrl } from "./lib/format";
 import { faustusItemSeeds, normalizeFaustusOverview } from "./lib/faustus";
 import {
+  faustusRefreshDelayMs,
   marketFailureDisposition,
   marketRefreshDelayMs,
   isMarketSnapshotActionable,
@@ -648,17 +650,19 @@ export default function App() {
     setOverview(null);
     setOverviewEnvelope(null);
     setSelectedRow(null);
-    setFilters({ ...emptyFilters });
+    setFilters(defaultFiltersForSource(source));
     setVisibleCount(80);
     loadOverview(false);
   }, [league, category.id, source, loadOverview]);
 
   useEffect(() => {
     if (!league) return undefined;
-    const sourceDelay = marketRefreshDelayMs(
-      overviewEnvelope,
-      preferences.refreshMinutes,
-    );
+    const sourceDelay = source === "faustus"
+      ? faustusRefreshDelayMs(overviewEnvelope)
+      : marketRefreshDelayMs(
+          overviewEnvelope,
+          preferences.refreshMinutes,
+        );
     const timeout = window.setTimeout(
       () => loadOverview(false),
       sourceDelay,

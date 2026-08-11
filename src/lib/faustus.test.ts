@@ -11,6 +11,7 @@ import {
   DIVINE_METADATA_ID,
   metadataIdFromIcon,
   normalizeFaustusOverview,
+  resolveFaustusItemMetadata,
 } from "./faustus";
 
 const category: CategoryDefinition = {
@@ -104,6 +105,32 @@ function market(
 }
 
 describe("Faustus market normalization", () => {
+  it("prefers decoded current Wiki metadata over image texture paths", () => {
+    const resolved = resolveFaustusItemMetadata(
+      [
+        {
+          id: "awakeners-orb",
+          name: "Awakener's Orb",
+          metadataId: "Metadata/Items/Currency/AwakenerOrbTexture",
+        },
+      ],
+      [
+        {
+          title: {
+            name: "Awakener&#039;s Orb",
+            metadata_id:
+              "Metadata/Items/Currency/CurrencyConquerorExaltedOrb",
+            is_in_game: "1",
+          },
+        },
+      ],
+    );
+
+    expect(resolved[0].metadataId).toBe(
+      "Metadata/Items/Currency/CurrencyConquerorExaltedOrb",
+    );
+  });
+
   it("extracts the official metadata id from a generated item image", () => {
     expect(
       metadataIdFromIcon(
@@ -167,6 +194,34 @@ describe("Faustus market normalization", () => {
     expect(result.chaosValue).toBe(1);
     expect(result.volume).toBe(20_000);
     expect(result.lowConfidence).toBe(false);
+  });
+
+  it("keeps a last-observed official market when the newest hour has no usable range", () => {
+    const previous = market(3_600, 300, 320);
+    const newest = market(7_200, 350, 379);
+    newest.markets[0].lowest_ratio = {};
+    newest.markets[0].highest_ratio = {};
+    const data: RawFaustusOverview = {
+      latestHour: 7_200,
+      items: [
+        {
+          id: "mirror",
+          name: "Mirror of Kalandra",
+          metadataId: "Metadata/Items/Currency/CurrencyDuplicate",
+        },
+      ],
+      hours: [previous, newest],
+    };
+
+    const result = normalizeFaustusOverview(base, data, category).rows[0];
+
+    expect(result.chaosValue).toBe(310);
+    expect(result.faustus?.hour).toBe(3_600);
+    expect(result.lowConfidence).toBe(true);
+    expect(result.change).toBeNull();
+    expect(result.confidenceReason).toMatch(
+      /last official market from 1 hour earlier/i,
+    );
   });
 
   it("excludes wide historical outliers from the hourly trend", () => {

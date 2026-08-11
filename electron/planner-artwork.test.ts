@@ -5,6 +5,37 @@ const require = createRequire(import.meta.url);
 const artwork = require("./planner-artwork.cjs");
 
 describe("planner artwork resolution", () => {
+  it("builds current item metadata from decoded authoritative Wiki rows", () => {
+    const metadata = artwork.currentWikiItemMetadataByName([
+      {
+        title: {
+          name: "Awakener&#039;s Orb",
+          "metadata id": "Metadata/Items/Currency/CurrencyConquerorExaltedOrb",
+          "is in game": "1",
+        },
+      },
+      {
+        title: {
+          name: "Removed Orb",
+          "metadata id": "Metadata/Items/Currency/RemovedOrb",
+          "removal version": "3.0.0",
+        },
+      },
+      {
+        title: {
+          name: "Invalid Orb",
+          "metadata id": "2DItems/Currency/InvalidOrb",
+        },
+      },
+    ]);
+
+    expect(metadata.get("awakener's orb")).toBe(
+      "Metadata/Items/Currency/CurrencyConquerorExaltedOrb",
+    );
+    expect(metadata.has("removed orb")).toBe(false);
+    expect(metadata.has("invalid orb")).toBe(false);
+  });
+
   it("matches unique names after decoding Wiki apostrophe entities", () => {
     const rows = [
       { name: "Prismatic Jewel", "inventory icon": "File:Prismatic Jewel inventory icon.png" },

@@ -34,6 +34,26 @@ function decodedCargoText(value) {
     .replace(/&gt;/gi, ">");
 }
 
+function currentWikiItemMetadataByName(entries) {
+  const metadataByName = new Map();
+  for (const entry of entries || []) {
+    const record = entry?.title || entry || {};
+    const name = decodedCargoText(record.name).trim();
+    const metadataId = decodedCargoText(record["metadata id"] || record.metadata_id).trim();
+    const inGame = String(record["is in game"] ?? record.is_in_game ?? "1");
+    const removed = decodedCargoText(record["removal version"] || record.removal_version).trim();
+    if (
+      name &&
+      /^Metadata\/Items\/[A-Za-z0-9_./-]+$/.test(metadataId) &&
+      inGame !== "0" &&
+      !removed
+    ) {
+      metadataByName.set(name.toLocaleLowerCase(), metadataId);
+    }
+  }
+  return metadataByName;
+}
+
 function normalizedWikiArtworkTitle(value) {
   const candidate = decodedCargoText(value).replace(/_/g, " ").trim();
   if (!/\.(?:avif|gif|jpe?g|png|webp)$/i.test(candidate)) return "";
@@ -71,6 +91,7 @@ function plannerArtworkDimensions(row) {
 }
 
 module.exports = {
+  currentWikiItemMetadataByName,
   decodedCargoText,
   normalizedWikiArtworkTitle,
   plannerArtworkDimensions,

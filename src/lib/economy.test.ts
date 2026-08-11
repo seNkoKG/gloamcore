@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { categories } from "../config/categories";
 import type { RawExchangeOverview, RawItemOverview } from "../types";
 import {
+  defaultFiltersForSource,
   emptyFilters,
   filterRows,
   normalizeOverview,
@@ -9,6 +10,14 @@ import {
 } from "./economy";
 
 const currency = categories[0];
+
+describe("source filter defaults", () => {
+  it("shows guarded Faustus markets without changing other source defaults", () => {
+    expect(defaultFiltersForSource("faustus").includeLowConfidence).toBe(true);
+    expect(defaultFiltersForSource("exchange").includeLowConfidence).toBe(false);
+    expect(defaultFiltersForSource("stash-item").includeLowConfidence).toBe(false);
+  });
+});
 const sample: RawExchangeOverview = {
   core: {
     primary: "chaos",

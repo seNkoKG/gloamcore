@@ -409,8 +409,10 @@ export function EconomyTable({
                         </span>
                       )}
                       {row.lowConfidence && (
-                        <em title={`${row.confidenceReason || "Very little market data"}; verify this ask on Trade before buying`}>
-                          UNRELIABLE ESTIMATE
+                        <em title={`${row.confidenceReason || "Very little market data"}; verify the current market before buying`}>
+                          {isFaustus
+                            ? "GUARDED OFFICIAL MARKET"
+                            : "UNRELIABLE ESTIMATE"}
                         </em>
                       )}
                     </div>

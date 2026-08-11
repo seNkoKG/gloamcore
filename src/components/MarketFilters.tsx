@@ -16,7 +16,10 @@ import type {
   ValueDisplay,
 } from "../types";
 import { supportsFaustus } from "../config/categories";
-import { deriveFilterOptions, emptyFilters } from "../lib/economy";
+import {
+  defaultFiltersForSource,
+  deriveFilterOptions,
+} from "../lib/economy";
 import type { EconomyRow } from "../types";
 
 function FilterSelect({
@@ -87,7 +90,9 @@ export const MarketFilters = forwardRef<
   );
   const activeFilterCount = Object.entries(filters).filter(([key, value]) => {
     if (key === "query") return Boolean(value);
-    if (key === "includeLowConfidence") return value === true;
+    if (key === "includeLowConfidence") {
+      return value !== (source === "faustus");
+    }
     if (key === "trend") return value !== "all";
     return value !== "all" && value !== "";
   }).length;
@@ -198,7 +203,9 @@ export const MarketFilters = forwardRef<
         <div className="confidence-guard" role="status">
           <ShieldCheck size={13} />
           <strong>{guardedEstimateCount.toLocaleString()}</strong>
-          unreliable {guardedEstimateCount === 1 ? "estimate" : "estimates"} hidden
+          {source === "faustus"
+            ? `guarded completed-hour ${guardedEstimateCount === 1 ? "market" : "markets"} hidden`
+            : `unreliable ${guardedEstimateCount === 1 ? "estimate" : "estimates"} hidden`}
           <button
             type="button"
             onClick={() => update("includeLowConfidence", true)}
@@ -207,6 +214,18 @@ export const MarketFilters = forwardRef<
           </button>
         </div>
       )}
+
+      {source === "faustus" &&
+        guardedEstimateCount > 0 &&
+        filters.includeLowConfidence && (
+          <div className="confidence-guard" role="status">
+            <ShieldCheck size={13} />
+            <strong>{guardedEstimateCount.toLocaleString()}</strong>
+            guarded completed-hour
+            {guardedEstimateCount === 1 ? " market" : " markets"} shown with
+            warnings; excluded from movers and trends
+          </div>
+        )}
 
       {advanced && (
         <div className="advanced-filters">
@@ -337,7 +356,9 @@ export const MarketFilters = forwardRef<
                 }
               />
               <span />
-              Show unreliable estimates (&lt;5 observations)
+              {source === "faustus"
+                ? "Show guarded completed-hour markets"
+                : "Show unreliable estimates (<5 observations)"}
             </label>
           )}
 
@@ -350,7 +371,7 @@ export const MarketFilters = forwardRef<
             <button
               className="reset-filters"
               type="button"
-              onClick={() => onFilters({ ...emptyFilters })}
+              onClick={() => onFilters(defaultFiltersForSource(source))}
             >
               <RotateCcw size={14} />
               Reset all

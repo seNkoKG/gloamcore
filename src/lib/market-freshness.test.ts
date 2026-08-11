@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CacheEnvelope } from "../types";
 import {
+  faustusRefreshDelayMs,
   marketFailureDisposition,
   marketRefreshDelayMs,
   marketRetryDelayMs,
@@ -63,5 +64,22 @@ describe("main market failure freshness", () => {
 
     expect(marketRefreshDelayMs(current, 30, now)).toBe(10_250);
     expect(marketRefreshDelayMs(null, 999, now)).toBe(30 * 60_000);
+  });
+
+  it("polls official Faustus data every five minutes and catches up every minute", () => {
+    const now = Date.parse("2026-08-11T20:32:00Z");
+    const current = {
+      fetchedAt: Date.parse("2026-08-11T19:00:00Z"),
+      stale: false,
+    };
+    const delayed = {
+      fetchedAt: Date.parse("2026-08-11T18:00:00Z"),
+      stale: false,
+    };
+
+    expect(faustusRefreshDelayMs(current, now)).toBe(5 * 60_000);
+    expect(faustusRefreshDelayMs(delayed, now)).toBe(60_000);
+    expect(faustusRefreshDelayMs({ ...current, stale: true }, now)).toBe(60_000);
+    expect(faustusRefreshDelayMs(null, now)).toBe(60_000);
   });
 });

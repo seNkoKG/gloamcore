@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 2.8.1
+
+- Corrected Faustus item identity resolution on desktop and mobile by mapping
+  every current economy item name to its authoritative PoE Wiki metadata ID;
+  generated image texture paths no longer suppress valid official markets.
+- Made thin, wide, or last-observed completed-hour Faustus markets visible by
+  default with explicit warnings while continuing to exclude them from movers,
+  trends, and other confidence-sensitive surfaces. When the newest digest has
+  no usable range, the most recent official observation in the eight-hour
+  history is retained instead of silently dropping the item.
+- Increased Faustus discovery checks to every five minutes, with one-minute
+  catch-up checks when GGG's newly completed hourly digest is not yet
+  published; prices remain strictly sourced from official completed hours.
+
 ## 2.8.0
 
 - Rebuilt Cluster Back as a packaged, searchable Large Cluster Jewel planner

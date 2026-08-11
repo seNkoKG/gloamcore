@@ -6,6 +6,7 @@ import type {
   RawFaustusHour,
   RawFaustusMarket,
   RawFaustusOverview,
+  RawWikiCargoResponse,
 } from "../types";
 
 export const CHAOS_METADATA_ID =
@@ -56,6 +57,51 @@ export function faustusItemSeeds(rows: EconomyRow[]): FaustusItemSeed[] {
     id: row.id,
     name: row.name,
     metadataId: metadataIdFromIcon(row.icon),
+  }));
+}
+
+function decodedWikiCargoText(value: unknown) {
+  return String(value || "")
+    .replace(/&#(?:0*39|x0*27);/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+export function resolveFaustusItemMetadata(
+  items: FaustusItemSeed[],
+  cargoEntries: NonNullable<RawWikiCargoResponse["cargoquery"]>,
+) {
+  const metadataByName = new Map<string, string>();
+  for (const entry of cargoEntries) {
+    const record = entry.title || {};
+    const name = decodedWikiCargoText(record.name).trim();
+    const metadataId = decodedWikiCargoText(
+      record["metadata id"] || record.metadata_id,
+    ).trim();
+    const inGame = String(record["is in game"] ?? record.is_in_game ?? "1");
+    const removed = decodedWikiCargoText(
+      record["removal version"] || record.removal_version,
+    ).trim();
+    if (
+      name &&
+      /^Metadata\/Items\/[A-Za-z0-9_./-]+$/.test(metadataId) &&
+      inGame !== "0" &&
+      !removed
+    ) {
+      metadataByName.set(name.toLocaleLowerCase(), metadataId);
+    }
+  }
+  return items.map((item) => ({
+    ...item,
+    // The generated poe.ninja image payload describes a texture file, not a
+    // canonical item id. Current Wiki metadata must therefore win whenever it
+    // is available; the image-derived value is only a last-resort fallback.
+    metadataId:
+      metadataByName.get(decodedWikiCargoText(item.name).trim().toLocaleLowerCase()) ||
+      item.metadataId,
   }));
 }
 
@@ -219,13 +265,27 @@ export function normalizeFaustusOverview(
   const rows = base.rows.flatMap((row) => {
     const metadataId = itemMetadata.get(row.id);
     if (!metadataId) return [];
-    const latest = priceForHour(
-      latestHour,
-      metadataId,
-      baseDivineChaos,
-    );
-    if (!latest) return [];
+    const observed = [...hours]
+      .reverse()
+      .map((hour) => ({
+        hour,
+        price: priceForHour(hour, metadataId, baseDivineChaos),
+      }))
+      .find((entry) => entry.price);
+    if (!observed?.price) return [];
+    const latest = observed.price;
     const confidence = priceConfidence(latest, metadataId);
+    const observationAgeHours = Math.max(
+      0,
+      Math.round((latestHour.id - observed.hour.id) / 3_600),
+    );
+    const ageReason = observationAgeHours > 0
+      ? `No usable market range in the latest completed hour; showing the last official market from ${observationAgeHours} ${observationAgeHours === 1 ? "hour" : "hours"} earlier`
+      : undefined;
+    const lowConfidence = confidence.lowConfidence || Boolean(ageReason);
+    const confidenceReason = [confidence.confidenceReason, ageReason]
+      .filter(Boolean)
+      .join("; ") || undefined;
     const sparkline = hours.map((hour) => {
       const price = priceForHour(hour, metadataId, baseDivineChaos);
       if (!price || priceConfidence(price, metadataId).lowConfidence) return null;
@@ -247,7 +307,7 @@ export function normalizeFaustusOverview(
         source: "faustus" as const,
         chaosValue: latest.midpoint,
         divineValue: latest.midpoint / latest.divineChaos,
-        change: confidence.lowConfidence ? null : percentChange(sparkline),
+        change: lowConfidence ? null : percentChange(sparkline),
         sparkline,
         volume: traded,
         listingCount: null,
@@ -255,7 +315,7 @@ export function normalizeFaustusOverview(
         maxVolumeCurrency: undefined,
         maxVolumeRate: undefined,
         faustus: {
-          hour: latestHour.id,
+          hour: observed.hour.id,
           minimumChaos: latest.minimum,
           maximumChaos: latest.maximum,
           traded,
@@ -263,8 +323,8 @@ export function normalizeFaustusOverview(
           maximumStock,
           reference: latest.reference,
         },
-        lowConfidence: confidence.lowConfidence,
-        confidenceReason: confidence.confidenceReason,
+        lowConfidence,
+        confidenceReason,
       },
     ];
   });
