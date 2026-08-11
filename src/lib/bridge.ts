@@ -501,6 +501,33 @@ const browserBridge: PoeWidgetBridge = {
       recoverable: false,
     };
   },
+  async analyzePobNodes() {
+    return {
+      ok: false as const,
+      authoritative: false as const,
+      code: "POB_ENGINE_UNAVAILABLE",
+      message: "Authoritative passive-power analysis requires the Windows desktop app.",
+      recoverable: false,
+    };
+  },
+  async previewPobTimeless() {
+    return {
+      ok: false as const,
+      authoritative: false as const,
+      code: "POB_ENGINE_UNAVAILABLE",
+      message: "Authoritative Timeless Jewel decoding requires the Windows desktop app.",
+      recoverable: false,
+    };
+  },
+  async huntPobTimeless() {
+    return {
+      ok: false as const,
+      authoritative: false as const,
+      code: "POB_ENGINE_UNAVAILABLE",
+      message: "Authoritative Timeless Jewel seed ranking requires the Windows desktop app.",
+      recoverable: false,
+    };
+  },
   async importPobCharacter() {
     return {
       ok: false as const,

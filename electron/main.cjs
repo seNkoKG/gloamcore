@@ -4604,7 +4604,7 @@ function createWindow() {
   void loadRenderer(mainWindow);
 
   mainWindow.once("ready-to-show", () => {
-    if (!settings.startMinimized && !START_MINIMIZED && !QA_OPEN_SURFACE) {
+    if (!settings.startMinimized && !START_MINIMIZED && (!QA_OPEN_SURFACE || QA_OPEN_SURFACE === "main")) {
       mainWindow.show();
     }
   });
@@ -4628,6 +4628,11 @@ function createWindow() {
   });
   mainWindow.on("hide", updateTrayMenu);
   mainWindow.on("close", (event) => {
+    if (QA_OPEN_SURFACE === "main") {
+      app.isQuitting = true;
+      setImmediate(() => app.quit());
+      return;
+    }
     if (!app.isQuitting) {
       event.preventDefault();
       mainWindow.hide();
@@ -5325,6 +5330,42 @@ ipcMain.handle("planner:calculate-build", (event, request) => {
   return pobEngineDispatcher.calculate({
     xml: request?.xml,
     name: request?.name,
+  });
+});
+
+ipcMain.handle("planner:analyze-nodes", (event, request) => {
+  assertDashboardSender(event);
+  return pobEngineDispatcher.analyzeNodes({
+    xml: request?.xml,
+    name: request?.name,
+    maxPoints: request?.maxPoints,
+  });
+});
+
+ipcMain.handle("planner:preview-timeless", (event, request) => {
+  assertDashboardSender(event);
+  return pobEngineDispatcher.previewTimeless({
+    xml: request?.xml,
+    name: request?.name,
+    jewelType: request?.jewelType,
+    conquerorId: request?.conquerorId,
+    socketId: request?.socketId,
+    seed: request?.seed,
+  });
+});
+
+ipcMain.handle("planner:hunt-timeless", (event, request) => {
+  assertDashboardSender(event);
+  return pobEngineDispatcher.huntTimeless({
+    xml: request?.xml,
+    name: request?.name,
+    jewelType: request?.jewelType,
+    socketId: request?.socketId,
+    socketIds: request?.socketIds,
+    targets: request?.targets,
+    scope: request?.scope,
+    maxPoints: request?.maxPoints,
+    maxResults: request?.maxResults,
   });
 });
 

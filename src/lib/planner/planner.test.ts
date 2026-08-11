@@ -7,11 +7,13 @@ import {
   createPlannerSnapshot,
   formatPobStatValue,
   MAX_SAVED_PLANNER_LIBRARY_BYTES,
+  parseActivePlannerWorkspace,
   parseSavedPlannerBuilds,
   recoverSavedPlannerLibrary,
   RETIRED_PLANNER_FORMAT,
   SavedPlannerLibraryError,
   sanitizePlannerSnapshot,
+  serializeActivePlannerWorkspace,
   serializeSavedPlannerBuilds,
   upsertSavedPlannerBuild,
 } from "./planner-workspace";
@@ -533,6 +535,54 @@ describe("planner saved builds and comparisons", () => {
     const newer = { ...snapshot, name: "Updated", updatedAt: 20 };
     expect(upsertSavedPlannerBuild([snapshot], newer)).toHaveLength(1);
     expect(parseSavedPlannerBuilds(JSON.stringify([newer]))[0].name).toBe("Updated");
+  });
+
+  it("round-trips the active per-user workspace without credentials or repository state", () => {
+    const imported = {
+      ...emptyPobBuild(),
+      className: "Witch",
+      ascendancyName: "Elementalist",
+      level: 97,
+      notes: "persist me",
+      items: [{ id: 11, text: "Rarity: UNIQUE\nStorm Prism\nCobalt Jewel", name: "Storm Prism", baseType: "Cobalt Jewel", slot: "Jewel 2491", equipped: true }],
+      config: { conditionBoss: true },
+    };
+    const snapshot = createPlannerSnapshot({
+      id: "active-workspace",
+      name: "Persisted Witch",
+      game: "poe1",
+      treeVersion: "3_29",
+      build: imported,
+      specs: [],
+      activeSpecId: "",
+      classId: 3,
+      ascendancyId: 1,
+      allocated: [2491, 131_072],
+      editedSinceImport: true,
+      now: 123,
+    });
+    const raw = serializeActivePlannerWorkspace(snapshot, "items", 456);
+    const restored = parseActivePlannerWorkspace(raw);
+
+    expect(restored).toMatchObject({ version: 1, tab: "items", savedAt: 456 });
+    expect(restored.snapshot).toMatchObject({
+      name: "Persisted Witch",
+      allocated: [2491, 131_072],
+      editedSinceImport: true,
+      build: { className: "Witch", notes: "persist me", config: { conditionBoss: true } },
+    });
+    expect(raw).not.toMatch(/accessToken|accountName|oauth|poesessid/i);
+  });
+
+  it("leaves malformed active autosaves fail-closed and normalizes unknown tabs", () => {
+    expect(() => parseActivePlannerWorkspace("{broken")).toThrow("left unchanged");
+    expect(() => parseActivePlannerWorkspace(JSON.stringify({ version: 1, snapshot: { unexpected: true } }))).toThrow("unsupported format");
+    const snapshot = createPlannerSnapshot({
+      game: "poe1", treeVersion: "3_29", build: null, specs: [], activeSpecId: "", classId: 0,
+      ascendancyId: 0, allocated: [], editedSinceImport: false,
+    });
+    const unknownTab = JSON.stringify({ version: 1, tab: "secrets", savedAt: 1, snapshot });
+    expect(parseActivePlannerWorkspace(unknownTab).tab).toBe("tree");
   });
 
   it("locks malformed, wrong-shaped, partially invalid, and oversized saved libraries", () => {

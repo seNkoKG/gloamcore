@@ -947,6 +947,117 @@ export interface PobEngineCalculationSuccess {
 
 export type PobEngineCalculationResult = PobEngineCalculationSuccess | PobEngineFailure;
 
+export interface PobNodePower {
+  id: number;
+  name: string;
+  type: string;
+  distance: number;
+  allocated: boolean;
+  offence: number;
+  defence: number;
+  singleStat: number;
+  pathPower: number | null;
+}
+
+export interface PobNodeAnalysisSuccess {
+  ok: true;
+  authoritative: true;
+  engine: PobEngineCalculationSuccess["engine"];
+  analysis: {
+    maxPoints: number;
+    nodePowers: PobNodePower[];
+    powerMax: Record<string, number>;
+    warnings: string[];
+    engineMilliseconds: number | null;
+  };
+  durationMilliseconds: number;
+  isolation: PobEngineCalculationSuccess["isolation"];
+}
+
+export type PobNodeAnalysisResult = PobNodeAnalysisSuccess | PobEngineFailure;
+
+export interface PobTimelessAffectedNode {
+  id: number;
+  name: string;
+  type: string;
+  transformedName: string;
+  stats: string[];
+  allocated: boolean;
+}
+
+export interface PobTimelessPreviewSuccess {
+  ok: true;
+  authoritative: true;
+  engine: PobEngineCalculationSuccess["engine"];
+  preview: {
+    jewelType: number;
+    jewelName: string;
+    seed: number;
+    minimumSeed: number;
+    maximumSeed: number;
+    seedStep: number;
+    socketId: number;
+    affectedNodes: PobTimelessAffectedNode[];
+    warnings: string[];
+    engineMilliseconds: number | null;
+  };
+  durationMilliseconds: number;
+  isolation: PobEngineCalculationSuccess["isolation"];
+}
+
+export type PobTimelessPreviewResult = PobTimelessPreviewSuccess | PobEngineFailure;
+
+export interface PobTimelessModifierCatalogEntry {
+  id: string;
+  name: string;
+  stats: string[];
+  kind: "replacement" | "augmentation";
+}
+
+export interface PobTimelessHuntHit {
+  id: string;
+  name: string;
+  count: number;
+  value: number;
+  weightedValue: number;
+  nodes: Array<{ id: number; name: string }>;
+}
+
+export interface PobTimelessHuntResultEntry {
+  seed: number;
+  socketId: number;
+  score: number;
+  hits: PobTimelessHuntHit[];
+}
+
+export interface PobTimelessHuntSuccess {
+  ok: true;
+  authoritative: true;
+  engine: PobEngineCalculationSuccess["engine"];
+  hunt: {
+    jewelType: number;
+    jewelName: string;
+    minimumSeed: number;
+    maximumSeed: number;
+    seedStep: number;
+    socketId: number;
+    socketIds: number[];
+    socketCount: number;
+    catalog: PobTimelessModifierCatalogEntry[];
+    searchedSeeds: number;
+    candidateNodes: number;
+    scope: "allocated" | "reachable" | "radius";
+    maxPoints: number;
+    results: PobTimelessHuntResultEntry[];
+    warnings: string[];
+    engineMilliseconds: number | null;
+  };
+  durationMilliseconds: number;
+  isolation: PobEngineCalculationSuccess["isolation"];
+}
+
+export type PobTimelessHuntResult = PobTimelessHuntSuccess | PobEngineFailure;
+
 export interface PobEngineCharacterImportSuccess {
   ok: true;
   authoritative: true;
@@ -1047,6 +1158,30 @@ export interface PoeWidgetBridge {
     xml: string;
     name?: string;
   }): Promise<PobEngineCalculationResult>;
+  analyzePobNodes(request: {
+    xml: string;
+    name?: string;
+    maxPoints?: number;
+  }): Promise<PobNodeAnalysisResult>;
+  previewPobTimeless(request: {
+    xml: string;
+    name?: string;
+    jewelType: number;
+    conquerorId?: number;
+    socketId: number;
+    seed: number;
+  }): Promise<PobTimelessPreviewResult>;
+  huntPobTimeless(request: {
+    xml: string;
+    name?: string;
+    jewelType: number;
+    socketId?: number;
+    socketIds?: number[];
+    targets: Array<{ id: string; weight: number; weight2?: number; minimum?: number }>;
+    scope?: "allocated" | "reachable" | "radius";
+    maxPoints?: number;
+    maxResults?: number;
+  }): Promise<PobTimelessHuntResult>;
   importPobCharacter(request: {
     character: Record<string, unknown>;
   }): Promise<PobEngineCharacterImportResult>;

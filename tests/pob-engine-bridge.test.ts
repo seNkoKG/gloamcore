@@ -11,10 +11,13 @@ const {
   CONTRACT_VERSION,
   MAX_BUILD_BYTES,
   MAX_CHARACTER_BYTES,
+  analyzePobNodes,
   calculatePobBuild,
   diagnosePobEngine,
+  huntPobTimeless,
   importPobCharacter,
   inspectInstallation,
+  previewPobTimeless,
   _internals,
 } = require("../electron/pob-engine-bridge.cjs");
 
@@ -87,6 +90,20 @@ describe("authoritative local Path of Building bridge", () => {
       authoritative: false,
       code: "POB_XML_INVALID",
     });
+  });
+
+  it("rejects malformed passive-analysis and Timeless Jewel requests before starting an engine", async () => {
+    await expect(analyzePobNodes({ xml: "not a build", maxPoints: 5 })).resolves.toMatchObject({ code: "POB_XML_INVALID", authoritative: false });
+    await expect(previewPobTimeless({ xml: minimalBuild(1), jewelType: 2, socketId: "not-a-socket", seed: 10000 })).resolves.toMatchObject({ code: "POB_TIMELESS_REQUEST_INVALID", authoritative: false });
+    await expect(huntPobTimeless({ xml: minimalBuild(1), jewelType: null, socketId: null, targets: [] })).resolves.toMatchObject({ code: "POB_TIMELESS_REQUEST_INVALID", authoritative: false });
+  });
+
+  it("rejects malformed exact-analysis result envelopes", () => {
+    const installation = { engine: { number: "2.66.1", branch: "master", platform: "win32" } };
+    const authority = { ok: true, authoritative: true, readOnly: true, freshProcess: true, engineVersion: "2.66.1", engineBranch: "master", enginePlatform: "win32" };
+    expect(_internals.validateNodeAnalysisWorkerPayload({ ...authority, operation: "analyze-nodes", nodePowers: [{ id: 1, distance: 1, offence: Number.NaN, defence: 0, singleStat: 0 }] }, installation)).toMatchObject({ code: "POB_NODE_ANALYSIS_INVALID" });
+    expect(_internals.validateTimelessPreviewWorkerPayload({ ...authority, operation: "preview-timeless", socketId: 2491, seed: 10000, jewelType: 2, affectedNodes: [{ id: 1, name: "Node", transformedName: "Result", stats: [null] }] }, installation)).toMatchObject({ code: "POB_TIMELESS_PREVIEW_INVALID" });
+    expect(_internals.validateTimelessHuntWorkerPayload({ ...authority, operation: "hunt-timeless", socketId: 2491, jewelType: 2, catalog: [], results: [{ seed: 10000, score: Infinity, hits: [] }] }, installation)).toMatchObject({ code: "POB_TIMELESS_HUNT_INVALID" });
   });
 
   it("kills an active host process when its worker operation is cancelled", async () => {
@@ -163,6 +180,35 @@ describe("authoritative local Path of Building bridge", () => {
   });
 
   const capability = diagnosePobEngine();
+  it.runIf(capability.available)("uses PoB's exact passive power and official Timeless Jewel lookup tables", async () => {
+    const analysis = await analyzePobNodes({ xml: minimalBuild(1), maxPoints: 2 });
+    expect(analysis).toMatchObject({ ok: true, authoritative: true, engine: { version: "2.66.1" }, analysis: { maxPoints: 2 } });
+    expect(analysis.analysis.nodePowers.length).toBeGreaterThan(0);
+    expect(analysis.analysis.nodePowers.every((node: { offence: number; defence: number }) => Number.isFinite(node.offence) && Number.isFinite(node.defence))).toBe(true);
+
+    const preview = await previewPobTimeless({ xml: minimalBuild(1), jewelType: 2, conquerorId: 1, socketId: 2491, seed: 10000 });
+    expect(preview).toMatchObject({ ok: true, authoritative: true, preview: { jewelName: "Lethal Pride", seed: 10000, socketId: 2491, minimumSeed: 10000, maximumSeed: 18000, seedStep: 1 } });
+    expect(preview.preview.affectedNodes.length).toBeGreaterThan(0);
+
+    const catalog = await huntPobTimeless({ xml: minimalBuild(1), jewelType: 2, socketId: 2491, targets: [], scope: "radius", maxResults: 5 });
+    expect(catalog).toMatchObject({ ok: true, authoritative: true, hunt: { jewelName: "Lethal Pride", searchedSeeds: 0 } });
+    expect(catalog.hunt.catalog.length).toBeGreaterThan(20);
+    expect(catalog.hunt.catalog.some((entry: { id: string }) => entry.id === "karui_notable_add_armour")).toBe(true);
+
+    const hunt = await huntPobTimeless({
+      xml: minimalBuild(1), jewelType: 2, socketIds: [2491, 61834], scope: "radius", maxResults: 5,
+      targets: [{ id: "karui_notable_add_armour", weight: 1, minimum: 1 }],
+    });
+    expect(hunt).toMatchObject({ ok: true, authoritative: true, hunt: { searchedSeeds: 16002, socketCount: 2, socketIds: [2491, 61834] } });
+    expect(hunt.hunt.results.length).toBeGreaterThan(0);
+    expect([2491, 61834]).toContain(hunt.hunt.results[0].socketId);
+    expect(hunt.hunt.results[0].hits[0]).toMatchObject({ id: "karui_notable_add_armour", weightedValue: expect.any(Number) });
+
+    const heroic = await previewPobTimeless({ xml: minimalBuild(1), jewelType: 6, conquerorId: 1, socketId: 2491, seed: 100 });
+    expect(heroic).toMatchObject({ ok: true, authoritative: true, preview: { jewelName: "Heroic Tragedy", seed: 100, minimumSeed: 100, maximumSeed: 8000, seedStep: 1 } });
+    expect(heroic.preview.affectedNodes.some((node: { stats: string[] }) => node.stats.some((stat) => stat.includes("Ward")))).toBe(true);
+  }, 45_000);
+
   it.runIf(capability.available)("imports official characters through PoB's exact item, socket, gem, and jewel logic", async () => {
     const imported = await importPobCharacter({
       character: {

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 2.5.0
+
+- Rebuilt the Build Planner around a compact build context bar, persistent
+  character statistics, dense Items/Skills/Config/Calculations workbenches,
+  and a clearer interactive passive-tree workspace in the GloamCore theme.
+- Added authoritative Path of Building passive node-power analysis with
+  offence, defence, blended heatmaps, path depth, ranked reports, and exact
+  node/path delta tooltips.
+- Added Timeless Lens with official PoB lookup tables and seed ranges for all
+  six jewel families, including Heroic Tragedy, plus exact transformations,
+  weighted primary/secondary rolls, minimum thresholds, allocation filters,
+  and single- or all-socket seed ranking.
+- Persisted the complete active planner workspace per local user across app
+  restarts without storing account credentials, OAuth tokens, or personal data
+  in the repository or release package.
+
 ## 2.4.2
 
 - Kept the normal Ctrl+D shortcut and native card watcher armed after clicks

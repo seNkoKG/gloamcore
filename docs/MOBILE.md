@@ -10,7 +10,7 @@ mobile-supported filters, trackers, item descriptions, trends, and trade links.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-2.4.2.apk`
+`deliverables/mobile/GloamCore-Android-2.5.0.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -32,7 +32,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-2.4.2.zip`
+`deliverables/mobile/GloamCore-iOS-Source-2.5.0.zip`
 
 On a Mac:
 

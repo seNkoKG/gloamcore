@@ -7,6 +7,9 @@ import {
 export { RETIRED_PLANNER_FORMAT } from "../storage-migration";
 
 export const SAVED_PLANNER_BUILDS_KEY = "gloamcore:saved-planner-builds:v1";
+export const ACTIVE_PLANNER_WORKSPACE_KEY = "gloamcore:active-planner-workspace:v1";
+export const ACTIVE_PLANNER_WORKSPACE_VERSION = 1;
+export const MAX_ACTIVE_PLANNER_WORKSPACE_BYTES = 4 * 1024 * 1024;
 export const LEGACY_SAVED_PLANNER_BUILDS_KEYS = [
   retiredProductStorageKey("saved-planner-builds:v1"),
 ] as const;
@@ -47,6 +50,17 @@ export interface PlannerWorkspaceSnapshot {
   allocated: number[];
   editedSinceImport: boolean;
 }
+
+export type PlannerWorkspaceTab = "tree" | "items" | "skills" | "config" | "calcs" | "galaxy" | "builds" | "notes" | "history";
+
+export interface ActivePlannerWorkspace {
+  version: typeof ACTIVE_PLANNER_WORKSPACE_VERSION;
+  tab: PlannerWorkspaceTab;
+  savedAt: number;
+  snapshot: PlannerWorkspaceSnapshot;
+}
+
+const PLANNER_WORKSPACE_TABS = new Set<PlannerWorkspaceTab>(["tree", "items", "skills", "config", "calcs", "galaxy", "builds", "notes", "history"]);
 
 export interface PlannerBuildComparison {
   addedNodes: number[];
@@ -159,6 +173,44 @@ export function sanitizePlannerSnapshot(value: unknown): PlannerWorkspaceSnapsho
     allocated: ids(candidate.allocated),
     editedSinceImport: Boolean(candidate.editedSinceImport),
   };
+}
+
+export function parseActivePlannerWorkspace(raw: string): ActivePlannerWorkspace {
+  if (new TextEncoder().encode(raw).byteLength > MAX_ACTIVE_PLANNER_WORKSPACE_BYTES) {
+    throw new Error("The active planner autosave is larger than the supported local-storage limit and was left unchanged.");
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch (error) {
+    throw new Error("The active planner autosave contains invalid JSON and was left unchanged.", { cause: error });
+  }
+  const envelope = value && typeof value === "object" ? value as Partial<ActivePlannerWorkspace> : null;
+  const snapshot = sanitizePlannerSnapshot(envelope?.snapshot);
+  if (!envelope || envelope.version !== ACTIVE_PLANNER_WORKSPACE_VERSION || !snapshot) {
+    throw new Error("The active planner autosave has an unsupported format and was left unchanged.");
+  }
+  return {
+    version: ACTIVE_PLANNER_WORKSPACE_VERSION,
+    tab: typeof envelope.tab === "string" && PLANNER_WORKSPACE_TABS.has(envelope.tab as PlannerWorkspaceTab)
+      ? envelope.tab as PlannerWorkspaceTab
+      : "tree",
+    savedAt: finite(envelope.savedAt, Date.now()),
+    snapshot,
+  };
+}
+
+export function serializeActivePlannerWorkspace(snapshot: PlannerWorkspaceSnapshot, tab: PlannerWorkspaceTab, now = Date.now()) {
+  const serialized = JSON.stringify({
+    version: ACTIVE_PLANNER_WORKSPACE_VERSION,
+    tab: PLANNER_WORKSPACE_TABS.has(tab) ? tab : "tree",
+    savedAt: now,
+    snapshot,
+  });
+  if (new TextEncoder().encode(serialized).byteLength > MAX_ACTIVE_PLANNER_WORKSPACE_BYTES) {
+    throw new Error("The active planner workspace exceeds the safe local-storage limit. Export or save a smaller build before closing the app.");
+  }
+  return serialized;
 }
 
 function savedPlannerLibraryBytes(raw: string) {

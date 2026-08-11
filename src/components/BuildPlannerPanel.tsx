@@ -1,20 +1,37 @@
 import clsx from "clsx";
 import {
+  Activity,
   ArrowLeft,
   ArrowRight,
+  BookOpen,
+  Boxes,
+  ChevronDown,
+  CircleGauge,
   Clipboard,
   Copy,
+  Gem,
   FolderOpen,
+  GitBranch,
   History,
   LoaderCircle,
+  Maximize2,
+  MoreHorizontal,
   Network,
+  Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
   RotateCcw,
   Save,
   Search,
+  Settings2,
+  Sparkles,
+  Swords,
   Upload,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   useCallback,
@@ -40,15 +57,19 @@ import {
   type ImportedPobItem,
 } from "../lib/planner/pob-build";
 import {
+  ACTIVE_PLANNER_WORKSPACE_KEY,
   comparePlannerBuilds,
   createPlannerSnapshot,
   LEGACY_SAVED_PLANNER_BUILDS_KEYS,
+  parseActivePlannerWorkspace,
   parseSavedPlannerBuilds,
   recoverSavedPlannerLibrary,
   SAVED_PLANNER_BUILDS_KEY,
   sanitizePlannerSnapshot,
+  serializeActivePlannerWorkspace,
   serializeSavedPlannerBuilds,
   upsertSavedPlannerBuild,
+  type PlannerWorkspaceTab,
   type PlannerWorkspaceSnapshot,
 } from "../lib/planner/planner-workspace";
 import { readMigratedStorage } from "../lib/storage-migration";
@@ -79,6 +100,10 @@ import type {
   PassiveTreeNodeData,
   PassiveTreeSpriteRect,
   PobEngineDiagnostic,
+  PobNodePower,
+  PobTimelessAffectedNode,
+  PobTimelessHuntResultEntry,
+  PobTimelessModifierCatalogEntry,
   PoeCharacterImportRequest,
   PoeCharacterSummary,
 } from "../types";
@@ -93,12 +118,243 @@ import {
 } from "./PlannerPanels";
 import "../planner.css";
 
-type PlannerTab = "tree" | "items" | "skills" | "config" | "calcs" | "galaxy" | "builds" | "notes" | "history";
+type PlannerTab = PlannerWorkspaceTab;
 type Viewport = { x: number; y: number; scale: number };
 type TreeSelection = { classId: number; ascendancyId: number; secondaryAscendancyId: number };
 type TreeHistory = TreeSelection & { allocated: Set<number>; masteryEffects: Record<number, number>; label: string; at: number };
 type TreeHover = { node: PassiveTreeNodeData; x: number; y: number; width: number; height: number };
 type MasteryPicker = { nodeId: number; path: number[] };
+type NodePowerMetric = "blend" | "offence" | "defence";
+type TreeViewCommand = { action: "zoom-in" | "zoom-out" | "fit" | "focus"; nodeId?: number; nonce: number };
+
+const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "galaxy", "builds", "notes", "history"];
+
+function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
+  switch (tab) {
+    case "tree": return <GitBranch size={14}/>;
+    case "items": return <Package size={14}/>;
+    case "skills": return <Swords size={14}/>;
+    case "config": return <Settings2 size={14}/>;
+    case "calcs": return <Activity size={14}/>;
+    case "galaxy": return <Sparkles size={14}/>;
+    case "builds": return <Boxes size={14}/>;
+    case "notes": return <BookOpen size={14}/>;
+    case "history": return <History size={14}/>;
+  }
+}
+
+function railStat(build: ImportedPobBuild | null, ...names: string[]) {
+  return build?.playerStats.find((stat) => names.includes(stat.name)) || null;
+}
+
+function railValue(stat: ReturnType<typeof railStat>, suffix = "") {
+  if (!stat) return "—";
+  const value = Math.abs(stat.value) >= 1000
+    ? Math.round(stat.value).toLocaleString("en-US")
+    : Number(stat.value.toFixed(Math.abs(stat.value) < 10 ? 2 : 1)).toLocaleString("en-US");
+  return `${value}${stat.percent ? "%" : suffix}`;
+}
+
+function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calculating }: {
+  build: ImportedPobBuild | null;
+  collapsed: boolean;
+  onCollapsed: () => void;
+  onRecalculate: () => void;
+  calculating: boolean;
+}) {
+  const mainSkill = build?.skillGroups.find((group) => group.includeInFullDps && group.enabled)
+    || build?.skillGroups.find((group) => group.enabled);
+  const sections = [
+    { title: "Offence", rows: [
+      ["Full DPS", railStat(build, "FullDPS", "CombinedDPS", "TotalDPS")],
+      ["Hit DPS", railStat(build, "TotalDPS", "CombinedDPS")],
+      ["Crit chance", railStat(build, "CritChance")],
+      ["Crit multi", railStat(build, "CritMultiplier")],
+      ["Rate", railStat(build, "Speed", "SpeedWithSlams")],
+    ] },
+    { title: "Defence", rows: [
+      ["Armour", railStat(build, "Armour")],
+      ["Evasion", railStat(build, "Evasion")],
+      ["Attack block", railStat(build, "BlockChance")],
+      ["Spell block", railStat(build, "SpellBlockChance")],
+      ["Suppression", railStat(build, "SpellSuppressionChance")],
+    ] },
+    { title: "Recovery", rows: [
+      ["Life regen", railStat(build, "LifeRegen", "LifeRegenRecovery")],
+      ["Mana regen", railStat(build, "ManaRegen", "ManaRegenRecovery")],
+      ["ES recharge", railStat(build, "EnergyShieldRecharge")],
+      ["Move speed", railStat(build, "EffectiveMovementSpeedMod", "MovementSpeedMod")],
+    ] },
+    { title: "Resistances", rows: [
+      ["Fire", railStat(build, "FireResist")],
+      ["Cold", railStat(build, "ColdResist")],
+      ["Lightning", railStat(build, "LightningResist")],
+      ["Chaos", railStat(build, "ChaosResist")],
+    ] },
+  ];
+  return <aside className={clsx("planner-stat-rail", collapsed && "is-collapsed")}>
+    <button type="button" className="planner-stat-collapse" onClick={onCollapsed} title={collapsed ? "Show build statistics" : "Hide build statistics"}>
+      {collapsed ? <PanelLeftOpen size={14}/> : <PanelLeftClose size={14}/>}
+    </button>
+    {!collapsed && <>
+      <div className="planner-vitals">
+        <span><strong>{railValue(railStat(build, "LifeUnreserved", "Life"))}</strong><small>Life</small></span>
+        <span><strong>{railValue(railStat(build, "EnergyShield"))}</strong><small>ES</small></span>
+        <span><strong>{railValue(railStat(build, "ManaUnreserved", "Mana"))}</strong><small>Mana</small></span>
+      </div>
+      <section className="planner-active-skill"><small>Active skill</small><strong>{mainSkill?.label || mainSkill?.gems.find((gem) => gem.enabled)?.name || "No evaluated skill"}</strong></section>
+      {!build?.playerStats.length && <button type="button" className="planner-stat-empty" onClick={onRecalculate} disabled={calculating || !build}>
+        {calculating ? <LoaderCircle className="is-spinning" size={13}/> : <CircleGauge size={13}/>} Calculate build stats
+      </button>}
+      <div className="planner-stat-sections">{sections.map((section) => <section key={section.title}>
+        <h3>{section.title}</h3>
+        {section.rows.map(([label, stat]) => <div key={label as string}><span>{label as string}</span><strong>{railValue(stat as ReturnType<typeof railStat>)}</strong></div>)}
+      </section>)}</div>
+      <footer><span className={build?.statSource === "pob-engine" ? "is-live" : ""}/>{build?.statSource === "pob-engine" ? "Verified local PoB" : "Imported PoB snapshot"}</footer>
+    </>}
+  </aside>;
+}
+
+const TIMELESS_JEWELS = [
+  { id: 1, name: "Glorious Vanity", faction: "Vaal", className: "vaal", seed: 100, variants: ["Xibaqua · Divine Flesh", "Doryani · Corrupted Soul", "Ahuana · Immortal Ambition"] },
+  { id: 2, name: "Lethal Pride", faction: "Karui", className: "karui", seed: 10000, variants: ["Kaom · Strength of Blood", "Rakiata · Tempered by War", "Akoya · Chainbreaker"] },
+  { id: 3, name: "Brutal Restraint", faction: "Maraketh", className: "maraketh", seed: 500, variants: ["Asenath · Dance with Death", "Nasima · Second Sight", "Balbala · The Traitor"] },
+  { id: 4, name: "Militant Faith", faction: "Templar", className: "templar", seed: 2000, variants: ["Avarius · Power of Purpose", "Dominus · Inner Conviction", "Maxarius · Transcendence"] },
+  { id: 5, name: "Elegant Hubris", faction: "Eternal", className: "eternal", seed: 2000, variants: ["Cadiro · Supreme Decadence", "Victario · Supreme Grandstanding", "Caspiro · Supreme Ostentation"] },
+  { id: 6, name: "Heroic Tragedy", faction: "Kalguur", className: "kalguur", seed: 100, variants: ["Vorana · Black Scythe Training", "Uhtred · Celestial Mathematics", "Medved · The Unbreaking Circle"] },
+] as const;
+
+function TimelessLens({ tree, allocated, xml, engineReady, onClose, onFocus }: {
+  tree: PassiveTreeData;
+  allocated: ReadonlySet<number>;
+  xml: string;
+  engineReady: boolean;
+  onClose: () => void;
+  onFocus: (nodeId: number) => void;
+}) {
+  const sockets = useMemo(() => tree.nodes.filter((node) => node.jewelSocket && !node.ascendancyName).sort((left, right) => Number(allocated.has(right.id)) - Number(allocated.has(left.id)) || left.id - right.id), [allocated, tree.nodes]);
+  const [jewelType, setJewelType] = useState(2);
+  const [conquerorId, setConquerorId] = useState(1);
+  const [socketId, setSocketId] = useState(sockets[0]?.id || 0);
+  const [seed, setSeed] = useState(10000);
+  const [scope, setScope] = useState<"allocated" | "reachable" | "radius">("reachable");
+  const [maxPoints, setMaxPoints] = useState(5);
+  const [catalog, setCatalog] = useState<PobTimelessModifierCatalogEntry[]>([]);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [targets, setTargets] = useState<Record<string, { weight: number; weight2: number; minimum: number }>>({});
+  const [results, setResults] = useState<PobTimelessHuntResultEntry[]>([]);
+  const [affected, setAffected] = useState<PobTimelessAffectedNode[]>([]);
+  const [selectedResult, setSelectedResult] = useState<string | null>(null);
+  const [summary, setSummary] = useState("Loading official Path of Building modifier data…");
+  const [loading, setLoading] = useState(false);
+  const jewel = TIMELESS_JEWELS.find((entry) => entry.id === jewelType) || TIMELESS_JEWELS[1];
+
+  useEffect(() => {
+    setSeed(jewel.seed);
+    setConquerorId(1);
+    setTargets({});
+    setResults([]);
+    setAffected([]);
+  }, [jewel.seed, jewelType]);
+
+  useEffect(() => {
+    if (!xml || !sockets.length || !engineReady) return;
+    let active = true;
+    setLoading(true);
+    setSummary("Reading the verified PoB Timeless Jewel catalog…");
+    bridge.huntPobTimeless({ xml, jewelType, socketId: socketId || sockets[0].id, targets: [], scope, maxPoints, maxResults: 50 })
+      .then((result) => {
+        if (!active) return;
+        if (!result.ok) {
+          setSummary(`${result.message}${result.detail ? ` ${result.detail}` : ""}`);
+          return;
+        }
+        setCatalog(result.hunt.catalog);
+        setSummary(`${result.hunt.catalog.length} official ${result.hunt.jewelName} outcomes · seeds ${result.hunt.minimumSeed.toLocaleString()}–${result.hunt.maximumSeed.toLocaleString()}${result.hunt.seedStep > 1 ? ` step ${result.hunt.seedStep}` : ""}`);
+      })
+      .catch((error) => active && setSummary(error instanceof Error ? error.message : String(error)))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [engineReady, jewelType, maxPoints, scope, socketId, xml]);
+
+  const runHunt = async () => {
+    if (!Object.keys(targets).length) {
+      setSummary("Choose at least one transformed or augmented modifier to rank seeds.");
+      return;
+    }
+    setLoading(true);
+    setResults([]);
+    setAffected([]);
+    setSummary(`Decoding and ranking every official seed in ${socketId ? "the selected socket" : `all ${sockets.length} tree sockets`}…`);
+    try {
+      const result = await bridge.huntPobTimeless({
+        xml, jewelType, ...(socketId ? { socketId } : { socketIds: sockets.map((socket) => socket.id) }), scope, maxPoints, maxResults: 100,
+        targets: Object.entries(targets).map(([id, target]) => ({ id, ...target })),
+      });
+      if (!result.ok) {
+        setSummary(`${result.message}${result.detail ? ` ${result.detail}` : ""}`);
+        return;
+      }
+      setResults(result.hunt.results);
+      setSummary(`Ranked ${result.hunt.searchedSeeds.toLocaleString()} seed/socket combinations across ${result.hunt.socketCount} socket${result.hunt.socketCount === 1 ? "" : "s"} and ${result.hunt.candidateNodes} ${scope === "radius" ? "in-radius" : scope} passives in ${(result.durationMilliseconds / 1000).toFixed(2)}s.`);
+    } catch (error) {
+      setSummary(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const previewSeed = async (nextSeed = seed, nextSocketId = socketId) => {
+    if (!nextSocketId) {
+      setSummary("Choose one socket to decode directly, or run the hunt and open a ranked socket/seed result.");
+      return;
+    }
+    setLoading(true);
+    setSelectedResult(`${nextSocketId}:${nextSeed}`);
+    setSeed(nextSeed);
+    setSummary(`Decoding ${jewel.name} seed ${nextSeed.toLocaleString()} with PoB…`);
+    try {
+      const result = await bridge.previewPobTimeless({ xml, jewelType, conquerorId, socketId: nextSocketId, seed: nextSeed });
+      if (!result.ok) {
+        setSummary(`${result.message}${result.detail ? ` ${result.detail}` : ""}`);
+        return;
+      }
+      setAffected(result.preview.affectedNodes);
+      setSummary(`${result.preview.affectedNodes.length} exact transformations decoded from Path of Building ${result.engine.version} in ${(result.durationMilliseconds / 1000).toFixed(2)}s.`);
+    } catch (error) {
+      setSummary(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCatalog = catalog.filter((entry) => !catalogQuery || `${entry.name} ${entry.stats.join(" ")}`.toLowerCase().includes(catalogQuery.toLowerCase()));
+  return <div className="timeless-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="timeless-lens" role="dialog" aria-modal="true" aria-labelledby="timeless-lens-title">
+      <header><span><Gem size={17}/><span><small>GLOAMCORE · VERIFIED POB LUT</small><strong id="timeless-lens-title">Timeless Lens</strong></span></span><p>{summary}</p><button type="button" aria-label="Close Timeless Lens" onClick={onClose}><X size={15}/></button></header>
+      <div className="timeless-grid">
+        <aside className="timeless-jewel-picker"><h3>Choose lineage</h3>{TIMELESS_JEWELS.map((entry) => <button type="button" key={entry.id} className={jewelType === entry.id ? "is-active" : ""} onClick={() => setJewelType(entry.id)}><span className={`timeless-jewel-icon is-${entry.className}`}><Gem size={20}/></span><span><strong>{entry.name}</strong><small>{entry.faction}</small></span></button>)}
+          <label>Conqueror<select value={conquerorId} onChange={(event) => setConquerorId(Number(event.target.value))}>{jewel.variants.map((variant, index) => <option key={variant} value={index + 1}>{variant}</option>)}</select></label>
+          <label>Tree socket<select value={socketId} onChange={(event) => setSocketId(Number(event.target.value))}><option value={0}>All jewel sockets ({sockets.length})</option>{sockets.map((socket) => <option key={socket.id} value={socket.id}>{allocated.has(socket.id) ? "● " : ""}Jewel Socket #{socket.id}</option>)}</select></label>
+          <div className="timeless-scope"><small>Candidate passives</small>{(["allocated", "reachable", "radius"] as const).map((value) => <button type="button" key={value} className={scope === value ? "is-active" : ""} onClick={() => setScope(value)}>{value}</button>)}</div>
+          {scope === "reachable" && <label>Reachable within <input type="number" min="1" max="30" value={maxPoints} onChange={(event) => setMaxPoints(Math.max(1, Math.min(30, Number(event.target.value) || 1)))}/><span>points</span></label>}
+          <div className="timeless-seed-preview"><label>Inspect seed<input type="number" value={seed} step={jewelType === 5 ? 20 : 1} onChange={(event) => setSeed(Number(event.target.value) || jewel.seed)}/></label><button type="button" disabled={loading || !engineReady || !socketId} onClick={() => previewSeed()}>{loading ? <LoaderCircle className="is-spinning" size={12}/> : <Search size={12}/>} Decode seed</button></div>
+        </aside>
+        <main className="timeless-priorities">
+          <header><span><strong>Weighted priorities</strong><small>{Object.keys(targets).length} selected · exact PoB IDs</small></span><button type="button" onClick={() => setTargets({})}>Clear</button></header>
+          <div className="timeless-selected-targets">{Object.entries(targets).map(([id, target]) => { const entry = catalog.find((candidate) => candidate.id === id); if (!entry) return null; const hasSecondary = jewelType === 1 && entry.kind === "replacement" && entry.stats.length > 1; return <article key={id}><button type="button" aria-label={`Remove ${entry.name}`} onClick={() => setTargets((current) => { const next = { ...current }; delete next[id]; return next; })}><X size={11}/></button><span><strong>{entry.name}</strong><small>{entry.stats.join(" · ")}</small></span><label>Weight<input type="number" min="-1000" max="1000" step="0.25" value={target.weight} onChange={(event) => setTargets((current) => ({ ...current, [id]: { ...target, weight: Number(event.target.value) || 0 } }))}/></label><label className={!hasSecondary ? "is-disabled" : ""}>Weight 2<input type="number" min="-1000" max="1000" step="0.25" disabled={!hasSecondary} value={target.weight2} onChange={(event) => setTargets((current) => ({ ...current, [id]: { ...target, weight2: Number(event.target.value) || 0 } }))}/></label><label>Min weight<input type="number" min="0" max="100000" step="0.25" value={target.minimum} onChange={(event) => setTargets((current) => ({ ...current, [id]: { ...target, minimum: Number(event.target.value) || 0 } }))}/></label></article>; })}{!Object.keys(targets).length && <p>Select outcomes below. Primary/secondary weights rank exact rolls; minimum weight rejects results below a required contribution.</p>}</div>
+          <label className="timeless-mod-search"><Search size={12}/><input value={catalogQuery} onChange={(event) => setCatalogQuery(event.target.value)} placeholder="Search transformed and augmented modifiers…"/><small>{filteredCatalog.length}</small></label>
+          <div className="timeless-mod-catalog">{filteredCatalog.map((entry) => <button type="button" key={entry.id} className={targets[entry.id] ? "is-selected" : ""} onClick={() => setTargets((current) => current[entry.id] ? current : { ...current, [entry.id]: { weight: 1, weight2: 0, minimum: 0 } })}><span><strong>{entry.name}</strong><small>{entry.stats.join(" · ")}</small></span><em>{entry.kind}</em><Plus size={11}/></button>)}</div>
+          <button type="button" className="timeless-hunt-run" disabled={loading || !engineReady || !Object.keys(targets).length} onClick={runHunt}>{loading ? <LoaderCircle className="is-spinning" size={13}/> : <Sparkles size={13}/>} Hunt every official seed</button>
+        </main>
+        <aside className="timeless-results">
+          <header><span><strong>{affected.length ? `Seed ${seed.toLocaleString()}` : "Ranked seeds"}</strong><small>{affected.length ? `${affected.filter((node) => node.allocated).length} allocated transformations` : `${results.length} best outcomes`}</small></span>{affected.length > 0 && <button type="button" onClick={() => setAffected([])}>Back to ranks</button>}</header>
+          {affected.length ? <div className="timeless-transform-list">{affected.map((node) => <button type="button" key={node.id} className={node.allocated ? "is-allocated" : ""} onClick={() => onFocus(node.id)}><i/><span><small>{node.type} · #{node.id}{node.allocated ? " · allocated" : ""}</small><em>{node.name}</em><strong>{node.transformedName}</strong>{node.stats.map((stat) => <b key={stat}>{stat}</b>)}</span></button>)}</div> : <div className="timeless-rank-list">{results.map((result, index) => <button type="button" key={`${result.socketId}:${result.seed}`} className={selectedResult === `${result.socketId}:${result.seed}` ? "is-active" : ""} onClick={() => previewSeed(result.seed, result.socketId)}><em>#{index + 1}</em><span><strong>Seed {result.seed.toLocaleString()}</strong><small>Socket #{result.socketId} · {result.hits.map((hit) => `${hit.count}× ${hit.name}`).join(" · ")}</small></span><b>{Number(result.score.toFixed(2)).toLocaleString()}</b></button>)}{!results.length && <p>Select weighted priorities, choose the relevant allocation scope, then run the hunt. Results are decoded from PoB’s official seed lookup tables.</p>}</div>}
+        </aside>
+      </div>
+    </section>
+  </div>;
+}
 
 function passiveNodeKind(node: PassiveTreeNodeData) {
   if (node.classStartIds.length) return "Class start";
@@ -122,6 +378,7 @@ export function PassiveNodeTooltip({
   socketedItem,
   usedMasteryEffects,
   radiusSummary,
+  nodePower,
   selectedAscendancyName,
   selectedSecondaryName,
 }: {
@@ -132,6 +389,7 @@ export function PassiveNodeTooltip({
   socketedItem: ImportedPobItem | null;
   usedMasteryEffects: ReadonlySet<number>;
   radiusSummary: string | null;
+  nodePower?: PobNodePower | null;
   selectedAscendancyName: string;
   selectedSecondaryName: string;
 }) {
@@ -192,6 +450,11 @@ export function PassiveNodeTooltip({
         </section>
       )}
       {radiusSummary && <section className="passive-tooltip-radius"><small>Jewel radius</small><span>{radiusSummary}</span></section>}
+      {nodePower && <section className="passive-tooltip-power">
+        <small>Exact PoB node power · {nodePower.distance} point{nodePower.distance === 1 ? "" : "s"}</small>
+        <div><span>Combined DPS</span><b className={nodePower.offence >= 0 ? "is-positive" : "is-negative"}>{nodePower.offence >= 0 ? "+" : ""}{(nodePower.offence * 100).toFixed(2)}%</b></div>
+        <div><span>Defence index</span><b className={nodePower.defence >= 0 ? "is-positive" : "is-negative"}>{nodePower.defence >= 0 ? "+" : ""}{(nodePower.defence * 100).toFixed(2)}%</b></div>
+      </section>}
       <footer>
         {switchesAscendancy
           ? `Left-click switches to this ${node.bloodline ? "bloodline" : "ascendancy"}${node.bloodline ? "." : "; cross-class switches preserve the tree only when its class start is connected."}`
@@ -315,6 +578,10 @@ function PassiveTreeCanvas({
   classId,
   ascendancyName,
   secondaryAscendancyName,
+  powerScores,
+  powerMetric,
+  powerMax,
+  viewCommand,
   onAllocate,
   onRefund,
   onMastery,
@@ -329,6 +596,10 @@ function PassiveTreeCanvas({
   classId: number;
   ascendancyName: string;
   secondaryAscendancyName: string;
+  powerScores: ReadonlyMap<number, PobNodePower> | null;
+  powerMetric: NodePowerMetric;
+  powerMax: Readonly<Record<string, number>>;
+  viewCommand: TreeViewCommand | null;
   onAllocate: (node: PassiveTreeNodeData) => void;
   onRefund: (node: PassiveTreeNodeData) => void;
   onMastery: (node: PassiveTreeNodeData) => void;
@@ -351,6 +622,12 @@ function PassiveTreeCanvas({
     [tree.groups, visibleGroupIds],
   );
   const groupMap = useMemo(() => new Map(visibleGroups.map((group) => [group.id, group])), [visibleGroups]);
+  const powerMaximum = useMemo(() => {
+    const scores = [...(powerScores?.values() || [])];
+    if (powerMetric === "offence") return Math.max(0.000001, Number(powerMax.offence) || 0, ...scores.map((entry) => Math.max(0, entry.offence)));
+    if (powerMetric === "defence") return Math.max(0.000001, Number(powerMax.defence) || 0, ...scores.map((entry) => Math.max(0, entry.defence)));
+    return 2;
+  }, [powerMax, powerMetric, powerScores]);
 
   useEffect(() => {
     let active = true;
@@ -501,8 +778,31 @@ function PassiveTreeCanvas({
       const match = highlighted.has(node.id);
       const hovered = hoveredId === node.id;
       const start = node.classStartIds.includes(classId);
+      const nodePower = powerScores?.get(node.id);
       context.save();
       context.globalAlpha = isSelectedTree(node.ascendancyName) ? 1 : 0.42;
+      if (powerScores && !nodePower && !active && !start) context.globalAlpha *= 0.28;
+      if (nodePower && !active) {
+        const offenceMaximum = Math.max(0.000001, Number(powerMax.offence) || powerMaximum);
+        const defenceMaximum = Math.max(0.000001, Number(powerMax.defence) || powerMaximum);
+        const rawPower = powerMetric === "offence"
+          ? nodePower.offence / powerMaximum
+          : powerMetric === "defence"
+            ? nodePower.defence / powerMaximum
+            : (nodePower.offence / offenceMaximum) + (nodePower.defence / defenceMaximum);
+        const intensity = Math.max(0, Math.min(1, rawPower));
+        if (intensity > 0.005) {
+          const heatRadius = Math.max(7, (node.keystone ? 132 : node.notable || node.mastery || node.jewelSocket ? 96 : 66) * view.scale);
+          const hue = 24 + intensity * 142;
+          context.beginPath();
+          context.arc(point.x, point.y, heatRadius, 0, Math.PI * 2);
+          context.fillStyle = `hsla(${hue},78%,55%,${0.08 + intensity * 0.3})`;
+          context.fill();
+          context.strokeStyle = `hsla(${hue},82%,68%,${0.35 + intensity * 0.6})`;
+          context.lineWidth = 1 + intensity * 2;
+          context.stroke();
+        }
+      }
       let rendered = false;
       if (node.classStartIds.length) {
         const className = tree.classes.find((entry) => node.classStartIds.includes(entry.id))?.name.toLowerCase().replace(/\s+/g, "") || "scion";
@@ -547,7 +847,7 @@ function PassiveTreeCanvas({
       }
       context.restore();
     }
-  }, [allocated, ascendancyName, classId, connections, groupMap, highlighted, hoveredId, previewed, refundPreview, secondaryAscendancyName, tree.assets, tree.classes, visibleGroups, visibleNodes]);
+  }, [allocated, ascendancyName, classId, connections, groupMap, highlighted, hoveredId, powerMax, powerMaximum, powerMetric, powerScores, previewed, refundPreview, secondaryAscendancyName, tree.assets, tree.classes, visibleGroups, visibleNodes]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -578,6 +878,33 @@ function PassiveTreeCanvas({
   }, [ascendancyName, classId, secondaryAscendancyName, tree.game, tree.sourcePath, tree.version]);
 
   useEffect(() => redraw(), [redraw, revision]);
+
+  useEffect(() => {
+    if (!viewCommand) return;
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return;
+    if (viewCommand.action === "fit") {
+      viewportRef.current = defaultPassiveTreeViewport(tree, canvas.clientWidth, canvas.clientHeight);
+    } else if (viewCommand.action === "focus") {
+      const node = visibleNodes.find((entry) => entry.id === viewCommand.nodeId);
+      if (!node) return;
+      const baseScale = Math.min(canvas.clientWidth, canvas.clientHeight) / Math.max(1, Number(tree.size) || 24000);
+      const scale = Math.max(viewportRef.current.scale, baseScale * 4.5);
+      viewportRef.current = { scale, x: canvas.clientWidth / 2 - node.x * scale, y: canvas.clientHeight / 2 - node.y * scale };
+    } else {
+      const factor = viewCommand.action === "zoom-in" ? 1.35 : 1 / 1.35;
+      const view = viewportRef.current;
+      const centerX = canvas.clientWidth / 2;
+      const centerY = canvas.clientHeight / 2;
+      const worldX = (centerX - view.x) / view.scale;
+      const worldY = (centerY - view.y) / view.scale;
+      const baseScale = Math.min(canvas.clientWidth, canvas.clientHeight) / Math.max(1, Number(tree.size) || 24000);
+      const scale = Math.min(baseScale * (1.2 ** 12), Math.max(baseScale, view.scale * factor));
+      viewportRef.current = { scale, x: centerX - worldX * scale, y: centerY - worldY * scale };
+    }
+    onHover(null);
+    setRevision((value) => value + 1);
+  }, [onHover, tree, viewCommand, visibleNodes]);
 
   const nearest = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -717,6 +1044,18 @@ export function BuildPlannerPanel() {
   const [editedSinceImport, setEditedSinceImport] = useState(false);
   const [engineCapability, setEngineCapability] = useState<PobEngineDiagnostic | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [statRailCollapsed, setStatRailCollapsed] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [viewCommand, setViewCommand] = useState<TreeViewCommand | null>(null);
+  const [powerMetric, setPowerMetric] = useState<NodePowerMetric>("blend");
+  const [powerDepth, setPowerDepth] = useState(5);
+  const [nodePowers, setNodePowers] = useState<PobNodePower[]>([]);
+  const [nodePowerMax, setNodePowerMax] = useState<Record<string, number>>({});
+  const [analyzingNodes, setAnalyzingNodes] = useState(false);
+  const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
+  const [timelessOpen, setTimelessOpen] = useState(false);
+  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
+  const workspaceAutosaveLockedRef = useRef(false);
   const asyncGuardRef = useRef(new PlannerAsyncRevisionGuard());
   const plannerIdentityRef = useRef({ build, specs, activeSpecId, tree });
   plannerIdentityRef.current = { build, specs, activeSpecId, tree };
@@ -826,12 +1165,105 @@ export function BuildPlannerPanel() {
 
   useEffect(() => {
     let active = true;
-    bridge.getPassiveTreeData({ game: "poe1" }).then((value) => {
-      if (!active) return;
-      initialiseTree(value, "New build");
-    }).catch((error) => active && setMessage(error instanceof Error ? error.message : String(error))).finally(() => active && setBusy(false));
+    void (async () => {
+      let defaultTree: PassiveTreeData | null = null;
+      try {
+        defaultTree = await bridge.getPassiveTreeData({ game: "poe1" });
+        if (!active) return;
+        const raw = localStorage.getItem(ACTIVE_PLANNER_WORKSPACE_KEY);
+        if (!raw) {
+          initialiseTree(defaultTree, "New build");
+          return;
+        }
+
+        let envelope: ReturnType<typeof parseActivePlannerWorkspace>;
+        try {
+          envelope = parseActivePlannerWorkspace(raw);
+        } catch (error) {
+          workspaceAutosaveLockedRef.current = true;
+          throw error;
+        }
+        const snapshot = envelope.snapshot;
+        const targetTree = defaultTree.game === snapshot.game
+          && (!snapshot.treeVersion || normalizedTreeVersion(defaultTree.version) === normalizedTreeVersion(snapshot.treeVersion))
+          ? defaultTree
+          : await bridge.getPassiveTreeData({ game: snapshot.game, treeVersion: snapshot.treeVersion || undefined });
+        if (!active) return;
+        const snapshotSpecs = snapshot.specs.map((spec) => materializeImportedPassiveSpec(targetTree, spec, snapshot.build?.items || []).spec);
+        const snapshotSpec = snapshotSpecs.find((entry) => entry.id === snapshot.activeSpecId) || snapshotSpecs[0] || null;
+        const restored = normalizedSpecAllocation(
+          targetTree,
+          snapshotSpec,
+          snapshot.build?.items || [],
+          snapshot.allocated,
+          snapshot.classId,
+          snapshot.ascendancyId,
+          snapshotSpec?.secondaryAscendClassId || 0,
+        );
+        setTree(targetTree);
+        setBuild(snapshot.build ? { ...snapshot.build, items: itemsWithPassiveSpecLoadout(snapshot.build.items, snapshotSpec) } : null);
+        setSpecs(snapshotSpecs);
+        setActiveSpecId(snapshotSpec?.id || "");
+        setUnsavedMasteryEffects({ ...(snapshotSpec?.masteryEffects || {}) });
+        setUnsavedSecondaryAscendancyId(snapshotSpec?.secondaryAscendClassId || 0);
+        setClassId(snapshot.classId);
+        setAscendancyId(snapshot.ascendancyId);
+        setAllocated(restored);
+        setHistory([{ allocated: restored, masteryEffects: { ...(snapshotSpec?.masteryEffects || {}) }, classId: snapshot.classId, ascendancyId: snapshot.ascendancyId, secondaryAscendancyId: snapshotSpec?.secondaryAscendClassId || 0, label: "Restored session", at: Date.now() }]);
+        setHistoryIndex(0);
+        setEditedSinceImport(snapshot.editedSinceImport);
+        setRealm(targetTree.game === "poe2" ? "poe2" : "pc");
+        setTab(envelope.tab);
+        setMessage(`Restored ${snapshot.name} from the last planner session.`);
+      } catch (error) {
+        if (!active) return;
+        if (defaultTree) initialiseTree(defaultTree, "New build");
+        setMessage(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (active) {
+          setWorkspaceHydrated(true);
+          setBusy(false);
+        }
+      }
+    })();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!workspaceHydrated || !tree || workspaceAutosaveLockedRef.current) return undefined;
+    const timer = window.setTimeout(() => {
+      const effectiveSpecs = specs.length ? specs : [{
+        id: "current",
+        title: "Current tree",
+        treeVersion: tree.version,
+        classId,
+        ascendClassId: ascendancyId,
+        secondaryAscendClassId: unsavedSecondaryAscendancyId,
+        nodes: [...allocated],
+        masteryEffects: { ...unsavedMasteryEffects },
+      } satisfies ImportedPassiveSpec];
+      const snapshot = createPlannerSnapshot({
+        id: "active-workspace",
+        name: build ? `${build.ascendancyName || build.className} · Level ${build.level}` : "Active planner workspace",
+        game: tree.game,
+        treeVersion: tree.version,
+        build,
+        specs: effectiveSpecs,
+        activeSpecId: activeSpecId || effectiveSpecs[0].id,
+        classId,
+        ascendancyId,
+        allocated,
+        editedSinceImport,
+      });
+      try {
+        localStorage.setItem(ACTIVE_PLANNER_WORKSPACE_KEY, serializeActivePlannerWorkspace(snapshot, tab));
+      } catch (error) {
+        workspaceAutosaveLockedRef.current = true;
+        setMessage(`The active planner workspace could not be autosaved: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [activeSpecId, allocated, ascendancyId, build, classId, editedSinceImport, specs, tab, tree, unsavedMasteryEffects, unsavedSecondaryAscendancyId, workspaceHydrated]);
 
   const changeGame = async (game: "poe1" | "poe2") => {
     if (game === tree?.game) return;
@@ -886,6 +1318,22 @@ export function BuildPlannerPanel() {
   );
   const searchResults = useMemo(() => materializedTree ? searchPassiveNodes(materializedTree, query) : [], [materializedTree, query]);
   const highlighted = useMemo(() => new Set(searchResults.map((node) => node.id)), [searchResults]);
+  const nodePowerMap = useMemo(() => new Map(nodePowers.map((entry) => [entry.id, entry])), [nodePowers]);
+  const rankedNodePowers = useMemo(() => nodePowers
+    .filter((entry) => !entry.allocated)
+    .sort((left, right) => {
+      const score = (entry: PobNodePower) => powerMetric === "offence"
+        ? entry.offence
+        : powerMetric === "defence"
+          ? entry.defence
+          : (entry.offence / Math.max(0.000001, Number(nodePowerMax.offence) || 1)) + (entry.defence / Math.max(0.000001, Number(nodePowerMax.defence) || 1));
+      return score(right) - score(left);
+    }), [nodePowerMax, nodePowers, powerMetric]);
+  useEffect(() => {
+    setNodePowers([]);
+    setNodePowerMax({});
+    setAnalysisDrawerOpen(false);
+  }, [activeSpecId, allocated, build, tree?.version]);
   const previewPath = useMemo(() => (
     materializedTree && hoverNodeId != null && !allocated.has(hoverNodeId)
       ? shortestAllocationPath(
@@ -1658,6 +2106,7 @@ export function BuildPlannerPanel() {
   const editNotes = (notes: string) => {
     markPlannerChanged();
     setBuild((current) => ({ ...(current || emptyPobBuild(currentClass?.name || "Scion")), notes }));
+    setEditedSinceImport(true);
   };
 
   const currentSnapshot = (name?: string, tags: string[] = [], id = activeSavedId || undefined) => {
@@ -1891,49 +2340,112 @@ export function BuildPlannerPanel() {
     }
   };
 
+  const analyzePassivePower = async () => {
+    if (!tree || tree.game !== "poe1" || engineCapability?.ok !== true) return;
+    const effectiveBuild = buildWithCurrentIdentity(build || emptyPobBuild(currentClass?.name || "Scion"));
+    const sourceSpecs = persistedSpecs();
+    const effectiveSpecs = sourceSpecs.map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
+    const xml = serializePobXml(effectiveBuild, effectiveSpecs, activeSpecId || effectiveSpecs[0]?.id || "");
+    setAnalyzingNodes(true);
+    setMessage(`Path of Building is evaluating every passive within ${powerDepth} point${powerDepth === 1 ? "" : "s"} of the current tree…`);
+    try {
+      const result = await bridge.analyzePobNodes({
+        xml,
+        maxPoints: powerDepth,
+        name: `${effectiveBuild.ascendancyName || effectiveBuild.className || "Character"} · passive power`,
+      });
+      if (!result.ok) {
+        setMessage(`${result.message}${result.detail ? ` ${result.detail}` : ""}`);
+        return;
+      }
+      setNodePowers(result.analysis.nodePowers);
+      setNodePowerMax(result.analysis.powerMax);
+      setAnalysisDrawerOpen(true);
+      setMessage(`Path of Building ${result.engine.version} scored ${result.analysis.nodePowers.length} passives in ${(result.durationMilliseconds / 1000).toFixed(2)}s. Heatmap and ranked notables are now live.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAnalyzingNodes(false);
+    }
+  };
+
   const baseline = savedBuilds.find((entry) => entry.id === baselineId) || null;
   const comparison = baseline ? comparePlannerBuilds({ build, allocated: [...allocated] }, baseline) : null;
 
   if (busy && !tree) return <div className="planner-loading"><LoaderCircle className="is-spinning" /><strong>Loading authoritative Path of Building tree…</strong></div>;
   if (!tree) return <div className="toolkit-empty"><Network size={34} /><h2>Passive tree unavailable</h2><p>{message}</p></div>;
+  let timelessXml = "";
+  if (timelessOpen && tree.game === "poe1") {
+    const effectiveBuild = buildWithCurrentIdentity(build || emptyPobBuild(currentClass?.name || "Scion"));
+    const effectiveSpecs = persistedSpecs().map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
+    timelessXml = serializePobXml(effectiveBuild, effectiveSpecs, activeSpecId || effectiveSpecs[0]?.id || "");
+  }
 
   return (
     <section className="planner-shell" data-game={tree.game}>
-      <header className="planner-header">
-        <div className="planner-title"><Network size={20} /><span><small>BUILD LAB · {tree.game === "poe2" ? "POE 2" : "POE 1"} · POB {tree.version.replace("_", ".")}</small><strong>{build ? `${currentAscendancy?.name || currentClass?.name || build.className} · Level ${build.level}` : "New character"}</strong></span></div>
-        <div className="planner-actions">
-          <button type="button" onClick={undo} disabled={historyIndex <= 0}><ArrowLeft size={14} /> Undo</button>
-          <button type="button" onClick={redo} disabled={historyIndex >= history.length - 1}>Redo <ArrowRight size={14} /></button>
-          <button type="button" onClick={copyTreeUrl} disabled={treeLinkUnsupported} title={treeLinkUnsupported ? "Use Copy PoB so mastery, cluster-jewel, bloodline, or PoE 2 data is not lost." : "Copy official passive-tree URL"}><Copy size={14} /> Tree link</button>
-          <button type="button" onClick={recalculateWithPob} disabled={calculating || tree.game !== "poe1" || engineCapability?.ok !== true} title={tree.game !== "poe1" ? "The verified local calculation bridge currently supports Path of Building Community for PoE 1." : engineCapability?.ok ? `Run a fresh read-only Path of Building ${engineCapability.engine.number} calculation.` : engineCapability?.message || "Checking the local Path of Building engine…"}>{calculating ? <LoaderCircle className="is-spinning" size={14} /> : <RefreshCw size={14} />} Recalculate in PoB</button>
-          <button type="button" onClick={copyPobCode}><Clipboard size={14} /> Copy PoB</button>
-          <button type="button" onClick={saveWorkspace}><Save size={14} /> Save</button>
-          <button type="button" onClick={openBuild}><FolderOpen size={14} /> Open</button>
-          <button type="button" className="is-primary" onClick={() => { if (tree.game === "poe2") setImportMode("pob"); setImportOpen(true); }}><Upload size={14} /> {tree.game === "poe2" ? "Import PoB2" : "Import character / PoB"}</button>
+      <header className="planner-commandbar">
+        <div className="planner-build-context">
+          <span className="planner-orbit-mark"><Network size={17}/></span>
+          <div className="planner-file-menu">
+            <button type="button" className={actionsOpen ? "is-open" : ""} onClick={() => setActionsOpen((value) => !value)}><span><small>{tree.game === "poe2" ? "POE 2" : "POE 1"} · POB {tree.version.replace("_", ".")}</small><strong>{build ? `${build.ascendancyName || build.className} · Level ${build.level}` : "Local build"}</strong></span><ChevronDown size={12}/></button>
+            {actionsOpen && <div className="planner-file-dropdown">
+              <button type="button" onClick={() => { setActionsOpen(false); void saveWorkspace(); }}><Save size={13}/><span>Save as file</span><kbd>Ctrl+S</kbd></button>
+              <button type="button" onClick={() => { setActionsOpen(false); void openBuild(); }}><FolderOpen size={13}/><span>Open build</span></button>
+              <button type="button" onClick={() => { setActionsOpen(false); setImportOpen(true); }}><Upload size={13}/><span>Import build</span><kbd>Ctrl+I</kbd></button>
+              <hr/><button type="button" onClick={() => { setActionsOpen(false); void copyPobCode(); }}><Clipboard size={13}/><span>Copy PoB code</span></button>
+              <button type="button" disabled={treeLinkUnsupported} onClick={() => { setActionsOpen(false); void copyTreeUrl(); }}><Copy size={13}/><span>Copy tree link</span></button>
+              <hr/><button type="button" onClick={() => { setActionsOpen(false); undo(); }} disabled={historyIndex <= 0}><ArrowLeft size={13}/><span>Undo tree change</span></button>
+              <button type="button" onClick={() => { setActionsOpen(false); redo(); }} disabled={historyIndex >= history.length - 1}><ArrowRight size={13}/><span>Redo tree change</span></button>
+            </div>}
+          </div>
+          <label className="planner-context-card"><small>Character</small><select aria-label="Character class" value={classId} onChange={(event) => changeClass(Number(event.target.value))}>{tree.classes.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+          <label className="planner-context-card"><small>Ascendancy · LV {build?.level || 1}</small><select aria-label="Ascendancy" value={ascendancyId} onChange={(event) => changeAscendancy(Number(event.target.value))}><option value={0}>None</option>{currentClass?.ascendancies.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+          <label className="planner-context-card planner-context-spec"><small>Tree spec</small><span><select value={activeSpecId} onChange={(event) => { void selectSpec(event.target.value); }}><option value="">Current tree</option>{specs.map((spec) => <option key={spec.id} value={spec.id}>{spec.title}</option>)}</select><button type="button" aria-label="Duplicate tree spec" onClick={addSpec}><Plus size={12}/></button></span></label>
+        </div>
+        <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">{PLANNER_TABS.slice(0, 7).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}><PlannerTabGlyph tab={value}/><span>{value}</span></button>)}</nav>
+        <div className="planner-command-actions">
+          <label className="planner-game-select"><select aria-label="Game" value={tree.game} disabled={busy} onChange={(event) => { void changeGame(event.target.value as "poe1" | "poe2"); }}><option value="poe1">PoE 1</option><option value="poe2">PoE 2</option></select></label>
+          {Boolean(tree.alternateAscendancies?.length) && <label className="planner-bloodline-select"><select aria-label="Bloodline" value={secondaryAscendancyId} onChange={(event) => changeSecondaryAscendancy(Number(event.target.value))}><option value={0}>No bloodline</option>{tree.alternateAscendancies?.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
+          <button type="button" onClick={recalculateWithPob} disabled={calculating || tree.game !== "poe1" || engineCapability?.ok !== true} title="Recalculate with the verified local Path of Building engine">{calculating ? <LoaderCircle className="is-spinning" size={14}/> : <RefreshCw size={14}/>}<span>Recalculate</span></button>
+          <button type="button" className="is-primary" onClick={() => { if (tree.game === "poe2") setImportMode("pob"); setImportOpen(true); }}><Upload size={14}/><span>Import</span></button>
+          <button type="button" aria-label="More planner actions" onClick={() => setActionsOpen((value) => !value)}><MoreHorizontal size={15}/></button>
         </div>
       </header>
       {message && <div className="planner-message"><span>{message}</span><button type="button" aria-label="Dismiss planner message" onClick={() => setMessage("")}><X size={13} /></button></div>}
-      <div className="planner-controls">
-        <label>Game<select value={tree.game} disabled={busy} onChange={(event) => { void changeGame(event.target.value as "poe1" | "poe2"); }}><option value="poe1">PoE 1</option><option value="poe2">PoE 2</option></select></label>
-        <label>Class<select value={classId} onChange={(event) => changeClass(Number(event.target.value))}>{tree.classes.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-        <label>Ascendancy<select value={ascendancyId} onChange={(event) => changeAscendancy(Number(event.target.value))}><option value={0}>None</option>{currentClass?.ascendancies.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
-        {Boolean(tree.alternateAscendancies?.length) && <label>Bloodline<select value={secondaryAscendancyId} onChange={(event) => changeSecondaryAscendancy(Number(event.target.value))}><option value={0}>None</option>{tree.alternateAscendancies?.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
-        <label className="planner-spec">Tree spec<select value={activeSpecId} onChange={(event) => { void selectSpec(event.target.value); }}><option value="">Unsaved tree</option>{specs.map((spec) => <option key={spec.id} value={spec.id}>{spec.title}</option>)}</select><button type="button" aria-label="Duplicate as new tree spec" onClick={addSpec} title="Duplicate as new tree spec"><Plus size={13} /></button></label>
-        <label className="planner-search"><Search size={14} /><input aria-label="Search passive tree" value={query} onChange={(event) => setQuery(event.target.value)} placeholder='Search stats, "exact phrase", mastery, #node' /><small>{searchResults.length || ""}</small></label>
-        <div className="planner-points"><strong>{passiveCount}</strong><span>/ {tree.points.total} passive · {ascendancyCount}/{tree.points.ascendancy} ascend{secondaryAscendancyName ? ` · ${secondaryAscendancyCount}/${tree.points.ascendancy} bloodline` : ""}</span></div>
-      </div>
-      <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">
-        {(["tree", "items", "skills", "config", "calcs", "galaxy", "builds", "notes", "history"] as PlannerTab[]).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}>{value}</button>)}
-      </nav>
-
-      <div className="planner-body">
+      <div className="planner-workspace">
+        <PlannerStatRail build={build} collapsed={statRailCollapsed} onCollapsed={() => setStatRailCollapsed((value) => !value)} onRecalculate={recalculateWithPob} calculating={calculating}/>
+        <div className="planner-surface">
+          <div className="planner-body">
         {tab === "tree" && (
           <div className="passive-tree-stage">
             {materializedTree
-              ? <PassiveTreeCanvas tree={materializedTree} allocated={allocated} previewed={previewed} refundPreview={hoverDependents} highlighted={highlighted} hoveredId={hoverNodeId} classId={classId} ascendancyName={currentAscendancy?.internalId || ""} secondaryAscendancyName={secondaryAscendancyName} onAllocate={(node) => allocate(node, traceMode && tracePath[tracePath.length - 1] === node.id ? tracePath : undefined)} onRefund={refund} onMastery={openMasteryPicker} onHover={(node, point) => setHover(node && point ? { node, ...point } : null)} />
+              ? <PassiveTreeCanvas tree={materializedTree} allocated={allocated} previewed={previewed} refundPreview={hoverDependents} highlighted={highlighted} hoveredId={hoverNodeId} classId={classId} ascendancyName={currentAscendancy?.internalId || ""} secondaryAscendancyName={secondaryAscendancyName} powerScores={nodePowers.length ? nodePowerMap : null} powerMetric={powerMetric} powerMax={nodePowerMax} viewCommand={viewCommand} onAllocate={(node) => allocate(node, traceMode && tracePath[tracePath.length - 1] === node.id ? tracePath : undefined)} onRefund={refund} onMastery={openMasteryPicker} onHover={(node, point) => setHover(node && point ? { node, ...point } : null)} />
               : <div className="planner-loading"><LoaderCircle className="is-spinning" /><strong>Loading the matching PoB {activePassiveSpec?.treeVersion} tree…</strong></div>}
+            <div className="tree-toolbar">
+              <button type="button" title="Zoom in" onClick={() => setViewCommand({ action: "zoom-in", nonce: Date.now() })}><ZoomIn size={14}/></button>
+              <button type="button" title="Zoom out" onClick={() => setViewCommand({ action: "zoom-out", nonce: Date.now() })}><ZoomOut size={14}/></button>
+              <button type="button" title="Fit tree" onClick={() => setViewCommand({ action: "fit", nonce: Date.now() })}><Maximize2 size={14}/></button>
+              <span/>
+              <button type="button" title="Undo" disabled={historyIndex <= 0} onClick={undo}><ArrowLeft size={14}/></button>
+              <button type="button" title="Redo" disabled={historyIndex >= history.length - 1} onClick={redo}><ArrowRight size={14}/></button>
+              <label className="tree-search"><Search size={13}/><input aria-label="Search passive tree" value={query} onChange={(event) => setQuery(event.target.value)} placeholder='Search nodes, stats, #id'/>{query && <small>{searchResults.length}</small>}</label>
+            </div>
+            <div className="tree-spec-float"><GitBranch size={12}/><span>{activePassiveSpec?.title || "Current tree"}</span><b>{passiveCount}/{tree.points.total}</b></div>
+            <div className="tree-power-dock">
+              <div className="tree-power-mode"><span><CircleGauge size={13}/> Node power</span>{(["blend", "offence", "defence"] as NodePowerMetric[]).map((metric) => <button type="button" key={metric} className={powerMetric === metric ? "is-active" : ""} onClick={() => setPowerMetric(metric)}>{metric === "blend" ? "Blend" : metric === "offence" ? "DPS" : "Defence"}</button>)}</div>
+              <div className="tree-power-run"><span>Path</span>{[3, 5, 10, 15].map((depth) => <button type="button" key={depth} className={powerDepth === depth ? "is-active" : ""} onClick={() => setPowerDepth(depth)}>{depth}</button>)}<button type="button" className="is-run" disabled={analyzingNodes || tree.game !== "poe1" || engineCapability?.ok !== true} onClick={analyzePassivePower}>{analyzingNodes ? <LoaderCircle className="is-spinning" size={12}/> : <Activity size={12}/>} Analyze</button></div>
+              <button type="button" className="tree-timeless-trigger" onClick={() => setTimelessOpen(true)}><Gem size={13}/> Timeless lens</button>
+            </div>
+            <div className="tree-points-dock"><strong>{passiveCount}</strong><span>/{tree.points.total} passive</span><i/>
+              <strong>{ascendancyCount}</strong><span>/{tree.points.ascendancy} ascend</span>{secondaryAscendancyName && <><i/><strong>{secondaryAscendancyCount}</strong><span>/{tree.points.ascendancy} bloodline</span></>}
+            </div>
+            {analysisDrawerOpen && nodePowers.length > 0 && <aside className="tree-analysis-drawer">
+              <header><span><Activity size={14}/><strong>PoB power report</strong><small>{nodePowers.length} nodes · ≤{powerDepth} pts</small></span><button type="button" aria-label="Close node power report" onClick={() => setAnalysisDrawerOpen(false)}><X size={13}/></button></header>
+              <div className="tree-analysis-legend"><span>Low</span><i/><span>High</span></div>
+              <section>{rankedNodePowers.filter((entry) => entry.type === "Notable" || entry.type === "Keystone").slice(0, 14).map((entry, index) => <button type="button" key={entry.id} onClick={() => { setQuery(`#${entry.id}`); setViewCommand({ action: "focus", nodeId: entry.id, nonce: Date.now() }); }}><em>{index + 1}</em><span><strong>{entry.name}</strong><small>{entry.type} · {entry.distance} pt{entry.distance === 1 ? "" : "s"}</small></span><b><i>{entry.offence >= 0 ? "+" : ""}{(entry.offence * 100).toFixed(1)}% DPS</i><small>{entry.defence >= 0 ? "+" : ""}{(entry.defence * 100).toFixed(1)}% DEF</small></b></button>)}</section>
+            </aside>}
             <div className={`tree-help${traceMode ? " is-tracing" : ""}`}>{traceMode ? `Shift trace · ${tracePath.length} node${tracePath.length === 1 ? "" : "s"} · hover adjacent passives, then click the final node` : "Drag to pan · wheel to zoom · double-click resets view · hold Shift to trace a custom path · left-click allocates or refunds · right-click changes an allocated mastery"}</div>
-            {hover && <PassiveNodeTooltip hover={hover} allocated={allocated.has(hover.node.id)} previewPath={displayedPreviewPath} dependents={hoverDependents} socketedItem={hoverSocketedItem} usedMasteryEffects={usedMasteryEffectIds} radiusSummary={hoverRadiusSummary} selectedAscendancyName={currentAscendancy?.internalId || ""} selectedSecondaryName={secondaryAscendancyName} />}
+            {hover && <PassiveNodeTooltip hover={hover} allocated={allocated.has(hover.node.id)} previewPath={displayedPreviewPath} dependents={hoverDependents} socketedItem={hoverSocketedItem} usedMasteryEffects={usedMasteryEffectIds} radiusSummary={hoverRadiusSummary} nodePower={nodePowerMap.get(hover.node.id) || null} selectedAscendancyName={currentAscendancy?.internalId || ""} selectedSecondaryName={secondaryAscendancyName} />}
             {masteryPicker && materializedTree && (() => {
               const node = materializedTree.nodes.find((entry) => entry.id === masteryPicker.nodeId);
               if (!node) return null;
@@ -1964,6 +2476,20 @@ export function BuildPlannerPanel() {
         {tab === "builds" && <PlannerBuildsPanel builds={savedBuilds} activeId={activeSavedId} baselineId={baselineId} libraryError={savedLibraryError} recoveringLibrary={recoveringSavedLibrary} onRecoverLibrary={recoverSavedLibrary} onSave={saveToLibrary} onLoad={loadSnapshot} onDelete={(id) => { if (!persistSavedBuilds(savedBuilds.filter((entry) => entry.id !== id))) return; if (activeSavedId === id) setActiveSavedId(""); if (baselineId === id) setBaselineId(""); }} onDuplicate={duplicateSnapshot} onBaseline={setBaselineId} onExport={exportSnapshot} />}
         {tab === "notes" && <div className="planner-notes"><textarea aria-label="Build notes" value={build?.notes || ""} placeholder="Build notes, campaign reminders, gearing steps…" onChange={(event) => editNotes(event.target.value)} /></div>}
         {tab === "history" && <div className="planner-history"><header><History size={16} /><strong>Tree timeline</strong><button type="button" onClick={() => { const initial = history[0]; if (initial) { restoreHistory(0); setHistory([initial]); } }}><RotateCcw size={13} /> Reset to start</button></header>{[...history].reverse().map((entry, reverseIndex) => { const index = history.length - reverseIndex - 1; return <button type="button" key={`${entry.at}-${index}`} className={index === historyIndex ? "is-active" : ""} onClick={() => restoreHistory(index)}><span>{entry.label}</span><small>{historyPointLabel(entry)} · {new Date(entry.at).toLocaleTimeString()}</small></button>; })}</div>}
+          </div>
+          <nav className="planner-edge-tabs" aria-label="Planner utilities">
+            <button type="button" className={tab === "history" ? "is-active" : ""} onClick={() => setTab("history")}><History size={13}/><span>History</span></button>
+            <button type="button" className={tab === "notes" ? "is-active" : ""} onClick={() => setTab("notes")}><BookOpen size={13}/><span>Notes</span></button>
+          </nav>
+          {timelessOpen && materializedTree && <TimelessLens
+            tree={materializedTree}
+            allocated={allocated}
+            xml={timelessXml}
+            engineReady={engineCapability?.ok === true && tree.game === "poe1"}
+            onClose={() => setTimelessOpen(false)}
+            onFocus={(nodeId) => { setTimelessOpen(false); setQuery(`#${nodeId}`); setViewCommand({ action: "focus", nodeId, nonce: Date.now() }); }}
+          />}
+        </div>
       </div>
 
       {importOpen && <div className="planner-import-scrim" onMouseDown={(event) => event.target === event.currentTarget && setImportOpen(false)}><section className="planner-import" role="dialog" aria-modal="true" aria-labelledby="planner-import-title"><header><span><Clipboard size={17} /><strong id="planner-import-title">Import character or build</strong></span><button type="button" aria-label="Close build import" onClick={() => setImportOpen(false)}><X size={16} /></button></header><nav><button type="button" className={importMode === "pob" ? "is-active" : ""} onClick={() => setImportMode("pob")}>PoB / build link</button><button type="button" className={importMode === "character" ? "is-active" : ""} onClick={() => setImportMode("character")}>My character</button></nav>{importMode === "pob" ? <><p>Paste a {tree.game === "poe2" ? "PoB2" : "PoB"} code/XML, pobb.in or Pastebin link. You can also open an XML file. Full build imports retain tree specs, items, gems, config, and notes.</p><textarea aria-label="PoB build code or XML" autoFocus value={importText} onChange={(event) => setImportText(event.target.value)} placeholder={`${tree.game === "poe2" ? "PoB2" : "PoB"} code, XML, or supported build URL…`} /><div><button type="button" onClick={clipboardBuild}><Clipboard size={14} /> Read clipboard</button><button type="button" onClick={openBuild}><FolderOpen size={14} /> Open XML</button><button type="button" className="is-primary" onClick={() => importBuild()} disabled={!importText.trim() || busy}>{busy ? <LoaderCircle className="is-spinning" size={14} /> : <Upload size={14} />} Import</button></div></> : <div className="character-import"><p>Public profiles work with an account name. Private profiles use a temporary official OAuth token with the <code>account:characters</code> scope; the token is never saved. Character nodes are matched only against the selected game’s installed PoB tree.</p><div className="character-import-mode"><button type="button" className={characterMode === "public" ? "is-active" : ""} onClick={() => { setCharacterMode("public"); setCharacters([]); }}>Public profile</button><button type="button" className={characterMode === "oauth" ? "is-active" : ""} onClick={() => { setCharacterMode("oauth"); setCharacters([]); }}>Official OAuth</button></div><label>Realm<select value={realm} onChange={(event) => { setRealm(event.target.value as PoeCharacterImportRequest["realm"]); setCharacters([]); }}>{tree.game === "poe2" ? <option value="poe2">PC (PoE 2)</option> : <><option value="pc">PC (PoE 1)</option><option value="xbox">Xbox</option><option value="sony">Sony</option></>}</select></label>{characterMode === "public" ? <label>Account name<input value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="AccountName#1234" /></label> : <label>OAuth access token<input type="password" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} autoComplete="off" placeholder="Temporary account:characters token" /></label>}<button type="button" onClick={loadCharacters} disabled={busy || (characterMode === "public" ? !accountName.trim() : !accessToken.trim())}>{busy ? <LoaderCircle className="is-spinning" size={14} /> : <RefreshCw size={14} />} Load character list</button>{characters.length > 0 && <><label>Character<select value={selectedCharacter} onChange={(event) => setSelectedCharacter(event.target.value)}>{characters.map((character) => <option key={character.id || character.name} value={character.name}>{character.name} · {character.class} {character.level} · {character.league || "No league"}</option>)}</select></label><button type="button" className="is-primary" onClick={loadCharacter} disabled={busy || !selectedCharacter}><Upload size={14} /> Import selected character</button></>}</div>}</section></div>}

@@ -1,5 +1,24 @@
 import clsx from "clsx";
-import { Copy, GitCompare, Library, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import {
+  Backpack,
+  CircleDot,
+  Copy,
+  Crown,
+  FlaskConical,
+  Footprints,
+  Gem,
+  GitCompare,
+  Hand,
+  Library,
+  RotateCcw,
+  Save,
+  Search,
+  Shield,
+  Shirt,
+  Sparkles,
+  Sword,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { pobInputLabel, type ImportedPobBuild, type ImportedPobItem, type ImportedPobStat, type PobStatCategory } from "../lib/planner/pob-build";
 import {
@@ -76,6 +95,34 @@ function displayItemSlot(slot: string) {
 function formatItemProperty(label: string, value: string) {
   if (/^(?:quality|catalystquality)$/i.test(label) && /^\d+(?:\.\d+)?$/.test(value)) return `+${value}%`;
   return value;
+}
+
+function itemKind(item: ImportedPobItem) {
+  const source = `${item.slot} ${item.baseType} ${item.name}`.toLowerCase();
+  if (/jewel|eye jewel/.test(source)) return "jewel";
+  if (/flask/.test(source)) return "flask";
+  if (/helmet|helm/.test(source)) return "helmet";
+  if (/body armour|chest/.test(source)) return "body";
+  if (/glove|gauntlet/.test(source)) return "gloves";
+  if (/boot|greave|slipper/.test(source)) return "boots";
+  if (/shield|quiver|off hand/.test(source)) return "offhand";
+  if (/ring|amulet|belt/.test(source)) return "accessory";
+  if (/weapon|sword|axe|mace|bow|wand|staff|dagger|claw|sceptre/.test(source)) return "weapon";
+  return "item";
+}
+
+function ItemGlyph({ item, size = 18 }: { item: ImportedPobItem; size?: number }) {
+  const kind = itemKind(item);
+  if (kind === "jewel") return <Gem size={size}/>;
+  if (kind === "flask") return <FlaskConical size={size}/>;
+  if (kind === "helmet") return <Crown size={size}/>;
+  if (kind === "body") return <Shirt size={size}/>;
+  if (kind === "gloves") return <Hand size={size}/>;
+  if (kind === "boots") return <Footprints size={size}/>;
+  if (kind === "offhand") return <Shield size={size}/>;
+  if (kind === "accessory") return <CircleDot size={size}/>;
+  if (kind === "weapon") return <Sword size={size}/>;
+  return <Backpack size={size}/>;
 }
 
 interface ItemVariantSelection {
@@ -217,6 +264,7 @@ export function presentPlannerItem(item: ImportedPobItem): PlannerItemPresentati
 
 export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild | null; onChange: (build: ImportedPobBuild) => void }) {
   const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState(0);
   if (!build?.items.length) return <PlannerEmpty>Import a character or PoB build to inspect and edit its item loadout.</PlannerEmpty>;
   const presented = build.items.map((item) => ({ item, view: presentPlannerItem(item) }));
   const needle = query.trim().toLowerCase();
@@ -230,6 +278,10 @@ export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild
   const bySlotAndName = (left: typeof filtered[number], right: typeof filtered[number]) => left.view.slotLabel.localeCompare(right.view.slotLabel, "en", { numeric: true }) || left.item.name.localeCompare(right.item.name, "en");
   const active = filtered.filter(({ item }) => item.equipped && item.slot).sort(bySlotAndName);
   const stored = filtered.filter(({ item }) => !item.equipped || !item.slot).sort(bySlotAndName);
+  const selected = presented.find(({ item }) => item.id === selectedId)
+    || active[0]
+    || stored[0]
+    || presented[0];
   const toggle = (id: number) => {
     const selected = build.items.find((item) => item.id === id);
     if (!selected?.slot) return;
@@ -243,26 +295,43 @@ export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild
           : item),
     });
   };
-  const renderItems = (items: typeof filtered, title: string) => items.length > 0 && <section className="planner-item-section">
-    <header><strong>{title}</strong><span>{items.length} {items.length === 1 ? "item" : "items"}</span></header>
-    <div className="planner-item-grid">{items.map(({ item, view }) => {
-      const inLoadout = Boolean(item.equipped && item.slot);
-      return <article key={item.id} className={clsx("planner-item-card", `is-${view.rarity}`, !inLoadout && "is-stored")}>
-        <header className="planner-item-card-header"><span className="planner-item-slot">{view.slotLabel}</span><label className="planner-item-loadout" title={item.slot ? `${inLoadout ? "Remove" : "Equip"} ${item.name} ${inLoadout ? "from" : "in"} ${view.slotLabel}` : "This imported item has no saved equipment slot"}><input type="checkbox" checked={inLoadout} disabled={!item.slot} onChange={() => toggle(item.id)}/><span>{inLoadout ? "Equipped" : item.slot ? "Equip" : "No slot"}</span></label></header>
-        <div className="planner-item-identity"><small>{view.rarityLabel}</small><strong>{item.name}</strong>{item.baseType && item.baseType !== item.name && <span>{item.baseType}</span>}</div>
-        {view.statuses.length > 0 && <div className="planner-item-badges">{view.statuses.map((status) => <b key={status}>{status}</b>)}</div>}
-        {view.properties.length > 0 && <dl className="planner-item-properties">{view.properties.map((property) => <div key={property.label}><dt>{property.label}</dt><dd>{property.value}</dd></div>)}</dl>}
-        {view.modifiers.length > 0 ? <section className="planner-item-modifiers"><h4>Modifiers</h4><ul>{view.modifiers.map((modifier, index) => <li key={`${modifier.text}-${index}`}>{modifier.badges.length > 0 && <span>{modifier.badges.map((badge) => <b key={badge}>{badge}</b>)}</span>}<em>{modifier.text}</em></li>)}</ul></section> : <p className="planner-item-no-mods">No modifiers in the imported item.</p>}
-      </article>;
-    })}</div>
+  const renderRows = (items: typeof filtered, title: string) => items.length > 0 && <section className="planner-item-list-section">
+    <header><strong>{title}</strong><span>{items.length}</span></header>
+    {items.map(({ item, view }) => <button
+      type="button"
+      key={item.id}
+      className={clsx("planner-item-row", selected.item.id === item.id && "is-selected", `is-${view.rarity}`)}
+      onClick={() => setSelectedId(item.id)}
+    >
+      <span className={clsx("planner-item-glyph", `is-${itemKind(item)}`)}><ItemGlyph item={item}/></span>
+      <span><small>{view.slotLabel}</small><strong>{item.name}</strong><em>{item.baseType && item.baseType !== item.name ? item.baseType : view.rarityLabel}</em></span>
+      {item.equipped ? <b>ON</b> : !item.slot ? <input type="checkbox" disabled aria-label={`${item.name} has no saved equipment slot`}/> : null}
+    </button>)}
   </section>;
+  const selectedEquipped = Boolean(selected.item.equipped && selected.item.slot);
   return <div className="planner-items-panel">
-    <label className="planner-inline-search"><Search size={13}/><input aria-label="Search items, slots, or modifiers" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search items, slots, or modifiers"/><small>{filtered.length} of {build.items.length}</small></label>
-    <div className="planner-item-groups">{renderItems(active, "Active loadout")}{renderItems(stored, "Other imported items")}{filtered.length === 0 && <PlannerEmpty>No items match this search.</PlannerEmpty>}</div>
+    <aside className="planner-equipment-column">
+      <header><span><Shield size={15}/><strong>Equipment</strong></span><small>{active.length} active</small></header>
+      <label className="planner-compact-search"><Search size={12}/><input aria-label="Search items, slots, or modifiers" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search items"/><small>{filtered.length}/{build.items.length}</small></label>
+      <div>{renderRows(active, "Active loadout")}{filtered.length === 0 && <PlannerEmpty>No items match this search.</PlannerEmpty>}</div>
+    </aside>
+    <section className="planner-item-inventory">
+      <header><span><Backpack size={15}/><strong>Imported inventory</strong></span><small>{stored.length} available</small></header>
+      <div>{renderRows(stored, "Other imported items")}</div>
+    </section>
+    <aside className={clsx("planner-item-inspector", `is-${selected.view.rarity}`)}>
+      <header><span className={clsx("planner-item-glyph", `is-${itemKind(selected.item)}`)}><ItemGlyph item={selected.item} size={23}/></span><span><small>{selected.view.slotLabel}</small><strong>{selected.item.name}</strong></span></header>
+      <div className="planner-item-identity"><small>{selected.view.rarityLabel}</small>{selected.item.baseType && selected.item.baseType !== selected.item.name && <span>{selected.item.baseType}</span>}</div>
+      <label className="planner-item-loadout" title={selected.item.slot ? `${selectedEquipped ? "Remove" : "Equip"} ${selected.item.name}` : "This imported item has no saved equipment slot"}><input type="checkbox" checked={selectedEquipped} disabled={!selected.item.slot} onChange={() => toggle(selected.item.id)}/><span>{selectedEquipped ? "Equipped" : selected.item.slot ? "Equip in this slot" : "No saved slot"}</span></label>
+      {selected.view.statuses.length > 0 && <div className="planner-item-badges">{selected.view.statuses.map((status) => <b key={status}>{status}</b>)}</div>}
+      {selected.view.properties.length > 0 && <dl className="planner-item-properties">{selected.view.properties.map((property) => <div key={property.label}><dt>{property.label}</dt><dd>{property.value}</dd></div>)}</dl>}
+      {selected.view.modifiers.length > 0 ? <section className="planner-item-modifiers"><h4>Modifiers</h4><ul>{selected.view.modifiers.map((modifier, index) => <li key={`${modifier.text}-${index}`}>{modifier.badges.length > 0 && <span>{modifier.badges.map((badge) => <b key={badge}>{badge}</b>)}</span>}<em>{modifier.text}</em></li>)}</ul></section> : <p className="planner-item-no-mods">No modifiers in the imported item.</p>}
+    </aside>
   </div>;
 }
 
 export function PlannerSkillsPanel({ build, onChange }: { build: ImportedPobBuild | null; onChange: (build: ImportedPobBuild) => void }) {
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   if (!build?.skillGroups.length) return <PlannerEmpty>Imported socket groups and gems appear here.</PlannerEmpty>;
   const updateGroup = (groupIndex: number, patch: Partial<ImportedPobBuild["skillGroups"][number]>) => onChange({
     ...build,
@@ -275,17 +344,29 @@ export function PlannerSkillsPanel({ build, onChange }: { build: ImportedPobBuil
       gems: group.gems.map((gem, index2) => index2 === gemIndex ? { ...gem, ...patch } : gem),
     } : group),
   });
-  return <div className="planner-skill-list">{build.skillGroups.map((group, groupIndex) => <section key={group.id} className={!group.enabled ? "is-disabled" : ""}>
-    <header><label><input type="checkbox" checked={group.enabled} onChange={(event) => updateGroup(groupIndex, { enabled: event.target.checked })}/><strong>{group.label || group.slot}</strong></label><span>{group.slot}</span></header>
-    <label className="planner-full-dps"><input type="checkbox" checked={group.includeInFullDps} onChange={(event) => updateGroup(groupIndex, { includeInFullDps: event.target.checked })}/> Include in Full DPS</label>
-    {group.gems.map((gem, gemIndex) => <div key={`${gem.skillId}-${gemIndex}`} className={!gem.enabled ? "is-disabled" : ""}>
-      <label><input type="checkbox" checked={gem.enabled} onChange={(event) => updateGem(groupIndex, gemIndex, { enabled: event.target.checked })}/><span>{gem.name}</span></label>
-      <span className="planner-gem-values"><label>LVL<input type="number" min="1" max="40" value={gem.level} onChange={(event) => updateGem(groupIndex, gemIndex, { level: Math.max(1, Math.min(40, Number(event.target.value) || 1)) })}/></label><label>Q<input type="number" min="0" max="100" value={gem.quality} onChange={(event) => updateGem(groupIndex, gemIndex, { quality: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })}/></label></span>
-    </div>)}
-  </section>)}</div>;
+  const selectedGroupIndex = Math.max(0, build.skillGroups.findIndex((group) => group.id === selectedGroupId));
+  const selected = build.skillGroups[selectedGroupIndex];
+  return <div className="planner-skills-workbench">
+    <aside className="planner-skill-groups">
+      <header><span><Sparkles size={15}/><strong>Socket groups</strong></span><small>{build.skillGroups.length} groups</small></header>
+      <div>{build.skillGroups.map((group, groupIndex) => <button type="button" key={group.id} className={clsx(selected.id === group.id && "is-selected", !group.enabled && "is-disabled")} onClick={() => setSelectedGroupId(group.id)}>
+        <span className="planner-skill-orb">{group.gems.length}</span><span><small>{group.slot}</small><strong>{group.label || group.gems[0]?.name || `Skill group ${groupIndex + 1}`}</strong><em>{group.gems.map((gem) => gem.name).join(" · ")}</em></span>{group.includeInFullDps && <b>DPS</b>}
+      </button>)}</div>
+    </aside>
+    <section className="planner-skill-editor">
+      <header><span><small>{selected.slot}</small><strong>{selected.label || selected.gems[0]?.name || "Socket group"}</strong></span><label><input type="checkbox" checked={selected.enabled} onChange={(event) => updateGroup(selectedGroupIndex, { enabled: event.target.checked })}/> Group enabled</label></header>
+      <div className="planner-skill-options"><label><input type="checkbox" checked={selected.includeInFullDps} onChange={(event) => updateGroup(selectedGroupIndex, { includeInFullDps: event.target.checked })}/> Include in Full DPS</label><span>{selected.gems.filter((gem) => gem.enabled).length}/{selected.gems.length} enabled</span></div>
+      <div className="planner-gem-editor-list">{selected.gems.map((gem, gemIndex) => <article key={`${gem.skillId}-${gemIndex}`} className={!gem.enabled ? "is-disabled" : ""}>
+        <label className="planner-gem-toggle"><input type="checkbox" checked={gem.enabled} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { enabled: event.target.checked })}/><span className="planner-gem-orb">{gem.name.slice(0, 1)}</span><span><strong>{gem.name}</strong><small>{gem.skillId || gem.gemId}</small></span></label>
+        <span className="planner-gem-values"><label>LEVEL<input type="number" min="1" max="40" value={gem.level} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { level: Math.max(1, Math.min(40, Number(event.target.value) || 1)) })}/></label><label>QUALITY<input type="number" min="0" max="100" value={gem.quality} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { quality: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })}/></label></span>
+      </article>)}</div>
+    </section>
+  </div>;
 }
 
 export function PlannerConfigPanel({ build, onChange }: { build: ImportedPobBuild | null; onChange: (build: ImportedPobBuild) => void }) {
+  const [query, setQuery] = useState("");
+  const [section, setSection] = useState("all");
   if (!build) return <PlannerEmpty>Import a character or PoB build to edit configuration values.</PlannerEmpty>;
   const update = (name: string, value: string | number | boolean) => onChange({ ...build, config: { ...build.config, [name]: value } });
   const remove = (name: string) => {
@@ -294,9 +375,33 @@ export function PlannerConfigPanel({ build, onChange }: { build: ImportedPobBuil
     onChange({ ...build, config });
   };
   if (!Object.keys(build.config).length) return <PlannerEmpty>This build has no saved Path of Building configuration inputs.</PlannerEmpty>;
-  return <div className="planner-config-shell">
-    <p className="planner-config-note">Imported PoB inputs only. Reset removes the saved override so Path of Building can apply its default.</p>
-    <div className="planner-config">{Object.entries(build.config).map(([name, value]) => <label key={name}><span>{pobInputLabel(name)}</span><span>{typeof value === "boolean" ? <input aria-label={pobInputLabel(name)} type="checkbox" checked={value} onChange={(event) => update(name, event.target.checked)}/> : typeof value === "number" ? <input aria-label={pobInputLabel(name)} type="number" value={value} onChange={(event) => update(name, Number(event.target.value) || 0)}/> : <input aria-label={pobInputLabel(name)} value={String(value)} onChange={(event) => update(name, event.target.value)}/>}<button type="button" aria-label={`Reset ${pobInputLabel(name)}`} title="Reset to Path of Building default" onClick={() => remove(name)}><RotateCcw size={12}/></button></span></label>)}</div>
+  const sectionFor = (name: string) => {
+    if (/enemy|boss|resist|armour|curse|mark|exposure|wither|shock|chill|ignite|bleed|poison/i.test(name)) return "enemy";
+    if (/map|area|league|delirium|ultimatum|ritual|sanctum|pinnacle/i.test(name)) return "map";
+    if (/skill|stage|stack|warcry|brand|mine|trap|totem|minion|projectile/i.test(name)) return "skill";
+    if (/party|ally|aura|nearby|mercenary/i.test(name)) return "party";
+    if (/custom|override|condition/i.test(name)) return "custom";
+    return "combat";
+  };
+  const sections = [
+    ["all", "All saved inputs"],
+    ["combat", "When in combat"],
+    ["enemy", "Enemy state"],
+    ["skill", "Skill state"],
+    ["map", "Map & encounter"],
+    ["party", "Party & allies"],
+    ["custom", "Custom overrides"],
+  ] as const;
+  const entries = Object.entries(build.config);
+  const visible = entries.filter(([name]) => (section === "all" || sectionFor(name) === section) && (!query || pobInputLabel(name).toLowerCase().includes(query.toLowerCase())));
+  return <div className="planner-config-workbench">
+    <aside><header><strong>Configuration</strong><small>{entries.length} saved inputs</small></header><nav>{sections.map(([id, label]) => { const count = id === "all" ? entries.length : entries.filter(([name]) => sectionFor(name) === id).length; return <button type="button" key={id} className={section === id ? "is-selected" : ""} onClick={() => setSection(id)}><span>{label}</span><b>{count}</b></button>; })}</nav></aside>
+    <section className="planner-config-shell">
+      <header><span><strong>{sections.find(([id]) => id === section)?.[1]}</strong><small>Values are stored in this build and recalculated by local Path of Building.</small></span><label><Search size={12}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter configuration"/></label></header>
+      <p className="planner-config-note">Reset removes the saved override so Path of Building applies its own default. GloamCore does not invent values that were absent from the build.</p>
+      <div className="planner-config">{visible.map(([name, value]) => <label key={name}><span>{pobInputLabel(name)}</span><span>{typeof value === "boolean" ? <input aria-label={pobInputLabel(name)} type="checkbox" checked={value} onChange={(event) => update(name, event.target.checked)}/> : typeof value === "number" ? <input aria-label={pobInputLabel(name)} type="number" value={value} onChange={(event) => update(name, Number(event.target.value) || 0)}/> : <input aria-label={pobInputLabel(name)} value={String(value)} onChange={(event) => update(name, event.target.value)}/>}<button type="button" aria-label={`Reset ${pobInputLabel(name)}`} title="Reset to Path of Building default" onClick={() => remove(name)}><RotateCcw size={12}/></button></span></label>)}</div>
+      {visible.length === 0 && <PlannerEmpty>No saved inputs match this section and filter.</PlannerEmpty>}
+    </section>
   </div>;
 }
 
@@ -320,12 +425,16 @@ export function PlannerCalcsPanel({
   const keys = KEY_STATS.map((name) => stats.find((stat) => stat.name === name)).filter((stat): stat is ImportedPobStat => Boolean(stat));
   const isEngineResult = build?.statSource === "pob-engine";
   if (!build) return <PlannerEmpty>Import a PoB build to inspect its calculated offence, defence, recovery, and resource output.</PlannerEmpty>;
-  return <div className="planner-calcs">
+  const categoryCounts = new Map(CATEGORY_ORDER.map((value) => [value, stats.filter((stat) => stat.category === value).length]));
+  return <div className="planner-calcs-workbench">
+    <aside><header><strong>Calculations</strong><small>{stats.length} exact outputs</small></header><nav><button type="button" className={category === "all" ? "is-selected" : ""} onClick={() => setCategory("all")}><span>Overview</span><b>{stats.length}</b></button>{CATEGORY_ORDER.map((value) => <button type="button" key={value} className={category === value ? "is-selected" : ""} onClick={() => setCategory(value)}><span>{value}</span><b>{categoryCounts.get(value)}</b></button>)}</nav></aside>
+    <div className="planner-calcs">
     <div className={clsx("planner-calc-source", editedSinceImport && "is-stale")}><strong>{isEngineResult ? `${stats.length} authoritative outputs calculated by local Path of Building` : stats.length ? `${stats.length} exact PlayerStat values imported from PoB` : "No evaluated PlayerStat snapshot in this import"}</strong><span>{editedSinceImport ? `${isEngineResult ? "The authoritative calculation" : "The imported snapshot"} is now stale because items, gems, config, or tree changed here. Recalculate in PoB to refresh it.` : isEngineResult ? "These values came from a fresh, isolated Path of Building calculation of the current build." : stats.length ? "These are PoB's saved calculation outputs, not estimated values." : "Character API imports contain loadout/tree data but no PoB calculation snapshot."}</span></div>
     {keys.length > 0 && <div className="planner-key-stats">{keys.slice(0, 10).map((stat) => <article key={stat.name}><small>{stat.label}</small><strong>{formatPobStatValue(stat)}</strong></article>)}</div>}
-    <div className="planner-calc-controls"><label><Search size={13}/><input aria-label="Search Path of Building calculation outputs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search all PoB outputs"/></label><select aria-label="Calculation output category" value={category} onChange={(event) => setCategory(event.target.value as typeof category)}><option value="all">All categories</option>{CATEGORY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
+    <div className="planner-calc-controls"><label><Search size={13}/><input aria-label="Search Path of Building calculation outputs" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search this calculation section"/></label><span>{filtered.length} shown</span></div>
     {comparison && <div className="planner-comparison-summary"><GitCompare size={15}/><strong>Compared with saved baseline</strong><span>+{comparison.addedNodes.length}/−{comparison.removedNodes.length} nodes · +{comparison.addedItems.length}/−{comparison.removedItems.length} items · +{comparison.addedGems.length}/−{comparison.removedGems.length} gems</span></div>}
     <div className={clsx("planner-stat-table", comparison && "has-comparison")}><header><span>Output</span><span>Value</span>{comparison && <span>Delta</span>}</header>{filtered.map((stat) => { const delta = comparison?.stats.find((entry) => entry.name === stat.name)?.delta || 0; return <div key={stat.name}><span><small>{stat.category}</small>{stat.label}</span><strong>{formatPobStatValue(stat)}</strong>{comparison && <b className={delta > 0 ? "is-positive" : delta < 0 ? "is-negative" : ""}>{delta ? `${delta > 0 ? "+" : ""}${Number(delta.toFixed(2)).toLocaleString("en-US")}${stat.percent ? "%" : ""}` : "—"}</b>}</div>; })}</div>
+    </div>
   </div>;
 }
 

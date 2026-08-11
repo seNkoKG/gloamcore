@@ -2,9 +2,12 @@
 
 const { parentPort } = require("node:worker_threads");
 const {
+  analyzePobNodes,
   calculatePobBuild,
   diagnosePobEngine,
+  huntPobTimeless,
   importPobCharacter,
+  previewPobTimeless,
 } = require("./pob-engine-bridge.cjs");
 
 if (!parentPort) throw new Error("The PoB engine worker requires a parent port.");
@@ -26,6 +29,12 @@ parentPort.on("message", async (message) => {
     };
     const result = message?.operation === "diagnose"
       ? diagnosePobEngine(options)
+      : message?.operation === "analyze-nodes"
+        ? await analyzePobNodes(message.request, options)
+      : message?.operation === "preview-timeless"
+        ? await previewPobTimeless(message.request, options)
+      : message?.operation === "hunt-timeless"
+        ? await huntPobTimeless(message.request, options)
       : message?.operation === "calculate"
         ? await calculatePobBuild(message.request, options)
         : message?.operation === "import-character"

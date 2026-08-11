@@ -650,6 +650,89 @@ function validateWorkerPayload(payload, installation) {
   return null;
 }
 
+function validateNodeAnalysisWorkerPayload(payload, installation) {
+  if (!payload || typeof payload !== "object") {
+    return failure("POB_PROTOCOL_ERROR", "The Path of Building worker returned no passive analysis.");
+  }
+  if (payload.ok !== true) {
+    return failure(
+      typeof payload.code === "string" ? payload.code : "POB_NODE_ANALYSIS_FAILED",
+      typeof payload.message === "string" ? payload.message : "Path of Building could not analyze passive power.",
+      true,
+      { detail: typeof payload.detail === "string" ? payload.detail.slice(0, 4000) : undefined },
+    );
+  }
+  if (payload.authoritative !== true || payload.readOnly !== true || payload.freshProcess !== true
+    || payload.operation !== "analyze-nodes") {
+    return failure("POB_AUTHORITY_ASSERTION_FAILED", "The passive analysis worker did not assert the required read-only fresh-process contract.");
+  }
+  if (payload.engineVersion !== installation.engine.number
+    || payload.engineBranch !== installation.engine.branch
+    || payload.enginePlatform !== installation.engine.platform) {
+    return failure("POB_ENGINE_CHANGED", "Path of Building reported a different engine identity than the validated installation.", true, {
+      expected: installation.engine,
+      actual: { number: payload.engineVersion, branch: payload.engineBranch, platform: payload.enginePlatform },
+    });
+  }
+  if (!Array.isArray(payload.nodePowers) || payload.nodePowers.length > 4096) {
+    return failure("POB_NODE_ANALYSIS_INVALID", "Path of Building returned an invalid passive-power list.");
+  }
+  for (const node of payload.nodePowers) {
+    if (!node || typeof node !== "object"
+      || !Number.isInteger(node.id)
+      || !Number.isFinite(node.distance)
+      || !Number.isFinite(node.offence)
+      || !Number.isFinite(node.defence)
+      || !Number.isFinite(node.singleStat)
+      || (node.pathPower != null && !Number.isFinite(node.pathPower))) {
+      return failure("POB_NODE_ANALYSIS_INVALID", "Path of Building returned a malformed passive-power entry.");
+    }
+  }
+  return null;
+}
+
+function validateTimelessPreviewWorkerPayload(payload, installation) {
+  if (!payload || typeof payload !== "object") return failure("POB_PROTOCOL_ERROR", "The Path of Building worker returned no Timeless Jewel preview.");
+  if (payload.ok !== true) {
+    return failure(typeof payload.code === "string" ? payload.code : "POB_TIMELESS_PREVIEW_FAILED", typeof payload.message === "string" ? payload.message : "Path of Building could not preview this Timeless Jewel seed.", true, { detail: typeof payload.detail === "string" ? payload.detail.slice(0, 4000) : undefined });
+  }
+  if (payload.authoritative !== true || payload.readOnly !== true || payload.freshProcess !== true || payload.operation !== "preview-timeless") {
+    return failure("POB_AUTHORITY_ASSERTION_FAILED", "The Timeless Jewel preview did not assert the required read-only fresh-process contract.");
+  }
+  if (payload.engineVersion !== installation.engine.number || payload.engineBranch !== installation.engine.branch || payload.enginePlatform !== installation.engine.platform) {
+    return failure("POB_ENGINE_CHANGED", "Path of Building reported a different engine identity than the validated installation.", true);
+  }
+  if (!Number.isInteger(payload.socketId) || !Number.isInteger(payload.seed) || !Number.isInteger(payload.jewelType)
+    || !Array.isArray(payload.affectedNodes) || payload.affectedNodes.length > 1024) {
+    return failure("POB_TIMELESS_PREVIEW_INVALID", "Path of Building returned an invalid Timeless Jewel preview.");
+  }
+  for (const node of payload.affectedNodes) {
+    if (!node || typeof node !== "object" || !Number.isInteger(node.id) || typeof node.name !== "string"
+      || typeof node.transformedName !== "string" || !Array.isArray(node.stats) || node.stats.length > 32
+      || node.stats.some((stat) => typeof stat !== "string" || stat.length > 1000)) {
+      return failure("POB_TIMELESS_PREVIEW_INVALID", "Path of Building returned a malformed Timeless Jewel transformation.");
+    }
+  }
+  return null;
+}
+
+function validateTimelessHuntWorkerPayload(payload, installation) {
+  if (!payload || typeof payload !== "object") return failure("POB_PROTOCOL_ERROR", "The Path of Building worker returned no Timeless Jewel hunt result.");
+  if (payload.ok !== true) return failure(typeof payload.code === "string" ? payload.code : "POB_TIMELESS_HUNT_FAILED", typeof payload.message === "string" ? payload.message : "Path of Building could not rank Timeless Jewel seeds.", true, { detail: typeof payload.detail === "string" ? payload.detail.slice(0, 4000) : undefined });
+  if (payload.authoritative !== true || payload.readOnly !== true || payload.freshProcess !== true || payload.operation !== "hunt-timeless") return failure("POB_AUTHORITY_ASSERTION_FAILED", "The Timeless Jewel hunt did not assert the required read-only fresh-process contract.");
+  if (payload.engineVersion !== installation.engine.number || payload.engineBranch !== installation.engine.branch || payload.enginePlatform !== installation.engine.platform) return failure("POB_ENGINE_CHANGED", "Path of Building reported a different engine identity than the validated installation.", true);
+  if (!Number.isInteger(payload.socketId) || !Number.isInteger(payload.jewelType) || !Number.isInteger(payload.socketCount) || payload.socketCount < 1
+    || !Array.isArray(payload.socketIds) || payload.socketIds.length !== payload.socketCount || payload.socketIds.some((id) => !Number.isInteger(id) || id <= 0)
+    || !Array.isArray(payload.catalog) || payload.catalog.length > 2048 || !Array.isArray(payload.results) || payload.results.length > 250) return failure("POB_TIMELESS_HUNT_INVALID", "Path of Building returned an invalid Timeless Jewel hunt result.");
+  for (const entry of payload.catalog) {
+    if (!entry || typeof entry.id !== "string" || typeof entry.name !== "string" || !Array.isArray(entry.stats) || entry.stats.some((stat) => typeof stat !== "string")) return failure("POB_TIMELESS_HUNT_INVALID", "Path of Building returned a malformed Timeless Jewel modifier catalog.");
+  }
+  for (const result of payload.results) {
+    if (!result || !Number.isInteger(result.seed) || !Number.isInteger(result.socketId) || result.socketId <= 0 || !Number.isFinite(result.score) || !Array.isArray(result.hits) || result.hits.length > 128) return failure("POB_TIMELESS_HUNT_INVALID", "Path of Building returned a malformed Timeless Jewel seed result.");
+  }
+  return null;
+}
+
 function validateImportWorkerPayload(payload, installation) {
   if (!payload || typeof payload !== "object") {
     return failure("POB_PROTOCOL_ERROR", "The Path of Building worker returned no result object.");
@@ -774,6 +857,187 @@ async function calculateInternal(input, options = {}) {
   };
 }
 
+async function analyzeNodesInternal(input, options = {}) {
+  if (!input || typeof input.xml !== "string") {
+    return failure("POB_XML_INVALID", "A PathOfBuilding XML string is required.");
+  }
+  const byteLength = Buffer.byteLength(input.xml, "utf8");
+  if (byteLength === 0 || byteLength > MAX_BUILD_BYTES || input.xml.includes("\0")
+    || !input.xml.includes("<PathOfBuilding")) {
+    return failure("POB_XML_INVALID", `The Path of Building XML must be non-empty and no larger than ${MAX_BUILD_BYTES} bytes.`);
+  }
+  if (options.signal?.aborted) return failure("POB_CANCELLED", "The Path of Building operation was cancelled.", true);
+  const installation = inspectInstallation(options);
+  if (!installation.ok) return installation;
+  if (options.signal?.aborted) return failure("POB_CANCELLED", "The Path of Building operation was cancelled.", true);
+
+  let resources;
+  let host;
+  try {
+    resources = materializeResources(options);
+    host = ensureHost(installation.runtimeArchitecture, resources, options);
+  } catch (error) {
+    return failure(error?.code || "POB_HOST_UNAVAILABLE", "The authoritative Path of Building host is unavailable.", true, {
+      detail: normalizeError(error),
+    });
+  }
+
+  const startedAt = Date.now();
+  const run = await runWorker(host, resources, installation, {
+    operation: "analyze-nodes",
+    xml: input.xml,
+    name: typeof input.name === "string" ? input.name.slice(0, 512) : "GloamCore passive analysis",
+    maxPoints: Math.max(1, Math.min(30, Math.floor(Number(input.maxPoints) || 5))),
+  }, options);
+  if (run && run.ok === false) return run;
+  const validation = validateNodeAnalysisWorkerPayload(run.payload, installation);
+  if (validation) return validation;
+
+  const after = inspectInstallation(options);
+  if (!after.ok || after.engine.sha256 !== installation.engine.sha256
+    || after.sourceFingerprint !== installation.sourceFingerprint) {
+    return failure("POB_INSTALLATION_CHANGED", "Path of Building changed while passive power was being analyzed. Retry after its update finishes.", true);
+  }
+
+  const payload = run.payload;
+  return {
+    ok: true,
+    authoritative: true,
+    contractVersion: CONTRACT_VERSION,
+    engine: {
+      name: "Path of Building Community",
+      version: installation.engine.number,
+      branch: installation.engine.branch,
+      platform: installation.engine.platform,
+      runtimeArchitecture: installation.runtimeArchitecture,
+    },
+    analysis: {
+      maxPoints: payload.maxPoints,
+      nodePowers: payload.nodePowers,
+      powerMax: payload.powerMax && typeof payload.powerMax === "object" ? payload.powerMax : {},
+      warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
+      engineMilliseconds: Number.isFinite(payload.calculationMilliseconds) ? payload.calculationMilliseconds : null,
+    },
+    durationMilliseconds: Date.now() - startedAt,
+    isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
+  };
+}
+
+async function previewTimelessInternal(input, options = {}) {
+  if (!input || typeof input.xml !== "string") return failure("POB_XML_INVALID", "A PathOfBuilding XML string is required.");
+  const byteLength = Buffer.byteLength(input.xml, "utf8");
+  if (byteLength === 0 || byteLength > MAX_BUILD_BYTES || input.xml.includes("\0") || !input.xml.includes("<PathOfBuilding")) {
+    return failure("POB_XML_INVALID", `The Path of Building XML must be non-empty and no larger than ${MAX_BUILD_BYTES} bytes.`);
+  }
+  const socketId = Number(input.socketId);
+  const seed = Number(input.seed);
+  const jewelType = Number(input.jewelType);
+  if (!Number.isInteger(socketId) || socketId <= 0 || !Number.isInteger(seed) || seed <= 0
+    || !Number.isInteger(jewelType) || jewelType < 1 || jewelType > 6) {
+    return failure("POB_TIMELESS_REQUEST_INVALID", "A jewel type, seed, and passive-tree socket are required.");
+  }
+  if (options.signal?.aborted) return failure("POB_CANCELLED", "The Path of Building operation was cancelled.", true);
+  const installation = inspectInstallation(options);
+  if (!installation.ok) return installation;
+  let resources;
+  let host;
+  try {
+    resources = materializeResources(options);
+    host = ensureHost(installation.runtimeArchitecture, resources, options);
+  } catch (error) {
+    return failure(error?.code || "POB_HOST_UNAVAILABLE", "The authoritative Path of Building host is unavailable.", true, { detail: normalizeError(error) });
+  }
+  const startedAt = Date.now();
+  const run = await runWorker(host, resources, installation, {
+    operation: "preview-timeless",
+    xml: input.xml,
+    name: typeof input.name === "string" ? input.name.slice(0, 512) : "GloamCore timeless preview",
+    jewelType,
+    conquerorId: Math.max(1, Math.min(3, Math.floor(Number(input.conquerorId) || 1))),
+    socketId,
+    seed,
+  }, options);
+  if (run && run.ok === false) return run;
+  const validation = validateTimelessPreviewWorkerPayload(run.payload, installation);
+  if (validation) return validation;
+  const after = inspectInstallation(options);
+  if (!after.ok || after.engine.sha256 !== installation.engine.sha256 || after.sourceFingerprint !== installation.sourceFingerprint) {
+    return failure("POB_INSTALLATION_CHANGED", "Path of Building changed while the Timeless Jewel seed was being previewed. Retry after its update finishes.", true);
+  }
+  const payload = run.payload;
+  return {
+    ok: true, authoritative: true, contractVersion: CONTRACT_VERSION,
+    engine: { name: "Path of Building Community", version: installation.engine.number, branch: installation.engine.branch, platform: installation.engine.platform, runtimeArchitecture: installation.runtimeArchitecture },
+    preview: {
+      jewelType: payload.jewelType, jewelName: String(payload.jewelName || "Timeless Jewel"), seed: payload.seed,
+      minimumSeed: payload.minimumSeed, maximumSeed: payload.maximumSeed, seedStep: payload.seedStep,
+      socketId: payload.socketId, affectedNodes: payload.affectedNodes,
+      warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
+      engineMilliseconds: Number.isFinite(payload.calculationMilliseconds) ? payload.calculationMilliseconds : null,
+    },
+    durationMilliseconds: Date.now() - startedAt,
+    isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
+  };
+}
+
+async function huntTimelessInternal(input, options = {}) {
+  if (!input || typeof input.xml !== "string") return failure("POB_XML_INVALID", "A PathOfBuilding XML string is required.");
+  const byteLength = Buffer.byteLength(input.xml, "utf8");
+  if (byteLength === 0 || byteLength > MAX_BUILD_BYTES || input.xml.includes("\0") || !input.xml.includes("<PathOfBuilding")) return failure("POB_XML_INVALID", `The Path of Building XML must be non-empty and no larger than ${MAX_BUILD_BYTES} bytes.`);
+  const requestedSocketId = Number(input.socketId);
+  const socketIds = Array.isArray(input.socketIds)
+    ? [...new Set(input.socketIds.slice(0, 64).map(Number).filter((id) => Number.isInteger(id) && id > 0))]
+    : [];
+  const socketId = Number.isInteger(requestedSocketId) && requestedSocketId > 0 ? requestedSocketId : socketIds[0];
+  const jewelType = Number(input.jewelType);
+  if (!Number.isInteger(socketId) || socketId <= 0 || !Number.isInteger(jewelType) || jewelType < 1 || jewelType > 6) return failure("POB_TIMELESS_REQUEST_INVALID", "A valid jewel type and at least one passive-tree socket are required.");
+  if (!socketIds.length) socketIds.push(socketId);
+  const targets = Array.isArray(input.targets) ? input.targets.slice(0, 32).map((target) => {
+    const rawWeight = Number(target?.weight);
+    const rawWeight2 = Number(target?.weight2);
+    return {
+      id: String(target?.id || "").slice(0, 160),
+      weight: Number.isFinite(rawWeight) ? Math.max(-1000, Math.min(1000, rawWeight)) : 1,
+      weight2: Number.isFinite(rawWeight2) ? Math.max(-1000, Math.min(1000, rawWeight2)) : 0,
+      minimum: Math.max(0, Math.min(100000, Number(target?.minimum) || 0)),
+    };
+  }).filter((target) => target.id) : [];
+  const installation = inspectInstallation(options);
+  if (!installation.ok) return installation;
+  let resources;
+  let host;
+  try { resources = materializeResources(options); host = ensureHost(installation.runtimeArchitecture, resources, options); }
+  catch (error) { return failure(error?.code || "POB_HOST_UNAVAILABLE", "The authoritative Path of Building host is unavailable.", true, { detail: normalizeError(error) }); }
+  const startedAt = Date.now();
+  const run = await runWorker(host, resources, installation, {
+    operation: "hunt-timeless", xml: input.xml,
+    name: typeof input.name === "string" ? input.name.slice(0, 512) : "GloamCore timeless hunt",
+    jewelType, socketId, socketIds, targets,
+    scope: input.scope === "allocated" ? "allocated" : input.scope === "reachable" ? "reachable" : "radius",
+    maxPoints: Math.max(0, Math.min(30, Math.floor(Number(input.maxPoints) || 5))),
+    maxResults: Math.max(1, Math.min(250, Math.floor(Number(input.maxResults) || 50))),
+  }, options);
+  if (run && run.ok === false) return run;
+  const validation = validateTimelessHuntWorkerPayload(run.payload, installation);
+  if (validation) return validation;
+  const after = inspectInstallation(options);
+  if (!after.ok || after.engine.sha256 !== installation.engine.sha256 || after.sourceFingerprint !== installation.sourceFingerprint) return failure("POB_INSTALLATION_CHANGED", "Path of Building changed while Timeless Jewel seeds were being ranked. Retry after its update finishes.", true);
+  const payload = run.payload;
+  return {
+    ok: true, authoritative: true, contractVersion: CONTRACT_VERSION,
+    engine: { name: "Path of Building Community", version: installation.engine.number, branch: installation.engine.branch, platform: installation.engine.platform, runtimeArchitecture: installation.runtimeArchitecture },
+    hunt: {
+      jewelType: payload.jewelType, jewelName: String(payload.jewelName || "Timeless Jewel"), minimumSeed: payload.minimumSeed, maximumSeed: payload.maximumSeed, seedStep: payload.seedStep,
+      socketId: payload.socketId, socketIds: payload.socketIds, socketCount: payload.socketCount, catalog: payload.catalog, searchedSeeds: Number(payload.searchedSeeds) || 0, candidateNodes: Number(payload.candidateNodes) || 0,
+      scope: String(payload.scope || "radius"), maxPoints: Number(payload.maxPoints) || 0, results: payload.results,
+      warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
+      engineMilliseconds: Number.isFinite(payload.calculationMilliseconds) ? payload.calculationMilliseconds : null,
+    },
+    durationMilliseconds: Date.now() - startedAt,
+    isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
+  };
+}
+
 async function importCharacterInternal(input, options = {}) {
   if (!input || !input.character || typeof input.character !== "object" || Array.isArray(input.character)) {
     return failure("POB_CHARACTER_INVALID", "An official Path of Exile character object is required.");
@@ -864,6 +1128,26 @@ function calculatePobBuild(input, options = {}) {
   }));
 }
 
+function analyzePobNodes(input, options = {}) {
+  const task = engineQueue.then(() => analyzeNodesInternal(input, options));
+  engineQueue = task.catch(() => undefined);
+  return task.catch((error) => failure("POB_BRIDGE_FAILED", "The authoritative Path of Building passive analysis failed unexpectedly.", true, {
+    detail: normalizeError(error),
+  }));
+}
+
+function previewPobTimeless(input, options = {}) {
+  const task = engineQueue.then(() => previewTimelessInternal(input, options));
+  engineQueue = task.catch(() => undefined);
+  return task.catch((error) => failure("POB_BRIDGE_FAILED", "The authoritative Path of Building Timeless Jewel preview failed unexpectedly.", true, { detail: normalizeError(error) }));
+}
+
+function huntPobTimeless(input, options = {}) {
+  const task = engineQueue.then(() => huntTimelessInternal(input, options));
+  engineQueue = task.catch(() => undefined);
+  return task.catch((error) => failure("POB_BRIDGE_FAILED", "The authoritative Path of Building Timeless Jewel hunt failed unexpectedly.", true, { detail: normalizeError(error) }));
+}
+
 function importPobCharacter(input, options = {}) {
   const task = engineQueue.then(() => importCharacterInternal(input, options));
   engineQueue = task.catch(() => undefined);
@@ -877,14 +1161,20 @@ module.exports = {
   MAX_BUILD_BYTES,
   MAX_CHARACTER_BYTES,
   PROVEN_ENGINES,
+  analyzePobNodes,
   calculatePobBuild,
   diagnosePobEngine,
+  huntPobTimeless,
   importPobCharacter,
+  previewPobTimeless,
   inspectInstallation,
   _internals: {
     ensureHost,
     runWorker,
     validateImportWorkerPayload,
+    validateNodeAnalysisWorkerPayload,
+    validateTimelessPreviewWorkerPayload,
+    validateTimelessHuntWorkerPayload,
     materializeResources,
     parseVersionManifest,
     readPeArchitecture,

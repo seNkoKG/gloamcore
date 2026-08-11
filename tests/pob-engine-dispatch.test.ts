@@ -38,14 +38,20 @@ describe("Path of Building main-thread dispatch", () => {
     const dispatcher = createPobEngineDispatcher({ WorkerClass: FakeWorker });
     const results = await Promise.all([
       dispatcher.diagnose(),
+      dispatcher.analyzeNodes({ xml: "fixture" }),
+      dispatcher.previewTimeless({ xml: "fixture" }),
+      dispatcher.huntTimeless({ xml: "fixture" }),
       dispatcher.calculate({ xml: "invalid fixture" }),
       dispatcher.importCharacter({ character: null }),
     ]);
 
-    expect(started).toEqual(["diagnose", "calculate", "import-character"]);
+    expect(started).toEqual(["diagnose", "analyze-nodes", "preview-timeless", "hunt-timeless", "calculate", "import-character"]);
     expect(maximumActive).toBe(1);
     expect(results.map((result: { code: string }) => result.code)).toEqual([
       "TEST_diagnose",
+      "TEST_analyze-nodes",
+      "TEST_preview-timeless",
+      "TEST_hunt-timeless",
       "TEST_calculate",
       "TEST_import-character",
     ]);
