@@ -60,7 +60,7 @@ describe("authoritative local Path of Building bridge", () => {
         ok: false,
         authoritative: false,
         code: "POB_VERSION_UNVERIFIED",
-        supportedVersions: ["2.66.1"],
+        supportedVersions: ["2.67.2"],
       });
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -70,10 +70,25 @@ describe("authoritative local Path of Building bridge", () => {
   it("fails closed when a claimed supported release does not match official source/runtime", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-pob-source-"));
     try {
-      fs.writeFileSync(path.join(root, "manifest.xml"), '<PoBVersion><Version branch="master" number="2.66.1" platform="win32" /></PoBVersion>', "utf8");
+      fs.writeFileSync(path.join(root, "manifest.xml"), '<PoBVersion><Version branch="master" number="2.67.2" platform="win32" /></PoBVersion>', "utf8");
       const result = inspectInstallation({ pobRoot: root });
       expect(result).toMatchObject({ ok: false, authoritative: false, code: "POB_SOURCE_UNVERIFIED" });
       expect(result.mismatches.length).toBeGreaterThan(0);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("treats official LF and updater-installed CRLF Lua as the same verified source", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-pob-line-endings-"));
+    try {
+      const lf = path.join(root, "lf.lua");
+      const crlf = path.join(root, "crlf.lua");
+      fs.writeFileSync(lf, "local value = 1\nreturn value\n", "utf8");
+      fs.writeFileSync(crlf, "local value = 1\r\nreturn value\r\n", "utf8");
+      expect(_internals.canonicalSourceSha1(crlf)).toBe(_internals.canonicalSourceSha1(lf));
+      fs.writeFileSync(crlf, "local value = 2\r\nreturn value\r\n", "utf8");
+      expect(_internals.canonicalSourceSha1(crlf)).not.toBe(_internals.canonicalSourceSha1(lf));
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -99,8 +114,8 @@ describe("authoritative local Path of Building bridge", () => {
   });
 
   it("rejects malformed exact-analysis result envelopes", () => {
-    const installation = { engine: { number: "2.66.1", branch: "master", platform: "win32" } };
-    const authority = { ok: true, authoritative: true, readOnly: true, freshProcess: true, engineVersion: "2.66.1", engineBranch: "master", enginePlatform: "win32" };
+    const installation = { engine: { number: "2.67.2", branch: "master", platform: "win32" } };
+    const authority = { ok: true, authoritative: true, readOnly: true, freshProcess: true, engineVersion: "2.67.2", engineBranch: "master", enginePlatform: "win32" };
     expect(_internals.validateNodeAnalysisWorkerPayload({ ...authority, operation: "analyze-nodes", nodePowers: [{ id: 1, distance: 1, offence: Number.NaN, defence: 0, singleStat: 0 }] }, installation)).toMatchObject({ code: "POB_NODE_ANALYSIS_INVALID" });
     expect(_internals.validateTimelessPreviewWorkerPayload({ ...authority, operation: "preview-timeless", socketId: 2491, seed: 10000, jewelType: 2, affectedNodes: [{ id: 1, name: "Node", transformedName: "Result", stats: [null] }] }, installation)).toMatchObject({ code: "POB_TIMELESS_PREVIEW_INVALID" });
     expect(_internals.validateTimelessHuntWorkerPayload({ ...authority, operation: "hunt-timeless", socketId: 2491, jewelType: 2, catalog: [], results: [{ seed: 10000, score: Infinity, hits: [] }] }, installation)).toMatchObject({ code: "POB_TIMELESS_HUNT_INVALID" });
@@ -168,13 +183,13 @@ describe("authoritative local Path of Building bridge", () => {
       authoritative: true,
       readOnly: true,
       freshProcess: true,
-      engineVersion: "2.66.2",
+      engineVersion: "2.67.1",
       engineBranch: "master",
       enginePlatform: "win32",
       scalarCount: 1,
       stats: { Life: 60 },
     }, {
-      engine: { number: "2.66.1", branch: "master", platform: "win32" },
+      engine: { number: "2.67.2", branch: "master", platform: "win32" },
     });
     expect(validation).toMatchObject({ ok: false, authoritative: false, code: "POB_ENGINE_CHANGED" });
   });
@@ -182,7 +197,7 @@ describe("authoritative local Path of Building bridge", () => {
   const capability = diagnosePobEngine();
   it.runIf(capability.available)("uses PoB's exact passive power and official Timeless Jewel lookup tables", async () => {
     const analysis = await analyzePobNodes({ xml: minimalBuild(1), maxPoints: 2 });
-    expect(analysis).toMatchObject({ ok: true, authoritative: true, engine: { version: "2.66.1" }, analysis: { maxPoints: 2 } });
+    expect(analysis).toMatchObject({ ok: true, authoritative: true, engine: { version: "2.67.2" }, analysis: { maxPoints: 2 } });
     expect(analysis.analysis.nodePowers.length).toBeGreaterThan(0);
     expect(analysis.analysis.nodePowers.every((node: { offence: number; defence: number }) => Number.isFinite(node.offence) && Number.isFinite(node.defence))).toBe(true);
 
@@ -297,7 +312,7 @@ describe("authoritative local Path of Building bridge", () => {
     expect(imported).toMatchObject({
       ok: true,
       authoritative: true,
-      engine: { version: "2.66.1" },
+      engine: { version: "2.67.2" },
       calculation: {
         mainSocketGroup: 2,
         scalarCount: expect.any(Number),
@@ -308,6 +323,12 @@ describe("authoritative local Path of Building bridge", () => {
     });
     if (!imported.ok) throw new Error(imported.message);
     expect(imported.calculation.skillGroups[1].activeSkills.map((skill) => skill.name)).toContain("Arc");
+    expect(imported.calculation.configCatalog.length).toBeGreaterThan(100);
+    expect(imported.calculation.configCatalog).toContainEqual(expect.objectContaining({
+      name: "bandit",
+      type: "list",
+      options: expect.arrayContaining([expect.objectContaining({ value: "None" })]),
+    }));
     expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Helmet")(?=[^>]*itemId="1")[^>]*\/>/);
     expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Flask 1")(?=[^>]*itemId="2")[^>]*\/>/);
     expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Belt Abyssal Socket 1")(?=[^>]*itemId="3")[^>]*\/>/);
@@ -339,7 +360,7 @@ describe("authoritative local Path of Building bridge", () => {
         ok: true,
         authoritative: true,
         contractVersion: CONTRACT_VERSION,
-        engine: { version: "2.66.1" },
+        engine: { version: "2.67.2" },
         isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
       });
       expect(result.calculation.scalarCount).toBeGreaterThan(100);

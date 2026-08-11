@@ -36,10 +36,14 @@ class FakeWebContentsView {
   setBackgroundColor = vi.fn();
   setBorderRadius = vi.fn();
   setVisible = vi.fn();
+  wealthyExileReady!: Promise<boolean>;
   webContents = {
     isDestroyed: vi.fn(() => false),
     loadURL: vi.fn(async () => undefined),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      this.handlers.set(event, handler);
+    }),
+    once: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       this.handlers.set(event, handler);
     }),
     setWindowOpenHandler: vi.fn((handler: (details: { url: string }) => { action: string }) => {
@@ -178,6 +182,37 @@ describe("Wealthy Exile navigation boundary", () => {
       warning.mockRestore();
       vi.useRealTimers();
     }
+  });
+
+  it("keeps the view hidden until the main document finishes loading", async () => {
+    const view = createWealthyExileView({
+      WebContentsView: FakeWebContentsView,
+      loadAdBlocker: vi.fn(async () => fakeAdBlocker()),
+      loadTimeoutMs: 100,
+    }) as FakeWebContentsView;
+    let settled = false;
+    void view.wealthyExileReady.then(() => {
+      settled = true;
+    });
+
+    await vi.waitFor(() => expect(view.webContents.loadURL).toHaveBeenCalledWith(WEALTHY_EXILE_URL));
+    expect(settled).toBe(false);
+    expect(view.setVisible).toHaveBeenCalledWith(false);
+
+    view.handlers.get("did-finish-load")?.();
+    await expect(view.wealthyExileReady).resolves.toBe(true);
+  });
+
+  it("reports a failed main-frame load so a retry can recreate the view", async () => {
+    const view = createWealthyExileView({
+      WebContentsView: FakeWebContentsView,
+      loadAdBlocker: vi.fn(async () => fakeAdBlocker()),
+      loadTimeoutMs: 100,
+    }) as FakeWebContentsView;
+
+    await vi.waitFor(() => expect(view.webContents.loadURL).toHaveBeenCalledWith(WEALTHY_EXILE_URL));
+    view.handlers.get("did-fail-load")?.(null, -105, "NAME_NOT_RESOLVED", WEALTHY_EXILE_URL, true);
+    await expect(view.wealthyExileReady).resolves.toBe(false);
   });
 
   it("uses a fresh cached filter engine without a network request", async () => {

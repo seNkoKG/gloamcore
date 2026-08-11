@@ -19,6 +19,7 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { fileURLToPath } = require("node:url");
+const { protectLogStream } = require("./log-stream.cjs");
 const { loadTrayIcon } = require("./tray-icon.cjs");
 const {
   readConfiguredFeedUrl,
@@ -70,6 +71,7 @@ const { createMapModCheckService } = require("./map-mod-check.cjs");
 const { createPoeEventLogService } = require("./poe-event-log.cjs");
 const {
   normalizedWikiArtworkTitle,
+  plannerArtworkDimensions,
   plannerArtworkCargoUrl,
   selectPlannerArtworkRow,
 } = require("./planner-artwork.cjs");
@@ -96,11 +98,15 @@ const {
   validateShortcutPlan,
 } = require("./shortcut-settings.cjs");
 
+protectLogStream(process.stdout);
+protectLogStream(process.stderr);
+
 app.setName("GloamCore");
 
 const API_ROOT = "https://poe.ninja";
 const WIKI_API_ROOT = "https://www.poewiki.net/w/api.php";
-const USER_AGENT = `GloamCore/${app.getVersion()} (Path of Exile companion)`;
+const FAUSTUS_API_ROOT = "https://web.poecdn.com/api/currency-exchange";
+const USER_AGENT = `GloamCore/${app.getVersion()} (+https://github.com/seNkoKG/gloamcore)`;
 const officialTradeListingService = createOfficialTradeListingService({
   userAgent: USER_AGENT,
 });
@@ -162,6 +168,10 @@ const MARKET_CACHE_VERSION = "v2";
 const WIKI_TOOLTIP_TTL_MS = 24 * 60 * 60 * 1000;
 const WIKI_KNOWLEDGE_TTL_MS = 60 * 60 * 1000;
 const WIKI_ICON_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const FAUSTUS_HOUR_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const FAUSTUS_HISTORY_HOURS = 8;
+const CHAOS_METADATA_ID = "Metadata/Items/Currency/CurrencyRerollRare";
+const DIVINE_METADATA_ID = "Metadata/Items/Currency/CurrencyModValues";
 const REQUEST_TIMEOUT_MS = 20 * 1000;
 const TRAY_CLICK_DEBOUNCE_MS = 180;
 const TRAY_PANEL_WIDTH = 372;
@@ -282,6 +292,7 @@ let quickWindow;
 let priceCheckWindow;
 let mapModCheckWindow;
 let wealthyExileView;
+let wealthyExileVisibleRequested = false;
 const toolkitOverlayWindows = new Map();
 const toolkitOverlayGeometryTimers = new Map();
 let tray;
@@ -395,7 +406,6 @@ function cachePath(key) {
 }
 
 const RETIRED_CACHE_PATTERNS = Object.freeze([
-  /^faustus-(?:hour|metadata)-.*\.json$/i,
   /^(?!v2-)[a-z0-9_-]+-(?:exchange|stash)-(?:currency|item)-.*\.json$/i,
   /^poe1-leagues\.json$/i,
 ]);
@@ -899,6 +909,154 @@ function getItemTooltip(request) {
   });
 }
 
+function validateFaustusRequest(value) {
+  if (!value || typeof value !== "object") throw new Error("Invalid Faustus market request.");
+  const league = limitedTooltipString(value.league, 100);
+  if (!league || !Array.isArray(value.items) || value.items.length > 800) {
+    throw new Error("Invalid Faustus market request.");
+  }
+  const seen = new Set();
+  const items = [];
+  for (const rawItem of value.items) {
+    if (!rawItem || typeof rawItem !== "object") continue;
+    const id = limitedTooltipString(rawItem.id, 180);
+    const name = limitedTooltipString(rawItem.name, 220);
+    const rawMetadataId = limitedTooltipString(rawItem.metadataId, 260);
+    const metadataId = rawMetadataId && /^Metadata\/Items\/[A-Za-z0-9_./-]+$/.test(rawMetadataId)
+      ? rawMetadataId
+      : undefined;
+    if (!id || !name || seen.has(id)) continue;
+    seen.add(id);
+    items.push({ id, name, metadataId });
+  }
+  return { league, items, force: Boolean(value.force) };
+}
+
+function faustusWikiString(value) {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function faustusWikiMetadataUrl(names) {
+  const search = new URLSearchParams({
+    action: "cargoquery",
+    format: "json",
+    formatversion: "2",
+    limit: "100",
+    tables: "items",
+    fields: "name,metadata_id,is_in_game,removal_version",
+    where: `name IN (${names.map(faustusWikiString).join(",")})`,
+  });
+  return `${WIKI_API_ROOT}?${search}`;
+}
+
+async function resolveFaustusItems(request) {
+  const missingNames = [...new Set(request.items.filter((item) => !item.metadataId).map((item) => item.name))];
+  const metadataByName = new Map();
+  for (let offset = 0; offset < missingNames.length; offset += 35) {
+    const batch = missingNames.slice(offset, offset + 35);
+    const digest = crypto.createHash("sha256").update(batch.slice().sort().join("\0")).digest("hex");
+    const envelope = await getCachedRemoteJson(
+      `wiki-faustus-metadata-${digest}`,
+      faustusWikiMetadataUrl(batch),
+      request.force,
+      {
+        defaultTtlMs: WIKI_ICON_TTL_MS,
+        minimumTtlMs: WIKI_ICON_TTL_MS,
+        sourceName: "PoE Wiki Faustus metadata",
+        validate: isWikiCargoPayload,
+      },
+    );
+    for (const entry of envelope.data?.cargoquery || []) {
+      const record = entry?.title || {};
+      const name = record.name;
+      const metadataId = record["metadata id"] || record.metadata_id;
+      const inGame = String(record["is in game"] ?? record.is_in_game ?? "1");
+      const removed = record["removal version"] || record.removal_version;
+      if (typeof name === "string" && typeof metadataId === "string" && inGame !== "0" && !removed) {
+        metadataByName.set(name.toLocaleLowerCase(), metadataId);
+      }
+    }
+  }
+  return request.items.map((item) => ({
+    ...item,
+    metadataId: item.metadataId || metadataByName.get(item.name.toLocaleLowerCase()),
+  }));
+}
+
+function getFaustusHour(hour) {
+  return getCachedRemoteJson(
+    `faustus-hour-${hour}`,
+    `${FAUSTUS_API_ROOT}/${hour}`,
+    false,
+    {
+      defaultTtlMs: FAUSTUS_HOUR_TTL_MS,
+      minimumTtlMs: FAUSTUS_HOUR_TTL_MS,
+      sourceName: "Official Faustus completed-hour digest",
+      validate: (value) => Boolean(value && typeof value === "object" && Array.isArray(value.markets)),
+    },
+  );
+}
+
+function filterFaustusMarkets(markets, league, targetMetadataIds) {
+  return (markets || []).filter((market) => {
+    if (market?.league !== league || !Array.isArray(market.market_pair)) return false;
+    const pair = market.market_pair;
+    if (pair.includes(CHAOS_METADATA_ID) && pair.includes(DIVINE_METADATA_ID)) return true;
+    const hasReference = pair.includes(CHAOS_METADATA_ID) || pair.includes(DIVINE_METADATA_ID);
+    return hasReference && pair.some((metadataId) => targetMetadataIds.has(metadataId));
+  });
+}
+
+async function getFaustusOverview(request) {
+  const items = await resolveFaustusItems(request);
+  const targetMetadataIds = new Set(items.map((item) => item.metadataId).filter((metadataId) => metadataId && metadataId !== CHAOS_METADATA_ID && metadataId !== DIVINE_METADATA_ID));
+  const currentHour = Math.floor(Date.now() / 3_600_000) * 3_600;
+  let latestHour = 0;
+  let latestEnvelope;
+  let latestFailure;
+  for (let offset = 1; offset <= 3; offset += 1) {
+    const hour = currentHour - offset * 3_600;
+    try {
+      const envelope = await getFaustusHour(hour);
+      if (Array.isArray(envelope.data?.markets)) {
+        latestHour = hour;
+        latestEnvelope = envelope;
+        break;
+      }
+    } catch (error) {
+      latestFailure = error;
+      // GGG can publish the most recently completed digest a few minutes late.
+    }
+  }
+  if (!latestEnvelope || !latestHour) {
+    const reason = latestFailure instanceof Error ? latestFailure.message : "Unknown upstream failure.";
+    throw new Error(`The latest completed Faustus market hour is unavailable. ${reason}`);
+  }
+  const hourIds = Array.from({ length: FAUSTUS_HISTORY_HOURS }, (_value, index) => latestHour - index * 3_600);
+  const envelopes = await Promise.all(hourIds.map(async (hour) => {
+    try {
+      return { hour, envelope: await getFaustusHour(hour) };
+    } catch {
+      return null;
+    }
+  }));
+  const available = envelopes.filter(Boolean);
+  const hours = available.map(({ hour, envelope }) => ({
+    id: hour,
+    markets: filterFaustusMarkets(envelope.data?.markets, request.league, targetMetadataIds),
+  })).sort((left, right) => left.id - right.id);
+  const stale = available.some((entry) => entry.envelope.stale);
+  const cacheKinds = available.map((entry) => entry.envelope.cache);
+  const cache = cacheKinds.includes("network") ? "network" : cacheKinds.includes("revalidated") ? "revalidated" : stale ? "stale" : "fresh";
+  return {
+    data: { latestHour, items, hours },
+    fetchedAt: latestHour * 1000,
+    expiresAt: (currentHour + 3_600) * 1000 + 2 * 60 * 1000,
+    stale,
+    cache,
+  };
+}
+
 function validateKnowledgeRequest(value) {
   if (!value || typeof value !== "object") {
     throw new Error("Invalid knowledge search request.");
@@ -1054,8 +1212,12 @@ function validatePlannerArtworkRequest(value) {
     const id = Number(entry?.id);
     const name = limitedTooltipString(entry?.name, 180);
     const baseType = limitedTooltipString(entry?.baseType, 180);
-    if (!Number.isSafeInteger(id) || id < 1 || (!name && !baseType)) return [];
-    return [{ id, name, baseType }];
+    const rawMetadataId = limitedTooltipString(entry?.metadataId, 260);
+    const metadataId = rawMetadataId && /^Metadata\/Items\/[A-Za-z0-9_./-]+$/.test(rawMetadataId)
+      ? rawMetadataId
+      : "";
+    if (!Number.isSafeInteger(id) || id < 1 || (!name && !baseType && !metadataId)) return [];
+    return [{ id, name, baseType, metadataId }];
   });
 }
 
@@ -1076,12 +1238,12 @@ async function resolvePlannerItemArtwork(request) {
   const resolved = {};
   for (let offset = 0; offset < items.length; offset += 20) {
     const batch = items.slice(offset, offset + 20);
-    const values = [...new Set(batch.flatMap((item) => [item.name, item.baseType]).filter(Boolean))];
+    const values = [...new Set(batch.flatMap((item) => [item.name, item.baseType, item.metadataId]).filter(Boolean))];
     if (!values.length) continue;
     const digest = crypto.createHash("sha256").update(values.slice().sort().join("\0")).digest("hex");
     const cargo = await getCachedRemoteJson(
-      `planner-artwork-items-${digest}`,
-      plannerArtworkCargoUrl(WIKI_API_ROOT, values),
+      `planner-artwork-v2-items-${digest}`,
+      plannerArtworkCargoUrl(WIKI_API_ROOT, batch),
       false,
       {
         defaultTtlMs: WIKI_KNOWLEDGE_TTL_MS,
@@ -1097,7 +1259,11 @@ async function resolvePlannerItemArtwork(request) {
       const row = selectPlannerArtworkRow(rows, item);
       const key = normalizedWikiArtworkTitle(row?.inventory_icon || row?.["inventory icon"]);
       const dataUrl = key && artwork.get(key);
-      if (dataUrl) resolved[item.id] = dataUrl;
+      const dimensions = plannerArtworkDimensions(row);
+      if (dataUrl) resolved[item.id] = {
+        src: dataUrl,
+        ...(dimensions || {}),
+      };
     }
   }
   return resolved;
@@ -4590,7 +4756,7 @@ function createAuxiliaryWindow(surface) {
   return window;
 }
 
-function showWealthyExile(bounds) {
+async function showWealthyExile(bounds) {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
   const fitted = fitViewBounds(bounds, mainWindow.getContentBounds());
   if (!fitted) return false;
@@ -4598,12 +4764,24 @@ function showWealthyExile(bounds) {
     wealthyExileView = createWealthyExileView({ WebContentsView });
     mainWindow.contentView.addChildView(wealthyExileView);
   }
-  wealthyExileView.setBounds(fitted);
-  wealthyExileView.setVisible(true);
+  const view = wealthyExileView;
+  wealthyExileVisibleRequested = true;
+  view.setBounds(fitted);
+  const ready = await view.wealthyExileReady;
+  if (view !== wealthyExileView || view.webContents.isDestroyed()) return false;
+  if (!ready) {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(view);
+    view.webContents.close();
+    wealthyExileView = null;
+    return false;
+  }
+  if (!wealthyExileVisibleRequested) return false;
+  view.setVisible(true);
   return true;
 }
 
 function hideWealthyExile() {
+  wealthyExileVisibleRequested = false;
   wealthyExileView?.setVisible(false);
   return true;
 }
@@ -5076,6 +5254,7 @@ app.on("before-quit", () => {
   quickWindow = null;
   mapModCheckWindow = null;
   wealthyExileView = null;
+  wealthyExileVisibleRequested = false;
   tray?.destroy();
   tray = null;
 });
@@ -5420,6 +5599,11 @@ ipcMain.handle("economy:get-overview", (event, rawRequest) => {
 ipcMain.handle("economy:get-item-tooltip", (event, rawRequest) => {
   assertTrustedSender(event);
   return getItemTooltip(validateTooltipRequest(rawRequest));
+});
+
+ipcMain.handle("economy:get-faustus-overview", (event, rawRequest) => {
+  assertTrustedSender(event);
+  return getFaustusOverview(validateFaustusRequest(rawRequest));
 });
 
 ipcMain.handle("knowledge:search", (event, rawRequest) => {

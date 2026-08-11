@@ -190,7 +190,7 @@ describe("Path of Building main-thread dispatch", () => {
         ok: true,
         authoritative: true,
         available: true,
-        engine: { number: "2.66.1" },
+        engine: { number: "2.67.2" },
       });
       expect(elapsed).toBeGreaterThan(100);
     },

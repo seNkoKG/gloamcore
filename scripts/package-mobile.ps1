@@ -382,10 +382,8 @@ try {
       @{ Label = "undocumented Trade search"; Pattern = '/api/trade/search' },
       @{ Label = "undocumented Trade fetch"; Pattern = '/api/trade/fetch' },
       @{ Label = "undocumented Trade exchange"; Pattern = '/api/trade/exchange' },
-      @{ Label = "unregistered direct Currency Exchange client"; Pattern = 'web\.poecdn\.com/api/currency-exchange' },
       @{ Label = "legacy Faustus proxy"; Pattern = '/faustus-api' },
-      @{ Label = "legacy Trade IPC"; Pattern = 'price-check:search-trade' },
-      @{ Label = "legacy Faustus client"; Pattern = 'getFaustusOverview' }
+      @{ Label = "legacy Trade IPC"; Pattern = 'price-check:search-trade' }
     )
     foreach ($entry in $apkArchive.Entries) {
       $isTextAsset =

@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 2.8.0
+
+- Rebuilt Cluster Back as a packaged, searchable Large Cluster Jewel planner
+  with current base types, exact notable artwork, an interactive socket wheel,
+  legal affix/group checks, and official Trade searches for every valid result.
+- Corrected Build Planner artwork selection for equipment, flasks, active and
+  support gems, cluster jewels, base jewels, and Timeless Jewels; tightened the
+  equipment layout and represented genuinely empty off-hand slots accurately.
+- Added editable PoB item, skill, and configuration set management, including
+  weapon-set calculation state, raw PoB item validation, the verified 870-gem
+  catalog, and all 578 controls exposed by the installed PoB 2.67.2 engine.
+- Matched fresh PoB 2.67.2 calculation output for every comparable numeric
+  `PlayerStat` in the release fixture, and made main socket group, main active
+  skill, Full DPS membership, gem variants, and per-gem state explicit.
+- Made Timeless Jewel influence circles part of passive-tree viewport fitting,
+  so edge sockets retain their complete PoB radius treatment, family colour,
+  and jewel artwork instead of being clipped.
+- Added native Faustus completed-hour pricing with official exchange-market
+  history, stock, volume, trend, and Chaos/Divine conversion data for supported
+  currency categories without presenting estimates as live prices.
+- Made Stash Wealth's isolated Wealthy Exile view fill and resize with the
+  complete workspace, and hardened its loading, failure, and retry lifecycle.
+- Simplified the Regex workbench by keeping optional map-property controls
+  collapsed until needed.
+- Accepted official PoB updater line-ending changes without weakening source
+  verification, and prevented closed stdout pipes from crashing Electron's
+  main process during detached or interrupted launches.
+
 ## 2.7.0
 
 - Added a native Map Mod Check with 104 source-tracked PoE 1 modifier

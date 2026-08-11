@@ -46,6 +46,7 @@ import { bridge } from "../lib/bridge";
 import {
   emptyPobBuild,
   enrichPobBuildWithCharacterAssets,
+  importedPobGemArtworkKey,
   parsePobXml,
   pobStatCategory,
   pobStatLabel,
@@ -95,9 +96,9 @@ import {
   shortestAllocationPath,
 } from "../lib/planner/passive-graph";
 import {
-  defaultPassiveTreeViewport,
   orderedMasteryEffects,
   passiveTreeConnections,
+  passiveTreeViewportWithCircles,
   resizedPassiveTreeViewport,
   visiblePassiveNodes,
 } from "../lib/planner/passive-render";
@@ -105,7 +106,9 @@ import type {
   PassiveTreeData,
   PassiveTreeNodeData,
   PassiveTreeSpriteRect,
+  PobEngineConfigInput,
   PobEngineDiagnostic,
+  PobEngineGemCatalogEntry,
   PobEngineScalar,
   PobEngineSkillGroup,
   PobNodePower,
@@ -114,6 +117,8 @@ import type {
   PobTimelessModifierCatalogEntry,
   PoeCharacterImportRequest,
   PoeCharacterSummary,
+  PlannerItemArtworkAsset,
+  PlannerItemArtworkRequest,
 } from "../types";
 import {
   PlannerBuildsPanel,
@@ -136,6 +141,22 @@ type TreeViewCommand = { action: "zoom-in" | "zoom-out" | "fit" | "focus"; nodeI
 
 const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "builds", "notes", "history"];
 
+async function resolvePlannerArtwork(items: PlannerItemArtworkRequest["items"]) {
+  const sources = new Map<number, string>();
+  const dimensions = new Map<number, Pick<PlannerItemArtworkAsset, "width" | "height">>();
+  for (let offset = 0; offset < items.length; offset += 128) {
+    const batch = await bridge.resolvePlannerItemArtwork({ items: items.slice(offset, offset + 128) });
+    for (const [rawId, asset] of Object.entries(batch)) {
+      if (typeof asset?.src === "string" && asset.src.startsWith("data:image/")) {
+        const id = Number(rawId);
+        sources.set(id, asset.src);
+        if (asset.width && asset.height) dimensions.set(id, { width: asset.width, height: asset.height });
+      }
+    }
+  }
+  return { sources, dimensions };
+}
+
 function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
   switch (tab) {
     case "tree": return <GitBranch size={14}/>;
@@ -150,7 +171,12 @@ function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
 }
 
 function railStat(build: ImportedPobBuild | null, ...names: string[]) {
-  return build?.playerStats.find((stat) => names.includes(stat.name)) || null;
+  if (!build) return null;
+  for (const name of names) {
+    const stat = build.playerStats.find((candidate) => candidate.name === name);
+    if (stat) return stat;
+  }
+  return null;
 }
 
 function railValue(stat: ReturnType<typeof railStat>, suffix = "") {
@@ -184,6 +210,7 @@ function buildWithEngineCalculation(
     stats: Record<string, PobEngineScalar>;
     mainSocketGroup: number | null;
     skillGroups: PobEngineSkillGroup[];
+    items?: Array<{ id: number; raw: string; primarySlot: string }>;
     className?: string | null;
     ascendancyName?: string | null;
   },
@@ -228,19 +255,21 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
   const mainSkill = build?.skillGroups[Math.max(0, (build.mainSocketGroup || 1) - 1)]
     || build?.skillGroups.find((group) => group.enabled);
   const mainActiveSkill = mainSkill?.activeSkills?.find((skill) => skill.index === (mainSkill.mainActiveSkill || 1));
+  const hasFullDpsGroups = Boolean(build?.skillGroups.some((group) => group.enabled && group.includeInFullDps));
   const sections = [
     { title: "Offence", rows: [
-      ["Full DPS", railStat(build, "FullDPS", "CombinedDPS", "TotalDPS")],
-      ["Hit DPS", railStat(build, "TotalDPS", "CombinedDPS")],
-      ["Crit chance", railStat(build, "CritChance")],
+      [hasFullDpsGroups ? "Full DPS" : "Combined DPS", hasFullDpsGroups ? railStat(build, "FullDPS", "CombinedDPS") : railStat(build, "CombinedDPS", "TotalDPS")],
+      ["Hit DPS", railStat(build, "TotalDPS")],
+      ["Crit chance", railStat(build, "PreEffectiveCritChance", "CritChance")],
+      ["Effective crit", railStat(build, "CritChance")],
       ["Crit multi", railStat(build, "CritMultiplier")],
       ["Rate", railStat(build, "Speed", "SpeedWithSlams")],
     ] },
     { title: "Defence", rows: [
       ["Armour", railStat(build, "Armour")],
       ["Evasion", railStat(build, "Evasion")],
-      ["Attack block", railStat(build, "BlockChance")],
-      ["Spell block", railStat(build, "SpellBlockChance")],
+      ["Attack block", railStat(build, "EffectiveBlockChance", "BlockChance")],
+      ["Spell block", railStat(build, "EffectiveSpellBlockChance", "SpellBlockChance")],
       ["Suppression", railStat(build, "EffectiveSpellSuppressionChance", "SpellSuppressionChance")],
     ] },
     { title: "Recovery", rows: [
@@ -266,7 +295,7 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
         <span><strong>{railValue(railStat(build, "EnergyShield"))}</strong><small>ES</small></span>
         <span><strong>{railValue(railStat(build, "ManaUnreserved", "Mana"))}</strong><small>Mana</small></span>
       </div>
-      <section className="planner-active-skill"><small>Main skill</small><strong>{mainActiveSkill?.name || mainSkill?.gems.find((gem) => gem.enabled && gem.support !== true)?.name || mainSkill?.label || "No evaluated skill"}</strong></section>
+      <section className="planner-active-skill"><small>Main skill</small><strong>{mainActiveSkill?.name || mainSkill?.gems.find((gem) => gem.enabled && gem.support !== true && !/support/i.test(`${gem.skillId} ${gem.gemId || ""}`))?.name || mainSkill?.label || "No evaluated skill"}</strong></section>
       {!build?.playerStats.length && <button type="button" className="planner-stat-empty" onClick={onRecalculate} disabled={calculating || !build}>
         {calculating ? <LoaderCircle className="is-spinning" size={13}/> : <CircleGauge size={13}/>} Calculate build stats
       </button>}
@@ -288,11 +317,12 @@ const TIMELESS_JEWELS = [
   { id: 6, name: "Heroic Tragedy", faction: "Kalguur", className: "kalguur", seed: 100, variants: ["Vorana · Black Scythe Training", "Uhtred · Celestial Mathematics", "Medved · The Unbreaking Circle"] },
 ] as const;
 
-function TimelessLens({ tree, allocated, xml, engineReady, onClose, onFocus }: {
+function TimelessLens({ tree, allocated, xml, engineReady, artwork, onClose, onFocus }: {
   tree: PassiveTreeData;
   allocated: ReadonlySet<number>;
   xml: string;
   engineReady: boolean;
+  artwork: ReadonlyMap<number, string>;
   onClose: () => void;
   onFocus: (nodeId: number) => void;
 }) {
@@ -397,7 +427,7 @@ function TimelessLens({ tree, allocated, xml, engineReady, onClose, onFocus }: {
     <section className="timeless-lens" role="dialog" aria-modal="true" aria-labelledby="timeless-lens-title">
       <header><span><Gem size={17}/><span><small>GLOAMCORE · VERIFIED POB LUT</small><strong id="timeless-lens-title">Timeless Lens</strong></span></span><p>{summary}</p><button type="button" aria-label="Close Timeless Lens" onClick={onClose}><X size={15}/></button></header>
       <div className="timeless-grid">
-        <aside className="timeless-jewel-picker"><h3>Choose lineage</h3>{TIMELESS_JEWELS.map((entry) => <button type="button" key={entry.id} className={jewelType === entry.id ? "is-active" : ""} onClick={() => setJewelType(entry.id)}><span className={`timeless-jewel-icon is-${entry.className}`}><Gem size={20}/></span><span><strong>{entry.name}</strong><small>{entry.faction}</small></span></button>)}
+        <aside className="timeless-jewel-picker"><h3>Choose lineage</h3>{TIMELESS_JEWELS.map((entry) => <button type="button" key={entry.id} className={jewelType === entry.id ? "is-active" : ""} onClick={() => setJewelType(entry.id)}><span className={`timeless-jewel-icon is-${entry.className}`}>{artwork.get(entry.id) ? <img src={artwork.get(entry.id)} alt="" draggable={false}/> : <Gem size={20}/>}</span><span><strong>{entry.name}</strong><small>{entry.faction}</small></span></button>)}
           <label>Conqueror<select value={conquerorId} onChange={(event) => setConquerorId(Number(event.target.value))}>{jewel.variants.map((variant, index) => <option key={variant} value={index + 1}>{variant}</option>)}</select></label>
           <label>Tree socket<select value={socketId} onChange={(event) => setSocketId(Number(event.target.value))}><option value={0}>All jewel sockets ({sockets.length})</option>{sockets.map((socket) => <option key={socket.id} value={socket.id}>{allocated.has(socket.id) ? "● " : ""}Jewel Socket #{socket.id}</option>)}</select></label>
           <div className="timeless-scope"><small>Candidate passives</small>{(["allocated", "reachable", "radius"] as const).map((value) => <button type="button" key={value} className={scope === value ? "is-active" : ""} onClick={() => setScope(value)}>{value}</button>)}</div>
@@ -691,6 +721,14 @@ function PassiveTreeCanvas({
     [tree.groups, visibleGroupIds],
   );
   const groupMap = useMemo(() => new Map(visibleGroups.map((group) => [group.id, group])), [visibleGroups]);
+  const timelessCircles = useMemo(() => {
+    const nodes = new Map(visibleNodes.map((node) => [node.id, node]));
+    return [...socketedItems].flatMap(([nodeId, item]) => {
+      const node = nodes.get(nodeId);
+      const visual = allocated.has(nodeId) ? timelessJewelVisual(item) : null;
+      return node && visual ? [{ x: node.x, y: node.y, radius: visual.radius }] : [];
+    });
+  }, [allocated, socketedItems, visibleNodes]);
   const powerMaximum = useMemo(() => {
     const scores = [...(powerScores?.values() || [])];
     if (powerMetric === "offence") return Math.max(0.000001, Number(powerMax.offence) || 0, ...scores.map((entry) => Math.max(0, entry.offence)));
@@ -1005,7 +1043,7 @@ function PassiveTreeCanvas({
         if (nextSize.width === previousSize.width && nextSize.height === previousSize.height) return;
         viewportRef.current = resizedPassiveTreeViewport(viewportRef.current, previousSize, nextSize);
       } else {
-        viewportRef.current = defaultPassiveTreeViewport(tree, nextSize.width, nextSize.height);
+        viewportRef.current = passiveTreeViewportWithCircles(tree, nextSize.width, nextSize.height, timelessCircles);
       }
       previousSize = nextSize;
       setRevision((value) => value + 1);
@@ -1013,14 +1051,14 @@ function PassiveTreeCanvas({
     const fit = () => {
       previousSize = { width: canvas.clientWidth, height: canvas.clientHeight };
       if (previousSize.width <= 0 || previousSize.height <= 0) return;
-      viewportRef.current = defaultPassiveTreeViewport(tree, canvas.clientWidth, canvas.clientHeight);
+      viewportRef.current = passiveTreeViewportWithCircles(tree, canvas.clientWidth, canvas.clientHeight, timelessCircles);
       setRevision((value) => value + 1);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     fit();
     return () => observer.disconnect();
-  }, [ascendancyName, classId, secondaryAscendancyName, tree.game, tree.sourcePath, tree.version]);
+  }, [ascendancyName, classId, secondaryAscendancyName, timelessCircles, tree.game, tree.sourcePath, tree.version]);
 
   useEffect(() => redraw(), [redraw, revision]);
 
@@ -1029,7 +1067,7 @@ function PassiveTreeCanvas({
     const canvas = canvasRef.current;
     if (!canvas || canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return;
     if (viewCommand.action === "fit") {
-      viewportRef.current = defaultPassiveTreeViewport(tree, canvas.clientWidth, canvas.clientHeight);
+      viewportRef.current = passiveTreeViewportWithCircles(tree, canvas.clientWidth, canvas.clientHeight, timelessCircles);
     } else if (viewCommand.action === "focus") {
       const node = visibleNodes.find((entry) => entry.id === viewCommand.nodeId);
       if (!node) return;
@@ -1049,7 +1087,7 @@ function PassiveTreeCanvas({
     }
     onHover(null);
     setRevision((value) => value + 1);
-  }, [onHover, tree, viewCommand, visibleNodes]);
+  }, [onHover, timelessCircles, tree, viewCommand, visibleNodes]);
 
   const nearest = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -1139,7 +1177,7 @@ function PassiveTreeCanvas({
       onPointerLeave={() => onHover(null)}
       onWheel={wheel}
       onDoubleClick={(event) => {
-        viewportRef.current = defaultPassiveTreeViewport(tree, event.currentTarget.clientWidth, event.currentTarget.clientHeight);
+        viewportRef.current = passiveTreeViewportWithCircles(tree, event.currentTarget.clientWidth, event.currentTarget.clientHeight, timelessCircles);
         onHover(null);
         setRevision((value) => value + 1);
       }}
@@ -1156,6 +1194,9 @@ export function BuildPlannerPanel() {
   const [tree, setTree] = useState<PassiveTreeData | null>(null);
   const [build, setBuild] = useState<ImportedPobBuild | null>(null);
   const [itemArtwork, setItemArtwork] = useState<Map<number, string>>(new Map());
+  const [itemArtworkDimensions, setItemArtworkDimensions] = useState<Map<number, Pick<PlannerItemArtworkAsset, "width" | "height">>>(new Map());
+  const [gemArtwork, setGemArtwork] = useState<Map<string, string>>(new Map());
+  const [timelessArtwork, setTimelessArtwork] = useState<Map<number, string>>(new Map());
   const [specs, setSpecs] = useState<ImportedPassiveSpec[]>([]);
   const [activeSpecId, setActiveSpecId] = useState("");
   const [allocated, setAllocated] = useState<Set<number>>(new Set());
@@ -1189,6 +1230,8 @@ export function BuildPlannerPanel() {
   const [baselineId, setBaselineId] = useState("");
   const [editedSinceImport, setEditedSinceImport] = useState(false);
   const [engineCapability, setEngineCapability] = useState<PobEngineDiagnostic | null>(null);
+  const [gemCatalog, setGemCatalog] = useState<PobEngineGemCatalogEntry[]>([]);
+  const [configCatalog, setConfigCatalog] = useState<PobEngineConfigInput[]>([]);
   const [calculating, setCalculating] = useState(false);
   const [statRailCollapsed, setStatRailCollapsed] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -1209,24 +1252,55 @@ export function BuildPlannerPanel() {
   useEffect(() => {
     let active = true;
     const items = (build?.items || [])
-      .filter((item) => !item.icon && (item.name || item.baseType))
+      .filter((item) => (!item.icon || !item.width || !item.height) && (item.name || item.baseType))
       .map((item) => ({ id: item.id, name: item.name, baseType: item.baseType }));
     setItemArtwork(new Map());
+    setItemArtworkDimensions(new Map());
     if (!items.length) return () => { active = false; };
     void (async () => {
-      const resolved = new Map<number, string>();
-      for (let offset = 0; offset < items.length; offset += 128) {
-        const batch = await bridge.resolvePlannerItemArtwork({ items: items.slice(offset, offset + 128) });
-        for (const [rawId, source] of Object.entries(batch)) {
-          if (typeof source === "string" && source.startsWith("data:image/")) resolved.set(Number(rawId), source);
-        }
+      const resolved = await resolvePlannerArtwork(items);
+      if (active) {
+        setItemArtwork(resolved.sources);
+        setItemArtworkDimensions(resolved.dimensions);
       }
-      if (active) setItemArtwork(resolved);
     })().catch(() => {
-      if (active) setItemArtwork(new Map());
+      if (active) {
+        setItemArtwork(new Map());
+        setItemArtworkDimensions(new Map());
+      }
     });
     return () => { active = false; };
   }, [build?.items]);
+
+  useEffect(() => {
+    let active = true;
+    const byKey = new Map((build?.skillGroups || []).flatMap((group) => group.gems).map((gem) => [importedPobGemArtworkKey(gem), gem]));
+    const entries = [...byKey.entries()].filter(([, gem]) => !gem.icon);
+    if (!entries.length) {
+      setGemArtwork(new Map());
+      return () => { active = false; };
+    }
+    void resolvePlannerArtwork(entries.map(([, gem], index) => ({
+      id: index + 1,
+      name: gem.name,
+      metadataId: gem.gemId,
+    }))).then((resolved) => {
+      if (!active) return;
+      setGemArtwork(new Map(entries.flatMap(([key], index) => {
+        const source = resolved.sources.get(index + 1);
+        return source ? [[key, source] as const] : [];
+      })));
+    }).catch(() => active && setGemArtwork(new Map()));
+    return () => { active = false; };
+  }, [build?.skillGroups]);
+
+  useEffect(() => {
+    let active = true;
+    void resolvePlannerArtwork(TIMELESS_JEWELS.map((entry) => ({ id: entry.id, name: entry.name })))
+      .then((resolved) => active && setTimelessArtwork(resolved.sources))
+      .catch(() => active && setTimelessArtwork(new Map()));
+    return () => { active = false; };
+  }, []);
 
   const markPlannerChanged = () => asyncGuardRef.current.markChanged();
   const beginReplacement = () => asyncGuardRef.current.begin("replacement");
@@ -1247,6 +1321,8 @@ export function BuildPlannerPanel() {
     const initial = new Set(start ? [start.id] : []);
     setTree(value);
     setBuild(null);
+    setGemCatalog([]);
+    setConfigCatalog([]);
     setSpecs([]);
     setActiveSpecId("");
     setUnsavedMasteryEffects({});
@@ -1370,6 +1446,8 @@ export function BuildPlannerPanel() {
         );
         setTree(targetTree);
         setBuild(snapshot.build ? { ...snapshot.build, items: itemsWithPassiveSpecLoadout(snapshot.build.items, snapshotSpec) } : null);
+        setGemCatalog([]);
+        setConfigCatalog([]);
         setSpecs(snapshotSpecs);
         setActiveSpecId(snapshotSpec?.id || "");
         setUnsavedMasteryEffects({ ...(snapshotSpec?.masteryEffects || {}) });
@@ -1855,7 +1933,7 @@ export function BuildPlannerPanel() {
       : spec));
   };
 
-  const applyBuild = (nextBuild: ImportedPobBuild, targetTree: PassiveTreeData | null = tree) => {
+  const applyBuild = (nextBuild: ImportedPobBuild, targetTree: PassiveTreeData | null = tree, notice = "") => {
     if (!targetTree) return;
     markPlannerChanged();
     const nextSpecs = nextBuild.specs.map((spec) => {
@@ -1888,7 +1966,7 @@ export function BuildPlannerPanel() {
     setEditedSinceImport(false);
     setActiveSavedId("");
     setImportOpen(false);
-    setMessage(`Imported level ${nextBuild.level} ${nextBuild.ascendancyName || nextBuild.className}: ${nextSpecs.length} tree spec, ${nextBuild.items.length} items, ${nextBuild.skillGroups.length} skill groups.`);
+    setMessage(`Imported level ${nextBuild.level} ${nextBuild.ascendancyName || nextBuild.className}: ${nextSpecs.length} tree spec, ${nextBuild.items.length} items, ${nextBuild.skillGroups.length} skill groups.${notice ? ` ${notice}` : ""}`);
   };
 
   const importBuild = async (raw = importText, activeRequest?: PlannerAsyncRequestToken) => {
@@ -1897,6 +1975,8 @@ export function BuildPlannerPanel() {
     const request = activeRequest || beginReplacement();
     setBusy(true);
     setMessage("");
+    setGemCatalog([]);
+    setConfigCatalog([]);
     try {
       let value = raw.trim();
       if (/^https?:\/\//i.test(value)) value = await bridge.fetchToolkitText(resolveRemoteBuildUrl(value));
@@ -1949,15 +2029,24 @@ export function BuildPlannerPanel() {
         ? await bridge.getPassiveTreeData({ game: requestedGame, treeVersion: requestedVersion })
         : tree;
       let importedBuild = parsed;
-      if (requestedGame === "poe1" && engineCapability?.ok === true) {
+      let calculationNotice = "";
+      if (requestedGame === "poe1") {
         const calculated = await bridge.calculatePobBuild({
           xml,
           name: `${parsed.ascendancyName || parsed.className || "Character"} · imported build`,
         });
-        if (calculated.ok) importedBuild = buildWithEngineCalculation(parsed, calculated.calculation);
+        if (calculated.ok) {
+          importedBuild = buildWithEngineCalculation(parsed, calculated.calculation);
+          setGemCatalog(calculated.calculation.gemCatalog);
+          setConfigCatalog(calculated.calculation.configCatalog);
+          calculationNotice = `Verified and recalculated with Path of Building ${calculated.engine.version}.`;
+        } else {
+          calculationNotice = `${parsed.playerStats.length ? "The saved PoB snapshot was retained" : "No calculated snapshot is available"}; ${calculated.message}`;
+          setEngineCapability(await bridge.diagnosePobEngine());
+        }
       }
       if (!replacementCanApply(request, "the Path of Building import was loading")) return;
-      applyBuild(importedBuild, targetTree);
+      applyBuild(importedBuild, targetTree, calculationNotice);
       setImportText("");
     } catch (error) {
       reportReplacementError(request, "the build import was loading", error);
@@ -2002,6 +2091,8 @@ export function BuildPlannerPanel() {
     const request = beginReplacement();
     setBusy(true);
     setMessage("");
+    setGemCatalog([]);
+    setConfigCatalog([]);
     try {
       const result = await bridge.listPoeCharacters(characterRequest());
       if (!asyncGuardRef.current.isLatest(request)) return;
@@ -2046,6 +2137,8 @@ export function BuildPlannerPanel() {
         statSource: "pob-engine",
         notes: parsed.notes || `Imported through Path of Building ${imported.engine.version} from the official Path of Exile character API.`,
       };
+      setGemCatalog(imported.calculation.gemCatalog);
+      setConfigCatalog(imported.calculation.configCatalog);
       applyBuild(importedBuild, targetTree);
       setAccessToken("");
     } catch (error) {
@@ -2406,6 +2499,8 @@ export function BuildPlannerPanel() {
       setTree(targetTree);
       setRealm(targetTree.game === "poe2" ? "poe2" : "pc");
       setBuild(snapshot.build ? { ...snapshot.build, items: itemsWithPassiveSpecLoadout(snapshot.build.items, snapshotSpec) } : null);
+      setGemCatalog([]);
+      setConfigCatalog([]);
       setSpecs(snapshotSpecs);
       setActiveSpecId(snapshot.activeSpecId);
       setUnsavedSecondaryAscendancyId(snapshotSpec?.secondaryAscendClassId || 0);
@@ -2492,6 +2587,8 @@ export function BuildPlannerPanel() {
         return;
       }
       const calculatedBuild = buildWithEngineCalculation(effectiveBuild, result.calculation);
+      setGemCatalog(result.calculation.gemCatalog);
+      setConfigCatalog(result.calculation.configCatalog);
       const playerStats = calculatedBuild.playerStats;
       markPlannerChanged();
       setBuild({
@@ -2508,6 +2605,51 @@ export function BuildPlannerPanel() {
       setMessage(`Calculated ${playerStats.length} numeric outputs with Path of Building ${result.engine.version} in ${(result.durationMilliseconds / 1000).toFixed(2)}s.${warnings}`);
     } catch (error) {
       if (requestStatus() === "current") setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (asyncGuardRef.current.isLatest(request)) setCalculating(false);
+    }
+  };
+
+  const commitValidatedItemBuild = async (candidate: ImportedPobBuild) => {
+    if (!tree || tree.game !== "poe1") return { ok: false, message: "Path of Building item validation is available for PoE 1 builds only." };
+    if (engineCapability?.ok !== true) return { ok: false, message: engineCapability?.message || "The verified local Path of Building engine is unavailable." };
+    const request = asyncGuardRef.current.begin("calculation");
+    const effectiveBuild = buildWithCurrentIdentity(candidate);
+    const sourceSpecs = persistedSpecs();
+    const effectiveSpecs = sourceSpecs.map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
+    const effectiveActiveSpecId = activeSpecId || effectiveSpecs[0]?.id || "";
+    const xml = serializePobXml(effectiveBuild, effectiveSpecs, effectiveActiveSpecId);
+    const changedItemIds = new Set(effectiveBuild.items.filter((item) => {
+      const current = build?.items.find((entry) => entry.id === item.id);
+      return !current || current.text !== item.text;
+    }).map((item) => item.id));
+    setCalculating(true);
+    try {
+      const result = await bridge.calculatePobBuild({
+        xml,
+        name: `${effectiveBuild.ascendancyName || effectiveBuild.className || "Character"} · item validation`,
+      });
+      if (!asyncGuardRef.current.isLatest(request)) return { ok: false, message: "The build changed while the item was being validated. Review the current build and try again." };
+      if (!result.ok) {
+        setEngineCapability(await bridge.diagnosePobEngine());
+        return { ok: false, message: `${result.message}${result.detail ? ` ${result.detail}` : ""}` };
+      }
+      const acceptedIds = new Set(result.calculation.items.map((item) => Number(item.id)));
+      const rejected = [...changedItemIds].filter((id) => !acceptedIds.has(id));
+      if (rejected.length) {
+        return { ok: false, message: "Path of Building rejected this item. Verify the rarity, item name, exact base type, and modifier text; no build data was changed." };
+      }
+      const calculatedBuild = buildWithEngineCalculation(effectiveBuild, result.calculation);
+      setGemCatalog(result.calculation.gemCatalog);
+      setConfigCatalog(result.calculation.configCatalog);
+      markPlannerChanged();
+      setBuild({ ...calculatedBuild, xml, specs: effectiveSpecs });
+      setSpecs(effectiveSpecs);
+      setEditedSinceImport(false);
+      setMessage(`Item accepted and recalculated by Path of Building ${result.engine.version}.`);
+      return { ok: true, message: "Item accepted by Path of Building." };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
     } finally {
       if (asyncGuardRef.current.isLatest(request)) setCalculating(false);
     }
@@ -2641,9 +2783,9 @@ export function BuildPlannerPanel() {
             })()}
           </div>
         )}
-        {tab === "items" && <PlannerItemsPanel build={build} artwork={itemArtwork} onChange={editBuild} />}
-        {tab === "skills" && <PlannerSkillsPanel build={build} onChange={editBuild} />}
-        {tab === "config" && <PlannerConfigPanel build={build} onChange={editBuild} />}
+        {tab === "items" && <PlannerItemsPanel build={build} artwork={itemArtwork} artworkDimensions={itemArtworkDimensions} onChange={editBuild} onCommitItem={commitValidatedItemBuild} />}
+        {tab === "skills" && <PlannerSkillsPanel build={build} artwork={gemArtwork} catalog={gemCatalog} onChange={editBuild} />}
+        {tab === "config" && <PlannerConfigPanel build={build} catalog={configCatalog} onChange={editBuild} />}
         {tab === "calcs" && <PlannerCalcsPanel build={build} editedSinceImport={editedSinceImport} comparison={comparison} />}
         {tab === "builds" && <PlannerBuildsPanel builds={savedBuilds} activeId={activeSavedId} baselineId={baselineId} libraryError={savedLibraryError} recoveringLibrary={recoveringSavedLibrary} onRecoverLibrary={recoverSavedLibrary} onSave={saveToLibrary} onLoad={loadSnapshot} onDelete={(id) => { if (!persistSavedBuilds(savedBuilds.filter((entry) => entry.id !== id))) return; if (activeSavedId === id) setActiveSavedId(""); if (baselineId === id) setBaselineId(""); }} onDuplicate={duplicateSnapshot} onBaseline={setBaselineId} onExport={exportSnapshot} />}
         {tab === "notes" && <div className="planner-notes"><textarea aria-label="Build notes" value={build?.notes || ""} placeholder="Build notes, campaign reminders, gearing steps…" onChange={(event) => editNotes(event.target.value)} /></div>}
@@ -2658,6 +2800,7 @@ export function BuildPlannerPanel() {
             allocated={allocated}
             xml={timelessXml}
             engineReady={engineCapability?.ok === true && tree.game === "poe1"}
+            artwork={timelessArtwork}
             onClose={() => setTimelessOpen(false)}
             onFocus={(nodeId) => { setTimelessOpen(false); setQuery(`#${nodeId}`); setViewCommand({ action: "focus", nodeId, nonce: Date.now() }); }}
           />}

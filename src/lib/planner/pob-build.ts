@@ -22,6 +22,24 @@ export interface ImportedPobItem {
   equipped: boolean;
   /** Official game artwork URL. Kept outside PoB XML and stored only in the user's local workspace. */
   icon?: string;
+  /** Authoritative in-game inventory-cell dimensions. Kept outside PoB XML. */
+  width?: number;
+  height?: number;
+  /** PoB-owned child records such as legacy ModRange entries, preserved losslessly until raw text is edited. */
+  xmlChildren?: string[];
+}
+
+export interface ImportedPobItemSetSlot {
+  itemId: number;
+  active?: boolean;
+  itemPbUrl?: string;
+}
+
+export interface ImportedPobItemSet {
+  id: number;
+  title: string;
+  useSecondWeaponSet: boolean;
+  slots: Record<string, ImportedPobItemSetSlot>;
 }
 
 export interface ImportedPobGem {
@@ -50,6 +68,12 @@ export interface ImportedPobGem {
   /** Official game artwork URL. Kept outside PoB XML and stored only in the user's local workspace. */
   icon?: string;
   support?: boolean;
+}
+
+export function importedPobGemArtworkKey(
+  gem: Pick<ImportedPobGem, "name" | "gemId" | "variantId">,
+) {
+  return `${gem.name}\u0000${gem.gemId || ""}\u0000${gem.variantId || ""}`;
 }
 
 export interface ImportedPobActiveSkill {
@@ -109,11 +133,25 @@ export interface ImportedPobBuild {
   activeSkillSet: number;
   specs: ImportedPassiveSpec[];
   items: ImportedPobItem[];
+  itemSets: ImportedPobItemSet[];
   skillGroups: ImportedPobSkillGroup[];
   config: Record<string, string | number | boolean>;
   playerStats: ImportedPobStat[];
   statSource: "pob-engine" | "pob-snapshot" | "character-api" | "none";
   notes: string;
+}
+
+export interface PobPlannerSetSummary {
+  id: number;
+  title: string;
+  entryCount: number;
+  active: boolean;
+}
+
+export interface PobCustomModifierBlock {
+  title: string;
+  enabled: boolean;
+  text: string;
 }
 
 function decodeXml(value: string) {
@@ -157,13 +195,21 @@ function masteryMap(value = "") {
   );
 }
 
-function itemIdentity(text: string) {
+export function itemIdentityFromPobText(text: string) {
   const lines = text.replace(/\r\n/g, "\n").split("\n").map((line) => line.trim());
   const rarityIndex = lines.findIndex((line) => /^Rarity:/i.test(line));
   const separator = lines.indexOf("--------", rarityIndex + 1);
   const candidates = lines.slice(rarityIndex + 1, separator < 0 ? rarityIndex + 4 : separator).filter(Boolean);
   if (candidates.length >= 2) return { name: candidates[0], baseType: candidates[1] };
   return { name: candidates[0] || "Imported item", baseType: candidates[0] || "" };
+}
+
+function safeItemXmlChildren(body: string) {
+  return Array.from(body.matchAll(/<ModRange\b[^>]*\/\s*>/gi), (match) => match[0]);
+}
+
+function itemRawText(body: string) {
+  return decodeXml(body.replace(/<ModRange\b[^>]*\/\s*>/gi, "")).trim();
 }
 
 export function trustedPoeIconUrl(value: unknown) {
@@ -220,6 +266,24 @@ function canonicalEquipmentSlot(value: unknown) {
   return aliases[slot] || slot;
 }
 
+function canonicalCharacterEquipmentSlot(value: unknown) {
+  const slot = String(value || "").replace(/[^a-z0-9]+/gi, "").toLowerCase();
+  const officialCharacterSlots: Record<string, string> = {
+    weapon: "weapon1",
+    offhand: "weapon2",
+    weapon2: "weapon1swap",
+    offhand2: "weapon2swap",
+  };
+  return officialCharacterSlots[slot] || canonicalEquipmentSlot(value);
+}
+
+function inventoryDimension(value: unknown, maximum: number) {
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) && numeric >= 1 && numeric <= maximum
+    ? numeric
+    : undefined;
+}
+
 function characterCollections(character: Record<string, unknown>) {
   const arrays = [character.equipment, character.inventory, character.jewels]
     .filter(Array.isArray) as unknown[][];
@@ -262,14 +326,14 @@ export function enrichPobBuildWithCharacterAssets(
     const id = typeof item.id === "string" ? item.id.trim() : "";
     return id ? [[id, item] as const] : [];
   }));
-  const equipment = rawItems.filter((item) => canonicalEquipmentSlot(item.inventoryId));
+  const equipment = rawItems.filter((item) => canonicalCharacterEquipmentSlot(item.inventoryId));
   const rawForBuildItem = (item: ImportedPobItem) => {
     const uniqueId = itemUniqueId(item);
     if (uniqueId && rawById.has(uniqueId)) return rawById.get(uniqueId);
     const slot = canonicalEquipmentSlot(item.slot);
     const itemNames = [normalizedAssetName(item.name), normalizedAssetName(item.baseType)].filter(Boolean);
     const candidates = slot
-      ? equipment.filter((candidate) => canonicalEquipmentSlot(candidate.inventoryId) === slot)
+      ? equipment.filter((candidate) => canonicalCharacterEquipmentSlot(candidate.inventoryId) === slot)
       : rawItems;
     return candidates.find((candidate) => rawCharacterItemNames(candidate).some((name) => itemNames.includes(name)))
       || rawItems.find((candidate) => rawCharacterItemNames(candidate).some((name) => itemNames.includes(name)));
@@ -277,7 +341,14 @@ export function enrichPobBuildWithCharacterAssets(
   const items = build.items.map((item) => {
     const raw = rawForBuildItem(item);
     const icon = trustedPoeIconUrl(raw?.icon);
-    return icon ? { ...item, icon } : item;
+    const width = inventoryDimension(raw?.w, 4);
+    const height = inventoryDimension(raw?.h, 6);
+    return {
+      ...item,
+      ...(icon ? { icon } : {}),
+      ...(width ? { width } : {}),
+      ...(height ? { height } : {}),
+    };
   });
 
   const allSocketed = rawItems.flatMap((item) => Array.isArray(item.socketedItems)
@@ -286,7 +357,7 @@ export function enrichPobBuildWithCharacterAssets(
   const usedSocketed = new Set<Record<string, unknown>>();
   const skillGroups = build.skillGroups.map((group) => {
     const slot = canonicalEquipmentSlot(group.slot);
-    const slotItem = rawItems.find((item) => slot && canonicalEquipmentSlot(item.inventoryId) === slot);
+    const slotItem = rawItems.find((item) => slot && canonicalCharacterEquipmentSlot(item.inventoryId) === slot);
     const localSocketed = Array.isArray(slotItem?.socketedItems)
       ? slotItem.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
       : [];
@@ -391,6 +462,29 @@ export function parsePobXml(xml: string): ImportedPobBuild {
   const itemsSection = /<Items\b([^>]*)>([\s\S]*?)<\/Items>/i.exec(xml);
   const itemsAttrs = attributes(itemsSection?.[1] || "");
   const activeItemSet = Number(itemsAttrs.activeItemSet) || 1;
+  const itemSets: ImportedPobItemSet[] = Array.from(
+    (itemsSection?.[2] || "").matchAll(/<ItemSet\b([^>]*?)>([\s\S]*?)<\/ItemSet>/gi),
+    (match, index) => {
+      const value = attributes(match[1]);
+      const slots: Record<string, ImportedPobItemSetSlot> = {};
+      for (const slotMatch of match[2].matchAll(/<Slot\b([^>]*?)\/>/gi)) {
+        const slot = attributes(slotMatch[1]);
+        if (!slot.name) continue;
+        slots[slot.name] = {
+          itemId: Math.max(0, Number(slot.itemId) || 0),
+          ...(slot.active != null ? { active: slot.active === "true" } : {}),
+          ...(slot.itemPbURL ? { itemPbUrl: slot.itemPbURL } : {}),
+        };
+      }
+      return {
+        id: Math.max(1, Number(value.id) || index + 1),
+        title: value.title || `Item set ${index + 1}`,
+        useSecondWeaponSet: value.useSecondWeaponSet === "true",
+        slots,
+      };
+    },
+  );
+  if (!itemSets.length) itemSets.push({ id: activeItemSet, title: "Default", useSecondWeaponSet: itemsAttrs.useSecondWeaponSet === "true", slots: {} });
   const itemSetBody = selectedSetBody(itemsSection?.[2] || "", "ItemSet", activeItemSet);
   const itemSlots = new Map<number, string>();
   for (const match of itemSetBody.matchAll(/<(?:Slot|SocketIdURL)\b([^>]*?)\/>/gi)) {
@@ -446,10 +540,11 @@ export function parsePobXml(xml: string): ImportedPobBuild {
     (itemsSection?.[2] || "").matchAll(/<Item\b([^>]*)>([\s\S]*?)<\/Item>/gi),
     (match, index) => {
       const value = attributes(match[1]);
-      const text = decodeXml(match[2]).trim();
+      const text = itemRawText(match[2]);
       const id = Number(value.id) || index + 1;
       const slot = itemSlots.get(id) || "";
-      return { id, text, slot, equipped: Boolean(slot), ...itemIdentity(text) };
+      const xmlChildren = safeItemXmlChildren(match[2]);
+      return { id, text, slot, equipped: Boolean(slot), ...itemIdentityFromPobText(text), ...(xmlChildren.length ? { xmlChildren } : {}) };
     },
   );
   const skillGroups: ImportedPobSkillGroup[] = Array.from(
@@ -535,12 +630,67 @@ export function parsePobXml(xml: string): ImportedPobBuild {
     activeSkillSet,
     specs,
     items,
+    itemSets,
     skillGroups,
     config,
     playerStats,
     statSource: playerStats.length ? "pob-snapshot" : "none",
     notes,
   };
+}
+
+function passiveJewelSlot(slot: string) {
+  return /^Jewel \d+$/i.test(slot) || /Abyssal Socket/i.test(slot);
+}
+
+export function withActivePobItemSet(build: ImportedPobBuild, itemSetId: number) {
+  const itemSet = build.itemSets.find((entry) => entry.id === itemSetId) || build.itemSets[0];
+  if (!itemSet) return build;
+  const slotByItem = new Map<number, string>();
+  for (const [slot, value] of Object.entries(itemSet.slots)) {
+    if (value.itemId > 0 && !slotByItem.has(value.itemId)) slotByItem.set(value.itemId, slot);
+  }
+  return {
+    ...build,
+    activeItemSet: itemSet.id,
+    items: build.items.map((item) => {
+      if (passiveJewelSlot(item.slot)) return item;
+      const slot = slotByItem.get(item.id) || "";
+      return { ...item, slot, equipped: Boolean(slot) };
+    }),
+  };
+}
+
+export function withPobItemEquipped(build: ImportedPobBuild, itemId: number, slotName: string) {
+  const targetSet = build.itemSets.find((entry) => entry.id === build.activeItemSet) || build.itemSets[0];
+  if (!targetSet) return build;
+  const normalizedSlot = slotName.trim().slice(0, 160);
+  const slots = Object.fromEntries(Object.entries(targetSet.slots).map(([name, slot]) => [name, slot.itemId === itemId ? { ...slot, itemId: 0 } : slot]));
+  if (normalizedSlot) slots[normalizedSlot] = { ...(slots[normalizedSlot] || {}), itemId };
+  const itemSets = build.itemSets.map((itemSet) => itemSet.id === targetSet.id ? { ...itemSet, slots } : itemSet);
+  return withActivePobItemSet({ ...build, itemSets }, targetSet.id);
+}
+
+export function withPobItemText(item: ImportedPobItem, text: string) {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  return {
+    ...item,
+    text: normalized,
+    ...itemIdentityFromPobText(normalized),
+    xmlChildren: [],
+  };
+}
+
+export function withoutPobItem(build: ImportedPobBuild, itemId: number) {
+  const itemSets = build.itemSets.map((itemSet) => ({
+    ...itemSet,
+    slots: Object.fromEntries(Object.entries(itemSet.slots).map(([name, slot]) => [name, slot.itemId === itemId ? { ...slot, itemId: 0 } : slot])),
+  }));
+  const specs = build.specs.map((spec) => ({
+    ...spec,
+    sockets: Object.fromEntries(Object.entries(spec.sockets || {}).filter(([, socketItemId]) => socketItemId !== itemId)),
+  }));
+  return withActivePobItemSet({ ...build, itemSets, specs, items: build.items.filter((item) => item.id !== itemId) }, build.activeItemSet);
 }
 
 export function encodePobXmlForShare(xml: string) {
@@ -746,7 +896,7 @@ function patchSkillBlock(block: string, group: ImportedPobSkillGroup) {
   let gemIndex = 0;
   body = body.replace(/<Gem\b[^>]*(?:\/\s*>|>[\s\S]*?<\/Gem\s*>)/gi, (gemBlock) => {
     const gem = group.gems[gemIndex++];
-    return gem ? patchGemBlock(gemBlock, gem) : gemBlock;
+    return gem ? patchGemBlock(gemBlock, gem) : "";
   });
   body = appendXmlChildren(body, group.gems.slice(gemIndex).map((gem) => gemElement(gem)));
   return pairedElement(opening, body, "Skill");
@@ -761,7 +911,7 @@ function patchSkillSetBody(body: string, groups: ImportedPobSkillGroup[]) {
   let groupIndex = 0;
   let output = body.replace(/<Skill\b[^>]*(?:\/\s*>|>[\s\S]*?<\/Skill\s*>)/gi, (block) => {
     const group = groups[groupIndex++];
-    return group ? patchSkillBlock(block, group) : block;
+    return group ? patchSkillBlock(block, group) : "";
   });
   output = appendXmlChildren(output, groups.slice(groupIndex).map((group) => skillElement(group)));
   return output;
@@ -795,43 +945,122 @@ function desiredEquipmentSlots(build: ImportedPobBuild) {
   return desired;
 }
 
-function patchItemSetBody(body: string, build: ImportedPobBuild) {
+function itemElement(item: ImportedPobItem, indent = "\t\t") {
+  const children = (item.xmlChildren || []).filter((child) => /^<ModRange\b[^>]*\/\s*>$/i.test(child.trim()));
+  const suffix = children.length ? `\n${children.map((child) => `${indent}\t${child.trim()}`).join("\n")}\n${indent}` : "";
+  return `${indent}<Item id="${item.id}">${escapeXmlText(item.text)}${suffix}</Item>`;
+}
+
+function patchItemBlock(block: string, item: ImportedPobItem) {
+  const originalOpening = elementOpening(block, "Item");
+  const opening = updateXmlAttributes(originalOpening, { id: item.id });
+  const originalChildren = safeItemXmlChildren(elementBody(block, "Item"));
+  const children = (item.xmlChildren ?? originalChildren).filter((child) => /^<ModRange\b[^>]*\/\s*>$/i.test(child.trim()));
+  const body = `${escapeXmlText(item.text)}${children.length ? `\n${children.map((child) => `\t\t\t${child.trim()}`).join("\n")}\n\t\t` : ""}`;
+  return pairedElement(opening, body, "Item");
+}
+
+function effectiveItemSets(build: ImportedPobBuild) {
+  const fallback = [{
+    id: Math.max(1, Number(build.activeItemSet) || 1),
+    title: "Default",
+    useSecondWeaponSet: false,
+    slots: Object.fromEntries(Array.from(desiredEquipmentSlots(build), ([name, itemId]) => [name, { itemId }])),
+  }] satisfies ImportedPobItemSet[];
+  const itemSets = build.itemSets.length ? build.itemSets : fallback;
   const desired = desiredEquipmentSlots(build);
+  return itemSets.map((itemSet) => {
+    if (itemSet.id !== build.activeItemSet) return itemSet;
+    const slots = Object.fromEntries(Object.entries(itemSet.slots).map(([name, slot]) => [name, { ...slot, itemId: desired.get(name) || 0 }]));
+    for (const [name, itemId] of desired) slots[name] = { ...(slots[name] || {}), itemId };
+    return { ...itemSet, slots };
+  });
+}
+
+function patchItemSetBody(body: string, itemSet: ImportedPobItemSet, validItemIds: ReadonlySet<number>) {
+  const desired = new Map(Object.entries(itemSet.slots).map(([name, slot]) => [name, {
+    ...slot,
+    itemId: validItemIds.has(slot.itemId) ? slot.itemId : 0,
+  }]));
   const seen = new Set<string>();
   let output = body.replace(/<Slot\b[^>]*(?:\/\s*>|>[\s\S]*?<\/Slot\s*>)/gi, (block) => {
     const opening = elementOpening(block, "Slot");
     const name = attributes(opening).name;
     if (!name) return block;
-    const itemId = desired.get(name);
-    if (!itemId || seen.has(name)) return "";
+    const slot = desired.get(name);
+    if (!slot || slot.itemId <= 0 || seen.has(name)) return "";
     seen.add(name);
-    return block.replace(opening, updateXmlAttributes(opening, { name, itemId }));
+    let updated = updateXmlAttributes(opening, { name, itemId: slot.itemId });
+    if (slot.active !== undefined) updated = updateXmlAttributes(updated, { active: slot.active });
+    else updated = removeXmlAttributes(updated, ["active"]);
+    if (slot.itemPbUrl) updated = updateXmlAttributes(updated, { itemPbURL: slot.itemPbUrl });
+    else updated = removeXmlAttributes(updated, ["itemPbURL"]);
+    return block.replace(opening, updated);
   });
   output = appendXmlChildren(output, Array.from(desired)
-    .filter(([name]) => !seen.has(name))
-    .map(([name, itemId]) => `\t\t\t<Slot name="${escapeXmlAttribute(name)}" itemId="${itemId}"/>`));
+    .filter(([name, slot]) => slot.itemId > 0 && !seen.has(name))
+    .map(([name, slot]) => `\t\t\t<Slot name="${escapeXmlAttribute(name)}" itemId="${slot.itemId}"${optionalXmlAttribute("itemPbURL", slot.itemPbUrl)}${optionalXmlAttribute("active", slot.active)}/>`));
   return output;
 }
 
+function itemSetElement(itemSet: ImportedPobItemSet, validItemIds: ReadonlySet<number>, indent = "\t\t") {
+  const slots = Object.entries(itemSet.slots).filter(([, slot]) => slot.itemId > 0).map(([name, rawSlot]) => {
+    const slot = { ...rawSlot, itemId: validItemIds.has(rawSlot.itemId) ? rawSlot.itemId : 0 };
+    return `${indent}\t<Slot name="${escapeXmlAttribute(name)}" itemId="${slot.itemId}"${optionalXmlAttribute("itemPbURL", slot.itemPbUrl)}${optionalXmlAttribute("active", slot.active)}/>`;
+  }).join("\n");
+  return `${indent}<ItemSet id="${itemSet.id}" title="${escapeXmlAttribute(itemSet.title)}" useSecondWeaponSet="${itemSet.useSecondWeaponSet}">${slots ? `\n${slots}\n${indent}` : ""}</ItemSet>`;
+}
+
 function patchItemsSection(section: string, build: ImportedPobBuild) {
-  const outer = attributes(elementOpening(section, "Items"));
-  const activeId = Math.max(1, Number(build.activeItemSet) || Number(outer.activeItemSet) || 1);
-  return patchSectionSet(
-    section,
-    "Items",
-    "ItemSet",
-    activeId,
-    (body) => patchItemSetBody(body, build),
-    { activeItemSet: activeId },
-    false,
-  );
+  const originalOpening = elementOpening(section, "Items");
+  const outer = attributes(originalOpening);
+  const itemSets = effectiveItemSets(build);
+  const activeId = itemSets.some((itemSet) => itemSet.id === build.activeItemSet)
+    ? build.activeItemSet
+    : itemSets[0]?.id || Math.max(1, Number(outer.activeItemSet) || 1);
+  const opening = updateXmlAttributes(originalOpening, { activeItemSet: activeId });
+  let body = elementBody(section, "Items");
+  const itemsById = new Map(build.items.map((item) => [item.id, item]));
+  const seenItems = new Set<number>();
+  body = body.replace(/<Item\b[^>]*(?:\/\s*>|>[\s\S]*?<\/Item\s*>)/gi, (block) => {
+    const id = Number(attributes(elementOpening(block, "Item")).id);
+    const item = itemsById.get(id);
+    if (!item || seenItems.has(id)) return "";
+    seenItems.add(id);
+    return patchItemBlock(block, item);
+  });
+  body = appendXmlChildren(body, build.items.filter((item) => !seenItems.has(item.id)).map((item) => itemElement(item)));
+
+  const validItemIds = new Set(build.items.map((item) => item.id));
+  const setsById = new Map(itemSets.map((itemSet) => [itemSet.id, itemSet]));
+  const seenSets = new Set<number>();
+  body = body.replace(/<ItemSet\b[^>]*(?:\/\s*>|>[\s\S]*?<\/ItemSet\s*>)/gi, (block) => {
+    const id = Number(attributes(elementOpening(block, "ItemSet")).id);
+    const itemSet = setsById.get(id);
+    if (!itemSet || seenSets.has(id)) return "";
+    seenSets.add(id);
+    const originalSetOpening = elementOpening(block, "ItemSet");
+    let setOpening = updateXmlAttributes(originalSetOpening, {
+      id: itemSet.id,
+      title: itemSet.title,
+    });
+    if (itemSet.useSecondWeaponSet || /\suseSecondWeaponSet\s*=/i.test(originalSetOpening)) {
+      setOpening = updateXmlAttributes(setOpening, { useSecondWeaponSet: itemSet.useSecondWeaponSet });
+    }
+    const setBody = patchItemSetBody(elementBody(block, "ItemSet"), itemSet, validItemIds);
+    return pairedElement(setOpening, setBody, "ItemSet");
+  });
+  body = appendXmlChildren(body, itemSets.filter((itemSet) => !seenSets.has(itemSet.id)).map((itemSet) => itemSetElement(itemSet, validItemIds)));
+  return pairedElement(opening, body, "Items");
 }
 
 function serializeItems(build: ImportedPobBuild) {
-  const items = build.items.map((item) => `\t\t<Item id="${item.id}">${escapeXmlText(item.text)}</Item>`).join("\n");
-  const slots = build.items.filter((item) => item.equipped && item.slot && !/^Jewel \d+$/i.test(item.slot)).map((item) => `\t\t\t<Slot name="${escapeXmlAttribute(item.slot)}" itemId="${item.id}"/>`).join("\n");
-  const activeId = Math.max(1, Number(build.activeItemSet) || 1);
-  return `<Items activeItemSet="${activeId}">${items ? `\n${items}` : ""}\n\t\t<ItemSet id="${activeId}">${slots ? `\n${slots}\n\t\t` : ""}</ItemSet>\n\t</Items>`;
+  const items = build.items.map((item) => itemElement(item)).join("\n");
+  const validItemIds = new Set(build.items.map((item) => item.id));
+  const itemSets = effectiveItemSets(build);
+  const activeId = itemSets.some((itemSet) => itemSet.id === build.activeItemSet) ? build.activeItemSet : itemSets[0]?.id || 1;
+  const sets = itemSets.map((itemSet) => itemSetElement(itemSet, validItemIds)).join("\n");
+  return `<Items activeItemSet="${activeId}">${items ? `\n${items}` : ""}${sets ? `\n${sets}` : ""}\n\t</Items>`;
 }
 
 function serializeTree(specs: ImportedPassiveSpec[], activeSpecId: string) {
@@ -1022,12 +1251,248 @@ export function emptyPobBuild(className = "Scion"): ImportedPobBuild {
     activeSkillSet: 1,
     specs: [],
     items: [],
+    itemSets: [{ id: 1, title: "Default", useSecondWeaponSet: false, slots: {} }],
     skillGroups: [],
     config: {},
     playerStats: [],
     statSource: "none",
     notes: "",
   };
+}
+
+function serializedCurrentPobBuild(build: ImportedPobBuild) {
+  const activeSpec = build.specs[Math.max(0, Math.min(build.specs.length - 1, build.activeSpec - 1))]
+    || build.specs[0];
+  return serializePobXml(build, build.specs, activeSpec?.id || "");
+}
+
+function restoreLocalPlannerPresentation(next: ImportedPobBuild, previous: ImportedPobBuild) {
+  const itemPresentation = new Map(previous.items.map((item) => [item.id, item]));
+  const gemPresentation = new Map(previous.skillGroups.flatMap((group) => group.gems.map((gem) => [importedPobGemArtworkKey(gem), gem] as const)));
+  const preserveActiveSkills = next.activeSkillSet === previous.activeSkillSet;
+  return {
+    ...next,
+    items: next.items.map((item) => {
+      const prior = itemPresentation.get(item.id);
+      return prior ? {
+        ...item,
+        ...(prior.icon ? { icon: prior.icon } : {}),
+        ...(prior.width ? { width: prior.width } : {}),
+        ...(prior.height ? { height: prior.height } : {}),
+      } : item;
+    }),
+    skillGroups: next.skillGroups.map((group, groupIndex) => ({
+      ...group,
+      ...(preserveActiveSkills && previous.skillGroups[groupIndex]?.activeSkills
+        ? { activeSkills: previous.skillGroups[groupIndex].activeSkills }
+        : {}),
+      gems: group.gems.map((gem) => {
+        const prior = gemPresentation.get(importedPobGemArtworkKey(gem));
+        return prior ? {
+          ...gem,
+          ...(prior.icon ? { icon: prior.icon } : {}),
+          ...(typeof prior.support === "boolean" ? { support: prior.support } : {}),
+        } : gem;
+      }),
+    })),
+  };
+}
+
+function pobSection(xml: string, sectionTag: "Skills" | "Config") {
+  return new RegExp(`<${sectionTag}\\b[^>]*(?:\\/\\s*>|>[\\s\\S]*?<\\/${sectionTag}\\s*>)`, "i").exec(xml)?.[0];
+}
+
+function pobSetSummaries(
+  build: ImportedPobBuild,
+  sectionTag: "Skills" | "Config",
+  setTag: "SkillSet" | "ConfigSet",
+  childTag: "Skill" | "Input",
+) {
+  const xml = serializedCurrentPobBuild(build);
+  const section = pobSection(xml, sectionTag);
+  if (!section) return [];
+  const activeAttribute = sectionTag === "Skills" ? "activeSkillSet" : "activeConfigSet";
+  const activeId = Math.max(1, Number(attributes(elementOpening(section, sectionTag))[activeAttribute]) || 1);
+  return elementBlocks(elementBody(section, sectionTag), setTag).flatMap((match, index) => {
+    const block = match[0];
+    const attrs = attributes(elementOpening(block, setTag));
+    const id = Math.max(1, Number(attrs.id) || index + 1);
+    return [{
+      id,
+      title: attrs.title || `${setTag === "SkillSet" ? "Skill set" : "Config set"} ${index + 1}`,
+      entryCount: elementBlocks(elementBody(block, setTag), childTag).length,
+      active: id === activeId,
+    }];
+  });
+}
+
+export function pobSkillSetSummaries(build: ImportedPobBuild) {
+  return pobSetSummaries(build, "Skills", "SkillSet", "Skill");
+}
+
+export function pobConfigSetSummaries(build: ImportedPobBuild) {
+  return pobSetSummaries(build, "Config", "ConfigSet", "Input");
+}
+
+function mutatePobSet(
+  build: ImportedPobBuild,
+  sectionTag: "Skills" | "Config",
+  setTag: "SkillSet" | "ConfigSet",
+  activeAttribute: "activeSkillSet" | "activeConfigSet",
+  mutate: (body: string, sets: RegExpMatchArray[]) => { body: string; activeId: number } | null,
+) {
+  const xml = serializedCurrentPobBuild(build);
+  const section = pobSection(xml, sectionTag);
+  if (!section) return build;
+  const originalOpening = elementOpening(section, sectionTag);
+  const originalBody = elementBody(section, sectionTag);
+  const result = mutate(originalBody, elementBlocks(originalBody, setTag));
+  if (!result) return build;
+  const opening = updateXmlAttributes(originalOpening, { [activeAttribute]: result.activeId });
+  const updatedXml = xml.replace(section, pairedElement(opening, result.body, sectionTag));
+  return restoreLocalPlannerPresentation(parsePobXml(updatedXml), build);
+}
+
+function switchPobSet(
+  build: ImportedPobBuild,
+  sectionTag: "Skills" | "Config",
+  setTag: "SkillSet" | "ConfigSet",
+  activeAttribute: "activeSkillSet" | "activeConfigSet",
+  setId: number,
+) {
+  return mutatePobSet(build, sectionTag, setTag, activeAttribute, (body, sets) => {
+    const target = sets.find((match) => Number(attributes(elementOpening(match[0], setTag)).id) === setId);
+    return target ? { body, activeId: setId } : null;
+  });
+}
+
+export function withActivePobSkillSet(build: ImportedPobBuild, setId: number) {
+  return switchPobSet(build, "Skills", "SkillSet", "activeSkillSet", setId);
+}
+
+export function withActivePobConfigSet(build: ImportedPobBuild, setId: number) {
+  return switchPobSet(build, "Config", "ConfigSet", "activeConfigSet", setId);
+}
+
+function addPobSet(
+  build: ImportedPobBuild,
+  sectionTag: "Skills" | "Config",
+  setTag: "SkillSet" | "ConfigSet",
+  activeAttribute: "activeSkillSet" | "activeConfigSet",
+  duplicate: boolean,
+) {
+  return mutatePobSet(build, sectionTag, setTag, activeAttribute, (body, sets) => {
+    const ids = sets.map((match) => Number(attributes(elementOpening(match[0], setTag)).id) || 0);
+    const id = Math.max(0, ...ids) + 1;
+    const activeId = activeAttribute === "activeSkillSet" ? build.activeSkillSet : Number(attributes(elementOpening(pobSection(serializedCurrentPobBuild(build), sectionTag) || "", sectionTag))[activeAttribute]) || 1;
+    const active = sets.find((match) => Number(attributes(elementOpening(match[0], setTag)).id) === activeId) || sets[0];
+    const title = `${setTag === "SkillSet" ? "Skill set" : "Config set"} ${sets.length + 1}${duplicate ? " copy" : ""}`;
+    let block = `<${setTag} id="${id}" title="${escapeXmlAttribute(title)}"></${setTag}>`;
+    if (duplicate && active) {
+      const source = active[0];
+      const sourceOpening = elementOpening(source, setTag);
+      block = source.replace(sourceOpening, updateXmlAttributes(sourceOpening, { id, title }));
+    }
+    return { body: appendXmlChildren(body, [`\t\t${block}`]), activeId: id };
+  });
+}
+
+export function addPobSkillSet(build: ImportedPobBuild, duplicate = false) {
+  return addPobSet(build, "Skills", "SkillSet", "activeSkillSet", duplicate);
+}
+
+export function addPobConfigSet(build: ImportedPobBuild, duplicate = false) {
+  return addPobSet(build, "Config", "ConfigSet", "activeConfigSet", duplicate);
+}
+
+function removePobSet(
+  build: ImportedPobBuild,
+  sectionTag: "Skills" | "Config",
+  setTag: "SkillSet" | "ConfigSet",
+  activeAttribute: "activeSkillSet" | "activeConfigSet",
+  setId: number,
+) {
+  return mutatePobSet(build, sectionTag, setTag, activeAttribute, (body, sets) => {
+    if (sets.length <= 1) return null;
+    const target = sets.find((match) => Number(attributes(elementOpening(match[0], setTag)).id) === setId);
+    if (!target || target.index == null) return null;
+    const nextBody = `${body.slice(0, target.index)}${body.slice(target.index + target[0].length)}`;
+    const remaining = sets.filter((match) => match !== target);
+    const activeId = Number(attributes(elementOpening(remaining[0][0], setTag)).id) || 1;
+    return { body: nextBody, activeId };
+  });
+}
+
+export function withoutPobSkillSet(build: ImportedPobBuild, setId = build.activeSkillSet) {
+  return removePobSet(build, "Skills", "SkillSet", "activeSkillSet", setId);
+}
+
+export function withoutPobConfigSet(build: ImportedPobBuild, setId: number) {
+  return removePobSet(build, "Config", "ConfigSet", "activeConfigSet", setId);
+}
+
+function renamePobSet(
+  build: ImportedPobBuild,
+  sectionTag: "Skills" | "Config",
+  setTag: "SkillSet" | "ConfigSet",
+  activeAttribute: "activeSkillSet" | "activeConfigSet",
+  setId: number,
+  title: string,
+) {
+  const safeTitle = title.trim().slice(0, 160) || (setTag === "SkillSet" ? "Skill set" : "Config set");
+  return mutatePobSet(build, sectionTag, setTag, activeAttribute, (body, sets) => {
+    const target = sets.find((match) => Number(attributes(elementOpening(match[0], setTag)).id) === setId);
+    if (!target || target.index == null) return null;
+    const block = target[0];
+    const opening = elementOpening(block, setTag);
+    const renamed = block.replace(opening, updateXmlAttributes(opening, { title: safeTitle }));
+    return {
+      body: `${body.slice(0, target.index)}${renamed}${body.slice(target.index + block.length)}`,
+      activeId: setId,
+    };
+  });
+}
+
+export function withPobSkillSetTitle(build: ImportedPobBuild, setId: number, title: string) {
+  return renamePobSet(build, "Skills", "SkillSet", "activeSkillSet", setId, title);
+}
+
+export function withPobConfigSetTitle(build: ImportedPobBuild, setId: number, title: string) {
+  return renamePobSet(build, "Config", "ConfigSet", "activeConfigSet", setId, title);
+}
+
+export function pobCustomModifierBlocks(build: ImportedPobBuild): PobCustomModifierBlock[] {
+  const xml = serializedCurrentPobBuild(build);
+  const section = pobSection(xml, "Config");
+  if (!section) return [];
+  const set = elementBlocks(elementBody(section, "Config"), "ConfigSet")
+    .find((match) => Number(attributes(elementOpening(match[0], "ConfigSet")).id) === Number(attributes(elementOpening(section, "Config")).activeConfigSet));
+  if (!set) return [];
+  return elementBlocks(elementBody(set[0], "ConfigSet"), "CustomModifierBlock").map((match, index) => {
+    const attrs = attributes(elementOpening(match[0], "CustomModifierBlock"));
+    return {
+      title: attrs.title || `Group ${index + 1}`,
+      enabled: attrs.enabled !== "false",
+      text: decodeXml(elementBody(match[0], "CustomModifierBlock")),
+    };
+  });
+}
+
+export function withPobCustomModifierBlocks(build: ImportedPobBuild, blocks: PobCustomModifierBlock[]) {
+  return mutatePobSet(build, "Config", "ConfigSet", "activeConfigSet", (body, sets) => {
+    const activeId = Number(attributes(elementOpening(pobSection(serializedCurrentPobBuild(build), "Config") || "", "Config")).activeConfigSet) || 1;
+    const target = sets.find((match) => Number(attributes(elementOpening(match[0], "ConfigSet")).id) === activeId);
+    if (!target || target.index == null) return null;
+    const block = target[0];
+    const opening = elementOpening(block, "ConfigSet");
+    let setBody = elementBody(block, "ConfigSet").replace(/<CustomModifierBlock\b[^>]*(?:\/\s*>|>[\s\S]*?<\/CustomModifierBlock\s*>)/gi, "");
+    setBody = appendXmlChildren(setBody, blocks.slice(0, 64).map((entry) => `\t\t\t<CustomModifierBlock title="${escapeXmlAttribute(entry.title.slice(0, 160) || "Default")}" enabled="${entry.enabled}">${escapeXmlText(entry.text.slice(0, 65_536))}</CustomModifierBlock>`));
+    const updated = pairedElement(opening, setBody, "ConfigSet");
+    return {
+      body: `${body.slice(0, target.index)}${updated}${body.slice(target.index + block.length)}`,
+      activeId,
+    };
+  });
 }
 
 function finiteInteger(value: unknown, fallback = 0) {
@@ -1091,7 +1556,7 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
     if (!rawItem || typeof rawItem !== "object") return [];
     const item = record(rawItem);
     const itemText = typeof item.text === "string" ? item.text : "";
-    const identity = itemIdentity(itemText);
+    const identity = itemIdentityFromPobText(itemText);
     const slot = typeof item.slot === "string" ? item.slot : "";
     return [{
       id: Math.max(1, finiteInteger(item.id, index + 1)),
@@ -1101,8 +1566,41 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
       slot,
       equipped: typeof item.equipped === "boolean" ? item.equipped : Boolean(slot),
       ...(trustedPoeIconUrl(item.icon) ? { icon: trustedPoeIconUrl(item.icon) } : {}),
+      ...(inventoryDimension(item.width, 4) ? { width: inventoryDimension(item.width, 4) } : {}),
+      ...(inventoryDimension(item.height, 6) ? { height: inventoryDimension(item.height, 6) } : {}),
+      ...(Array.isArray(item.xmlChildren) ? { xmlChildren: item.xmlChildren.filter((child): child is string => typeof child === "string" && /^<ModRange\b[^>]*\/\s*>$/i.test(child.trim())).slice(0, 256) } : {}),
     }];
   }) : [];
+  const itemIds = new Set(items.map((item) => item.id));
+  const itemSets = Array.isArray(source.itemSets) ? source.itemSets.flatMap((rawSet, setIndex) => {
+    if (!rawSet || typeof rawSet !== "object") return [];
+    const itemSet = record(rawSet);
+    const slots = Object.fromEntries(Object.entries(record(itemSet.slots)).flatMap(([name, rawSlot]) => {
+      if (!name || !rawSlot || typeof rawSlot !== "object") return [];
+      const slot = record(rawSlot);
+      const itemId = Math.max(0, finiteInteger(slot.itemId));
+      return [[name.slice(0, 160), {
+        itemId: itemIds.has(itemId) ? itemId : 0,
+        ...(typeof slot.active === "boolean" ? { active: slot.active } : {}),
+        ...(typeof slot.itemPbUrl === "string" && slot.itemPbUrl.length <= 2_048 ? { itemPbUrl: slot.itemPbUrl } : {}),
+      }]];
+    }));
+    return [{
+      id: Math.max(1, finiteInteger(itemSet.id, setIndex + 1)),
+      title: typeof itemSet.title === "string" && itemSet.title.trim() ? itemSet.title.slice(0, 160) : `Item set ${setIndex + 1}`,
+      useSecondWeaponSet: itemSet.useSecondWeaponSet === true,
+      slots,
+    }];
+  }) : [];
+  if (!itemSets.length) {
+    const activeItemSet = Math.max(1, finiteInteger(source.activeItemSet, 1));
+    itemSets.push({
+      id: activeItemSet,
+      title: "Default",
+      useSecondWeaponSet: false,
+      slots: Object.fromEntries(items.filter((item) => item.equipped && item.slot && !/^Jewel \d+$/i.test(item.slot)).map((item) => [item.slot, { itemId: item.id }])),
+    });
+  }
   const skillGroups = Array.isArray(source.skillGroups) ? source.skillGroups.flatMap((rawGroup, groupIndex) => {
     if (!rawGroup || typeof rawGroup !== "object") return [];
     const group = record(rawGroup);
@@ -1223,6 +1721,7 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
     activeSkillSet: Math.max(1, finiteInteger(source.activeSkillSet, 1)),
     specs: normalizeImportedPassiveSpecs(source.specs),
     items,
+    itemSets,
     skillGroups,
     config,
     playerStats,

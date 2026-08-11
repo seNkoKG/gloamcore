@@ -723,10 +723,21 @@ export interface PoeCharacterSummary {
 }
 
 export interface PlannerItemArtworkRequest {
-  items: Array<{ id: number; name: string; baseType: string }>;
+  items: Array<{
+    id: number;
+    name?: string;
+    baseType?: string;
+    metadataId?: string;
+  }>;
 }
 
-export type PlannerItemArtworkResult = Record<number, string>;
+export interface PlannerItemArtworkAsset {
+  src: string;
+  width?: number;
+  height?: number;
+}
+
+export type PlannerItemArtworkResult = Record<number, PlannerItemArtworkAsset>;
 
 export type PoeStashRealm = "pc" | "xbox" | "sony";
 
@@ -961,6 +972,35 @@ export interface PobEngineSkillGroup {
   }>;
 }
 
+export interface PobEngineItem {
+  id: number;
+  raw: string;
+  primarySlot: string;
+}
+
+export interface PobEngineGemCatalogEntry {
+  name: string;
+  skillId: string;
+  gemId: string;
+  variantId: string;
+  naturalMaxLevel: number;
+  support: boolean;
+}
+
+export type PobEngineConfigInputType = "boolean" | "number" | "string" | "list";
+
+export interface PobEngineConfigInput {
+  name: string;
+  label: string;
+  type: PobEngineConfigInputType;
+  defaultValue: PobEngineScalar;
+  eligible: boolean;
+  options: Array<{
+    label: string;
+    value: PobEngineScalar;
+  }>;
+}
+
 export interface PobEngineFailure {
   ok: false;
   authoritative: false;
@@ -1011,6 +1051,9 @@ export interface PobEngineCalculationSuccess {
     mainSocketGroup: number | null;
     mainSkillName: string | null;
     skillGroups: PobEngineSkillGroup[];
+    items: PobEngineItem[];
+    gemCatalog: PobEngineGemCatalogEntry[];
+    configCatalog: PobEngineConfigInput[];
     className: string | null;
     ascendancyName: string | null;
     targetVersion: string | null;
@@ -1155,6 +1198,9 @@ export interface PobEngineCharacterImportSuccess {
     mainSocketGroup: number | null;
     mainSkillName: string | null;
     skillGroups: PobEngineSkillGroup[];
+    items: PobEngineItem[];
+    gemCatalog: PobEngineGemCatalogEntry[];
+    configCatalog: PobEngineConfigInput[];
     className: string | null;
     ascendancyName: string | null;
     targetVersion: string | null;
@@ -1199,6 +1245,9 @@ export interface PoeWidgetBridge {
   getItemTooltip(
     request: ItemTooltipRequest,
   ): Promise<CacheEnvelope<RawWikiCargoResponse>>;
+  getFaustusOverview(
+    request: FaustusOverviewRequest,
+  ): Promise<CacheEnvelope<RawFaustusOverview>>;
   searchKnowledge(
     request: KnowledgeSearchRequest,
   ): Promise<CacheEnvelope<RawKnowledgeSearchResponse>>;

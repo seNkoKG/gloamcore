@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { AlertTriangle, ExternalLink, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
 import { bridge, isDesktop } from "../lib/bridge";
 
 const WEALTHY_EXILE_URL = "https://wealthyexile.com/stash";
@@ -73,72 +73,46 @@ export function StashWealthPanel({ league: _league }: { league: string }) {
     }
   };
 
-  const reloadEmbedded = async () => {
-    setError(null);
-    try {
-      await bridge.controlWealthyExile("reload");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
-
   return (
     <section className={clsx("stash-page", embedded && "stash-page--embedded")}>
-      <div className="stash-header">
-        <div>
-          <p className="eyebrow">STASH WEALTH</p>
-          <h1>Wealthy Exile</h1>
-        </div>
-      </div>
-
       {embedded && isDesktop ? (
-        <div className="stash-embedded-browser">
-          <div className="stash-embedded-toolbar">
-            <div className="stash-embedded-identity">
-              <ShieldCheck size={16} />
-              <strong>Wealthy Exile</strong>
-              <span>isolated browser</span>
-            </div>
-            <button
-              type="button"
-              className="stash-button stash-button--icon"
-              aria-label="Reload Wealthy Exile"
-              title="Reload Wealthy Exile"
-              onClick={() => void reloadEmbedded()}
-            >
-              <RefreshCw size={14} />
-            </button>
-          </div>
-          <div ref={viewportRef} className="stash-embedded-viewport">
-            {opening === "app" && <Loader2 className="is-spinning" size={22} />}
-          </div>
+        <div ref={viewportRef} className="stash-embedded-viewport">
+          {opening === "app" && <Loader2 className="is-spinning" size={22} />}
         </div>
       ) : (
-        <div className="stash-provider-card">
-          <div className="stash-empty">
-            <ShieldCheck size={30} />
-            <h2>Use Wealthy Exile without sharing its OAuth access</h2>
-            <p>
-              The app embeds the real Wealthy Exile website in an isolated browser view.
-              Wealthy Exile owns the Path of Exile sign-in and stash connection. The app
-              does not read its cookies, OAuth tokens, or stash responses.
-            </p>
-            <div className="stash-provider-actions">
-              <button
-                type="button"
-                className="stash-button stash-button--primary"
-                disabled={opening != null}
-                onClick={() => void openInApp()}
-              >
-                {opening === "app" ? <Loader2 className="is-spinning" size={15} /> : <ExternalLink size={15} />}
-                {isDesktop ? "Retry inside app" : "Open Wealthy Exile"}
-              </button>
+        <>
+          <div className="stash-header">
+            <div>
+              <p className="eyebrow">STASH WEALTH</p>
+              <h1>Wealthy Exile</h1>
             </div>
-            <small className="stash-provider-note">
-              Wealthy Exile is an independent service. Its terms and privacy policy apply.
-            </small>
           </div>
-        </div>
+          <div className="stash-provider-card">
+            <div className="stash-empty">
+              <ShieldCheck size={30} />
+              <h2>Use Wealthy Exile without sharing its OAuth access</h2>
+              <p>
+                The app embeds the real Wealthy Exile website in an isolated browser view.
+                Wealthy Exile owns the Path of Exile sign-in and stash connection. The app
+                does not read its cookies, OAuth tokens, or stash responses.
+              </p>
+              <div className="stash-provider-actions">
+                <button
+                  type="button"
+                  className="stash-button stash-button--primary"
+                  disabled={opening != null}
+                  onClick={() => void openInApp()}
+                >
+                  {opening === "app" ? <Loader2 className="is-spinning" size={15} /> : <ExternalLink size={15} />}
+                  {isDesktop ? "Retry inside app" : "Open Wealthy Exile"}
+                </button>
+              </div>
+              <small className="stash-provider-note">
+                Wealthy Exile is an independent service. Its terms and privacy policy apply.
+              </small>
+            </div>
+          </div>
+        </>
       )}
 
       {error && (

@@ -557,7 +557,10 @@ export function RegexWorkbench() {
         <button type="button" className="regex-reset" onClick={reset}><Trash2 size={13} /> Reset all</button>
       </div>
 
-      {activeCategory.id === "map-modifiers" && <MapPropertyControls value={state.mapProperties} onChange={(mapProperties) => setState((current) => ({ ...current, mapProperties }))} />}
+      {activeCategory.id === "map-modifiers" && <details className="regex-advanced-properties">
+        <summary><span><strong>Optional map properties</strong><small>Quantity, pack size, rarity, corruption, identification, and quality thresholds</small></span><em>Advanced</em></summary>
+        <MapPropertyControls value={state.mapProperties} onChange={(mapProperties) => setState((current) => ({ ...current, mapProperties }))} />
+      </details>}
 
       <div className="regex-layout">
         <aside className="regex-category-panel">

@@ -5,10 +5,12 @@ import {
   inspectCopiedClusterBack,
   type ClusterBackData,
 } from "./cluster-back";
+import currentData from "../../../public/data/toolkit/cluster-back-v1.json";
 
 const data: ClusterBackData = {
   schema: 1,
   passiveCountTradeId: "enchant.passives",
+  largeJewelIcon: "data/toolkit/cluster-icons/large-cluster-jewel.png",
   bases: [{ tag: "damage", name: "Damage", enchant: ["Damage enchant"], enchantTradeId: "enchant.damage|4" }],
   notables: [
     { name: "Front A", sortOrder: 10, tradeId: "explicit.a", legacyOnly: false, variants: [{ baseTag: "damage", generationType: 1, groups: ["a"], weight: 100, modId: "a" }] },
@@ -55,5 +57,36 @@ describe("cluster back", () => {
     expect(result.valid).toBe(true);
     expect(result.back?.name).toBe("Back");
     expect(result.base?.tag).toBe("damage");
+  });
+
+  it("matches the known shield-cluster ordering fixture from the reference implementation", () => {
+    const candidates = eligibleClusterBackNotables(
+      currentData as ClusterBackData,
+      "Prodigious Defence",
+      "Feed the Fury",
+      "affliction_attack_damage_while_holding_a_shield",
+    );
+    expect(candidates.map((candidate) => candidate.notable.name)).toEqual([
+      "Smite the Weak",
+      "Heavy Hitter",
+      "Martial Prowess",
+    ]);
+  });
+
+  it("accepts a magic Large Cluster Jewel display name", () => {
+    const result = inspectCopiedClusterBack(data, [
+      "Item Class: Jewels",
+      "Rarity: Magic",
+      "Sparking Large Cluster Jewel of the Fighter",
+      "--------",
+      "Adds 8 Passive Skills (enchant)",
+      "Damage enchant (enchant)",
+      "--------",
+      "1 Added Passive Skill is Front A",
+      "1 Added Passive Skill is Back",
+      "1 Added Passive Skill is Front B",
+    ].join("\n"));
+    expect(result.valid).toBe(true);
+    expect(result.back?.name).toBe("Back");
   });
 });

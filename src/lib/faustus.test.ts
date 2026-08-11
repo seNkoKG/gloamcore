@@ -94,6 +94,10 @@ function market(
           [DIVINE_METADATA_ID]: 1,
           [CHAOS_METADATA_ID]: 178,
         },
+        volume_traded: {
+          [DIVINE_METADATA_ID]: 100,
+          [CHAOS_METADATA_ID]: 20_000,
+        },
       },
     ],
   };
@@ -134,5 +138,111 @@ describe("Faustus market normalization", () => {
       maximumStock: 34,
       traded: 51,
     });
+  });
+
+  it("uses the chaos-divine reference market for the chaos row's volume", () => {
+    const chaos: EconomyRow = {
+      ...mirror,
+      id: "chaos",
+      name: "Chaos Orb",
+    };
+    const data: RawFaustusOverview = {
+      latestHour: 7_200,
+      items: [
+        {
+          id: "chaos",
+          name: "Chaos Orb",
+          metadataId: CHAOS_METADATA_ID,
+        },
+      ],
+      hours: [market(7_200, 350, 379)],
+    };
+
+    const result = normalizeFaustusOverview(
+      { ...base, rows: [chaos] },
+      data,
+      category,
+    ).rows[0];
+
+    expect(result.chaosValue).toBe(1);
+    expect(result.volume).toBe(20_000);
+    expect(result.lowConfidence).toBe(false);
+  });
+
+  it("excludes wide historical outliers from the hourly trend", () => {
+    const data: RawFaustusOverview = {
+      latestHour: 10_800,
+      items: [
+        {
+          id: "mirror",
+          name: "Mirror of Kalandra",
+          metadataId: "Metadata/Items/Currency/CurrencyDuplicate",
+        },
+      ],
+      hours: [
+        market(3_600, 55, 198),
+        market(7_200, 180, 202),
+        market(10_800, 187, 200),
+      ],
+    };
+
+    const result = normalizeFaustusOverview(base, data, category).rows[0];
+
+    expect(result.sparkline).toEqual([null, 191, 193.5]);
+    expect(result.change).toBeCloseTo(((193.5 - 191) / 191) * 100);
+    expect(result.lowConfidence).toBe(false);
+  });
+
+  it("marks a wide latest-hour range as unreliable with an actionable reason", () => {
+    const data: RawFaustusOverview = {
+      latestHour: 7_200,
+      items: [
+        {
+          id: "mirror",
+          name: "Mirror of Kalandra",
+          metadataId: "Metadata/Items/Currency/CurrencyDuplicate",
+        },
+      ],
+      hours: [market(7_200, 50, 200)],
+    };
+
+    const result = normalizeFaustusOverview(base, data, category).rows[0];
+
+    expect(result.lowConfidence).toBe(true);
+    expect(result.change).toBeNull();
+    expect(result.sparkline).toEqual([null]);
+    expect(result.confidenceReason).toMatch(/range spans 120%/i);
+  });
+
+  it("requires at least 20 traded item units before a completed hour is reliable", () => {
+    const thinHour = market(7_200, 350, 379);
+    thinHour.markets[0].volume_traded![
+      "Metadata/Items/Currency/CurrencyDuplicate"
+    ] = 19;
+    const liquidHour = market(10_800, 350, 379);
+    liquidHour.markets[0].volume_traded![
+      "Metadata/Items/Currency/CurrencyDuplicate"
+    ] = 20;
+    const item = {
+      id: "mirror",
+      name: "Mirror of Kalandra",
+      metadataId: "Metadata/Items/Currency/CurrencyDuplicate",
+    };
+
+    const thin = normalizeFaustusOverview(
+      base,
+      { latestHour: 7_200, items: [item], hours: [thinHour] },
+      category,
+    ).rows[0];
+    const liquid = normalizeFaustusOverview(
+      base,
+      { latestHour: 10_800, items: [item], hours: [liquidHour] },
+      category,
+    ).rows[0];
+
+    expect(thin.lowConfidence).toBe(true);
+    expect(thin.change).toBeNull();
+    expect(thin.confidenceReason).toMatch(/Only 19 item units/i);
+    expect(liquid.lowConfidence).toBe(false);
   });
 });

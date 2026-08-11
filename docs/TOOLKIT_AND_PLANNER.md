@@ -106,7 +106,7 @@ allocated masteries are unavailable; if that exhausts the choices, the chooser
 explains why instead of rendering an unexplained empty panel.
 
 PoE 1 public and OAuth character-profile imports send the raw official response
-through Path of Building Community 2.66.1's own importer inside the verified
+through Path of Building Community 2.67.2's own importer inside the verified
 local engine, then load the PoB XML it produces. This keeps PoB's item-slot,
 socket-group, gem-variant, passive-jewel, class, bandit, pantheon, and nested
 Cluster Jewel semantics instead of duplicating them approximately in the app.
@@ -120,11 +120,13 @@ PoB2 XML/code import, installed-tree editing, and PoB2 export remain supported.
 
 On Windows, the explicit **Recalculate in PoB** action can evaluate the current
 PoE 1 workspace with the separately installed, exactly verified Path of
-Building Community 2.66.1 engine. It starts one fresh hidden process per
+Building Community 2.67.2 engine. It starts one fresh hidden process per
 request, sends only the serialized build over stdin, keeps the PoB installation
-read-only, and returns only scalar `mainOutput` values. The bridge refuses
-unknown version, source, or runtime fingerprints; a new PoB release therefore
-requires an app update and fresh regression proof rather than silently running
-an untested engine. PoE 2 calculation still requires export to PoB2. Build Lab
-is a focused editor and viewer; it does not claim UI or calculation parity with
-every panel in PoB or PoB2.
+read-only, and returns scalar `mainOutput` values plus PoB's current gem and
+configuration catalogs. The bridge refuses unknown version, source, or runtime
+fingerprints; a new PoB release therefore requires an app update and fresh
+regression proof rather than silently running an untested engine. Item text is
+validated by PoB before assignment. Item, skill, and configuration sets remain
+editable, including weapon sets, main socket group, main active skill, Full DPS,
+gem variants, enabled state, level, quality, and every configuration control
+eligible for the loaded build. PoE 2 calculation still requires export to PoB2.

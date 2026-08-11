@@ -30,4 +30,10 @@ describe("economy category catalogue", () => {
       expect(supportsFaustus(category)).toBe(false);
     }
   });
+
+  it("enables official completed-hour Faustus data only when a native transport exists", () => {
+    expect(supportsFaustus(categoryById.currency, true)).toBe(true);
+    expect(supportsFaustus(categoryById.fragments, true)).toBe(true);
+    expect(supportsFaustus(categoryById["unique-jewels"], true)).toBe(false);
+  });
 });

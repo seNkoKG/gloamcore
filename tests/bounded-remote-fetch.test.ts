@@ -42,11 +42,29 @@ describe("bounded remote fetch", () => {
         "json",
       ),
     ).toContain("poe.ninja");
+    expect(
+      assertTrustedRemoteUrl(
+        "https://web.poecdn.com/api/currency-exchange/1786474800",
+        "json",
+      ),
+    ).toContain("web.poecdn.com/api/currency-exchange/1786474800");
     expect(() =>
       assertTrustedRemoteUrl("https://127.0.0.1/poe1/api/economy/leagues", "json"),
     ).toThrow(/untrusted/i);
     expect(() =>
       assertTrustedRemoteUrl("https://www.poewiki.net/w/api.php", "image"),
+    ).toThrow(/untrusted/i);
+    expect(() =>
+      assertTrustedRemoteUrl(
+        "https://web.poecdn.com/api/currency-exchange/latest",
+        "json",
+      ),
+    ).toThrow(/untrusted/i);
+    expect(() =>
+      assertTrustedRemoteUrl(
+        "https://web.poecdn.com/api/currency-exchange/1786474800?redirect=https://example.com",
+        "json",
+      ),
     ).toThrow(/untrusted/i);
   });
 

@@ -21,4 +21,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Source copied from:
-https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/v2.66.1/src/HeadlessWrapper.lua
+https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/v2.67.2/src/HeadlessWrapper.lua

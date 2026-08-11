@@ -12,6 +12,10 @@ export const CHAOS_METADATA_ID =
   "Metadata/Items/Currency/CurrencyRerollRare";
 export const DIVINE_METADATA_ID =
   "Metadata/Items/Currency/CurrencyModValues";
+// Very small completed-hour fills can be genuine, but they are too easy to
+// distort and must not drive the default price/mover surfaces.
+const MIN_FAUSTUS_TRADED_UNITS = 20;
+const MAX_FAUSTUS_RELATIVE_SPREAD = 0.35;
 
 function finiteNumber(value: unknown) {
   const number = Number(value);
@@ -97,7 +101,9 @@ function referencePrice(
   itemMetadataId: string,
   referenceMetadataId: string,
 ) {
-  const market = pairMarket(hour, itemMetadataId, referenceMetadataId);
+  const market = itemMetadataId === referenceMetadataId
+    ? undefined
+    : pairMarket(hour, itemMetadataId, referenceMetadataId);
   const range =
     itemMetadataId === referenceMetadataId
       ? { minimum: 1, maximum: 1, midpoint: 1 }
@@ -169,6 +175,30 @@ function percentChange(points: Array<number | null>) {
   return ((latest - first) / first) * 100;
 }
 
+function priceConfidence(
+  price: NonNullable<ReturnType<typeof priceForHour>>,
+  itemMetadataId: string,
+) {
+  const traded = dictionaryValue(price.market?.volume_traded, itemMetadataId) || 0;
+  const spread =
+    price.midpoint > 0
+      ? (price.maximum - price.minimum) / price.midpoint
+      : Number.POSITIVE_INFINITY;
+  const reasons = [];
+  if (traded < MIN_FAUSTUS_TRADED_UNITS) {
+    reasons.push(`Only ${traded} item units traded in the completed hour`);
+  }
+  if (spread > MAX_FAUSTUS_RELATIVE_SPREAD) {
+    reasons.push(`Completed-hour range spans ${Math.round(spread * 100)}% of its midpoint`);
+  }
+  return {
+    traded,
+    spread,
+    lowConfidence: reasons.length > 0,
+    confidenceReason: reasons.join("; ") || undefined,
+  };
+}
+
 export function normalizeFaustusOverview(
   base: NormalizedOverview,
   data: RawFaustusOverview,
@@ -195,12 +225,13 @@ export function normalizeFaustusOverview(
       baseDivineChaos,
     );
     if (!latest) return [];
-    const sparkline = hours.map(
-      (hour) =>
-        priceForHour(hour, metadataId, baseDivineChaos)?.midpoint ?? null,
-    );
-    const traded =
-      dictionaryValue(latest.market?.volume_traded, metadataId) || 0;
+    const confidence = priceConfidence(latest, metadataId);
+    const sparkline = hours.map((hour) => {
+      const price = priceForHour(hour, metadataId, baseDivineChaos);
+      if (!price || priceConfidence(price, metadataId).lowConfidence) return null;
+      return price.midpoint;
+    });
+    const traded = confidence.traded;
     const minimumStock = dictionaryValue(
       latest.market?.lowest_stock,
       metadataId,
@@ -209,10 +240,6 @@ export function normalizeFaustusOverview(
       latest.market?.highest_stock,
       metadataId,
     );
-    const spread =
-      latest.midpoint > 0
-        ? (latest.maximum - latest.minimum) / latest.midpoint
-        : 0;
     return [
       {
         ...row,
@@ -220,7 +247,7 @@ export function normalizeFaustusOverview(
         source: "faustus" as const,
         chaosValue: latest.midpoint,
         divineValue: latest.midpoint / latest.divineChaos,
-        change: percentChange(sparkline),
+        change: confidence.lowConfidence ? null : percentChange(sparkline),
         sparkline,
         volume: traded,
         listingCount: null,
@@ -236,7 +263,8 @@ export function normalizeFaustusOverview(
           maximumStock,
           reference: latest.reference,
         },
-        lowConfidence: traded < 5 || spread > 0.35,
+        lowConfidence: confidence.lowConfidence,
+        confidenceReason: confidence.confidenceReason,
       },
     ];
   });

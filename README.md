@@ -31,10 +31,10 @@ in one tray-first app.
 | Workspace | What it gives you |
 | --- | --- |
 | **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware Trade check over the game. |
-| **Market Explorer** | Current league prices, trends, liquidity, filters, local watchlists, and target alerts. |
+| **Market Explorer** | Current league prices, trends, liquidity, filters, local watchlists, target alerts, and official Faustus completed-hour history. |
 | **Item Intel** | Searchable PoE Wiki reference data, artwork, requirements, modifiers, and trusted handoffs. |
 | **Build Lab** | Import, edit, compare, save, and export PoB-compatible builds with exact item and jewel visuals. |
-| **Stash Wealth** | Wealthy Exile inside an isolated browser profile that remembers its own sign-in. |
+| **Stash Wealth** | Wealthy Exile edge-to-edge inside a responsive, isolated browser profile that remembers its own sign-in. |
 | **Player Toolkit** | Map Mod Check, PoE Event Log, Cluster Back, regex, filters, socket colours, audits, and overlays. |
 
 ## Ctrl+D that stays out of your way
@@ -73,17 +73,20 @@ upstream source is temporarily unavailable.
 
 Build Lab imports PoB XML, codes, and supported build links into an interactive
 passive-tree workspace with mastery choices, multiple specs, exact equipment
-artwork, cluster and Timeless Jewel socket visuals, PoB-style main-skill
-selectors, configuration, notes, comparison, undo/redo, and PoB export. Explicit
-recalculation uses a separately installed, fingerprint-verified Path of
-Building Community engine and fails closed when that engine is unavailable.
+artwork, cluster and Timeless Jewel socket visuals, editable item, skill, and
+configuration sets, PoB-backed gem and configuration catalogs, main-skill
+selection, notes, comparison, undo/redo, and PoB export. Raw item edits are
+validated by the same engine before they enter the build. Explicit recalculation
+uses a separately installed, fingerprint-verified Path of Building Community
+engine and fails closed when that engine is unavailable.
 
 ### Keep stash wealth signed in
 
 Stash Wealth embeds the real Wealthy Exile website in a dedicated browser
 profile. Wealthy Exile owns its Path of Exile connection, cookies, OAuth
 tokens, and stash responses; the GloamCore renderer cannot read them. The
-profile persists across workspace changes and app restarts. A cached ads-only
+profile persists across workspace changes and app restarts, while the embedded
+site fills the available workspace and follows window resizing. A cached ads-only
 filter applies only on Wealthy Exile and turns off on Path of Exile and Steam
 sign-in pages.
 

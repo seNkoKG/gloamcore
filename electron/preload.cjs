@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld("poeWidget", {
   getOverview: (request) => ipcRenderer.invoke("economy:get-overview", request),
   getItemTooltip: (request) =>
     ipcRenderer.invoke("economy:get-item-tooltip", request),
+  getFaustusOverview: (request) =>
+    ipcRenderer.invoke("economy:get-faustus-overview", request),
   searchKnowledge: (request) => ipcRenderer.invoke("knowledge:search", request),
   readClipboardItem: () => ipcRenderer.invoke("price-check:read-clipboard"),
   getPendingPriceCheckCapture: () =>

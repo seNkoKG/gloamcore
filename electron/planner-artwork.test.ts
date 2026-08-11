@@ -23,5 +23,28 @@ describe("planner artwork resolution", () => {
     const where = new URL(artwork.plannerArtworkCargoUrl("https://wiki.test/api", ["Rare Name", "Prismatic Jewel"])).searchParams.get("where");
     expect(where).toContain("name IN");
     expect(where).not.toContain("base_item IN");
+    expect(new URL(artwork.plannerArtworkCargoUrl("https://wiki.test/api", ["Divinarius"])).searchParams.get("fields")).toContain("size_x,size_y");
+  });
+
+  it("accepts only valid authoritative inventory-cell dimensions", () => {
+    expect(artwork.plannerArtworkDimensions({ "size x": "1", "size y": "3" })).toEqual({ width: 1, height: 3 });
+    expect(artwork.plannerArtworkDimensions({ size_x: "2", size_y: "4" })).toEqual({ width: 2, height: 4 });
+    expect(artwork.plannerArtworkDimensions({ "size x": "0", "size y": "3" })).toBeNull();
+    expect(artwork.plannerArtworkDimensions({ "size x": "2.5", "size y": "3" })).toBeNull();
+  });
+
+  it("resolves gems by exact transfigured name before their shared metadata id", () => {
+    const rows = [
+      { name: "Firestorm", "metadata id": "Metadata/Items/Gems/SkillGemFirestorm", "inventory icon": "File:Firestorm inventory icon.png" },
+      { name: "Firestorm of Pelting", "metadata id": "Metadata/Items/Gems/SkillGemFirestorm", "inventory icon": "File:Firestorm of Pelting inventory icon.png" },
+    ];
+    const item = {
+      name: "Firestorm of Pelting",
+      metadataId: "Metadata/Items/Gems/SkillGemFirestorm",
+    };
+    expect(artwork.selectPlannerArtworkRow(rows, item)).toBe(rows[1]);
+    const url = new URL(artwork.plannerArtworkCargoUrl("https://wiki.test/api", [item]));
+    expect(url.searchParams.get("fields")).toContain("metadata_id");
+    expect(url.searchParams.get("where")).toContain("metadata_id IN");
   });
 });

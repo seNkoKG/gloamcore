@@ -11,7 +11,13 @@ function assertTrustedRemoteUrl(value, kind) {
     ? common && url.hostname === "www.poewiki.net" && url.pathname.startsWith("/images/")
     : common && (
         (url.hostname === "poe.ninja" && url.pathname.startsWith("/poe1/api/")) ||
-        (url.hostname === "www.poewiki.net" && url.pathname === "/w/api.php")
+        (url.hostname === "www.poewiki.net" && url.pathname === "/w/api.php") ||
+        (
+          url.hostname === "web.poecdn.com" &&
+          /^\/api\/currency-exchange\/[1-9]\d{9}$/.test(url.pathname) &&
+          url.search === "" &&
+          url.hash === ""
+        )
       );
   if (!allowed) throw new Error("Rejected an untrusted remote data URL.");
   return url.toString();

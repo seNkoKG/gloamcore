@@ -383,6 +383,9 @@ const browserBridge: PoeWidgetBridge = {
     browserTooltipCache.set(key, envelope);
     return envelope;
   },
+  async getFaustusOverview() {
+    throw new Error("Official Faustus history is available in the installed desktop and mobile apps.");
+  },
   searchKnowledge: searchBrowserKnowledge,
   async readClipboardItem() {
     let text = "";

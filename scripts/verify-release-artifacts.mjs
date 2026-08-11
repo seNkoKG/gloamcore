@@ -25,13 +25,8 @@ const PRODUCTION_DEPENDENCY_SCHEMA = 1;
 const FORBIDDEN_APP_CONTENT = [
   { label: "uiohook", pattern: /uiohook(?:-napi)?/i },
   { label: "automated Trade service", pattern: /trade-service/i },
-  {
-    label: "unregistered direct Currency Exchange client",
-    pattern: /web\.poecdn\.com\/api\/currency-exchange/i,
-  },
   { label: "legacy Faustus proxy", pattern: /\/faustus-api/i },
   { label: "legacy Trade IPC", pattern: /price-check:search-trade/i },
-  { label: "legacy Faustus client", pattern: /getFaustusOverview/i },
 ];
 
 const PATH_SCOPED_TRADE_CONTENT = [

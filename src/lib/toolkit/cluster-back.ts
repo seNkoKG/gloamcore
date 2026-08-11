@@ -8,6 +8,7 @@ export interface ClusterBackVariant {
 
 export interface ClusterBackNotable {
   name: string;
+  icon?: string;
   sortOrder: number;
   tradeId: string;
   variants: ClusterBackVariant[];
@@ -24,6 +25,7 @@ export interface ClusterBackBase {
 export interface ClusterBackData {
   schema: 1;
   passiveCountTradeId: string;
+  largeJewelIcon: string;
   bases: ClusterBackBase[];
   notables: ClusterBackNotable[];
 }
@@ -31,6 +33,22 @@ export interface ClusterBackData {
 export interface ClusterBackCandidate {
   notable: ClusterBackNotable;
   baseTags: string[];
+}
+
+export function isClusterBackData(value: unknown): value is ClusterBackData {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ClusterBackData>;
+  return candidate.schema === 1
+    && typeof candidate.passiveCountTradeId === "string"
+    && typeof candidate.largeJewelIcon === "string"
+    && Array.isArray(candidate.bases)
+    && candidate.bases.length === 17
+    && candidate.bases.every((base) => Boolean(base?.tag && base?.name && base?.enchantTradeId) && Array.isArray(base.enchant))
+    && Array.isArray(candidate.notables)
+    && candidate.notables.length === 107
+    && candidate.notables.every((notable) => Boolean(notable?.name && notable?.tradeId && notable?.icon)
+      && Number.isFinite(notable.sortOrder)
+      && Array.isArray(notable.variants));
 }
 
 function variantsFor(notable: ClusterBackNotable, baseTag: string) {
@@ -146,7 +164,9 @@ export function inspectCopiedClusterBack(data: ClusterBackData, text: string): C
   const lines = text.replace(/\r/g, "").split("\n").map(normalizeCopiedLine);
   const errors: string[] = [];
   if (!lines.some((line) => /^Item Class: Jewels$/i.test(line))) errors.push("Copy a PoE 1 jewel.");
-  if (!lines.some((line) => /^Large Cluster Jewel$/i.test(line))) errors.push("Only Large Cluster Jewels are supported.");
+  // Magic jewels include their affix in the copied display-name line instead
+  // of emitting a second bare base-type line.
+  if (!lines.some((line) => /(?:^|\s)Large Cluster Jewel(?:\s|$)/i.test(line))) errors.push("Only Large Cluster Jewels are supported.");
   const passiveCount = Number(lines.find((line) => /^Adds \d+ Passive Skills$/i.test(line))?.match(/\d+/)?.[0]);
   if (!Number.isFinite(passiveCount)) errors.push("Passive count is missing.");
   else if (passiveCount !== 8) errors.push("Cluster Back geometry requires exactly 8 passive skills.");

@@ -86,6 +86,16 @@
 .regex-token-mode button.is-active,.regex-segmented button.is-active { color:var(--teal); border-color:var(--teal-line); background:var(--teal-soft); }
 .regex-top-controls .regex-reset { margin-left:auto; color:#ff7b86; }
 .regex-map-properties { margin-bottom:9px; padding:10px; border:1px solid var(--line); border-radius:7px; background:rgba(12,18,25,.9); }
+.regex-advanced-properties { margin-bottom:9px; border:1px solid var(--line); border-radius:7px; background:rgba(12,18,25,.9); }
+.regex-advanced-properties > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; padding:8px 12px; cursor:pointer; list-style:none; }
+.regex-advanced-properties > summary::-webkit-details-marker { display:none; }
+.regex-advanced-properties > summary > span { display:flex; min-width:0; flex-direction:column; gap:3px; }
+.regex-advanced-properties > summary strong { color:var(--text); font-size:10px; }
+.regex-advanced-properties > summary small { overflow:hidden; color:var(--text-3); font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.regex-advanced-properties > summary em { padding:4px 7px; border:1px solid var(--line); border-radius:3px; color:var(--text-3); font-size:7px; font-style:normal; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.regex-advanced-properties[open] > summary { border-bottom:1px solid var(--line); background:var(--teal-wash); }
+.regex-advanced-properties[open] > summary em { border-color:var(--teal-line); color:var(--teal); }
+.regex-advanced-properties > .regex-map-properties { margin-bottom:0; border:0; border-radius:0; background:transparent; }
 .regex-map-properties > header,.regex-quality-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .regex-map-properties > header div,.regex-quality-head > div { display:grid; gap:2px; }
 .regex-map-properties strong { color:var(--text); font-size:10px; }

@@ -169,6 +169,31 @@ Allow Duplicate Variants: true`,
     expect(markup).not.toMatch(/Jewel 64583|Unique ID|ModRange|\{crafted\}/);
   });
 
+  it("opens the item set's calculated weapon swap and renders its off-hand artwork slot", () => {
+    const swapOffhand = {
+      id: 9,
+      name: "Swap Shield",
+      baseType: "Archon Kite Shield",
+      slot: "Weapon 2 Swap",
+      equipped: true,
+      text: "Rarity: RARE\nSwap Shield\nArchon Kite Shield",
+      icon: "https://web.poecdn.com/image/swap-shield.png",
+      width: 2,
+      height: 3,
+    };
+    const build = {
+      ...emptyPobBuild(),
+      items: [swapOffhand],
+      itemSets: [{ id: 1, title: "Boss swap", useSecondWeaponSet: true, slots: { "Weapon 2 Swap": { itemId: 9 } } }],
+    };
+    const markup = renderToStaticMarkup(<PlannerItemsPanel build={build} artwork={new Map()} onChange={() => undefined}/>);
+
+    expect(markup).toContain("Weapon swap");
+    expect(markup).toContain('aria-label="Off hand: Swap Shield"');
+    expect(markup).toContain("https://web.poecdn.com/image/swap-shield.png");
+    expect(markup).toContain('aria-label="Use weapon swap set"');
+  });
+
   it("renders official gem art and exact PoB main-skill selectors", () => {
     const build = {
       ...emptyPobBuild(),
@@ -195,7 +220,8 @@ Allow Duplicate Variants: true`,
     const markup = renderToStaticMarkup(<PlannerSkillsPanel build={build} onChange={() => undefined}/>);
 
     expect(markup).toContain("Main socket group");
-    expect(markup).toContain("Selected for calculations");
+    expect(markup).toContain('aria-label="Main socket group"');
+    expect(markup).toContain("Kinetic Blast · Helmet");
     expect(markup).toContain("Main active skill");
     expect(markup).toContain("Skill part");
     expect(markup).toContain("Skill stages");
@@ -204,7 +230,41 @@ Allow Duplicate Variants: true`,
     expect(markup).toContain("MAIN");
   });
 
-  it("shows only imported PoB config inputs with readable labels and reset semantics", () => {
+  it("opens the imported main group instead of silently presenting the first support group", () => {
+    const build = {
+      ...emptyPobBuild(),
+      mainSocketGroup: 2,
+      skillGroups: [{
+        id: "skill-1",
+        slot: "Helmet",
+        label: "",
+        enabled: true,
+        includeInFullDps: false,
+        mainActiveSkill: 1,
+        gems: [
+          { name: "Enhance", skillId: "SupportEnhance", level: 4, quality: 0, enabled: true },
+          { name: "Blood Rage", skillId: "BloodRage", level: 21, quality: 20, enabled: true },
+        ],
+      }, {
+        id: "skill-2",
+        slot: "Body Armour",
+        label: "",
+        enabled: true,
+        includeInFullDps: false,
+        mainActiveSkill: 1,
+        activeSkills: [{ index: 1, name: "Kinetic Blast", parts: ["Projectile", "Explosion"], sourceGemIndex: 1 }],
+        gems: [{ name: "Kinetic Blast", skillId: "KineticBlast", level: 21, quality: 20, enabled: true }],
+      }],
+    };
+
+    const markup = renderToStaticMarkup(<PlannerSkillsPanel build={build} onChange={() => undefined}/>);
+
+    expect(markup).toMatch(/<header><span><small>Body Armour<\/small><strong>Kinetic Blast<\/strong>/);
+    expect(markup).toContain("Skill part");
+    expect(markup).not.toMatch(/<header><span><small>Helmet<\/small><strong>Enhance<\/strong>/);
+  });
+
+  it("preserves imported PoB config inputs with readable labels and reset semantics", () => {
     const build = { ...emptyPobBuild(), config: { conditionBoss: true, enemyLevel: 84 } };
     const markup = renderToStaticMarkup(<PlannerConfigPanel build={build} onChange={() => undefined}/>);
 
@@ -213,6 +273,27 @@ Allow Duplicate Variants: true`,
     expect(markup).toContain("Reset Condition Boss");
     expect(markup).not.toContain("conditionBoss");
     expect(markup).not.toContain("Add condition");
+  });
+
+  it("renders exact PoB configuration defaults and dropdown choices from the engine catalog", () => {
+    const build = { ...emptyPobBuild(), config: { conditionBoss: true } };
+    const markup = renderToStaticMarkup(<PlannerConfigPanel
+      build={build}
+      catalog={[
+        { name: "conditionBoss", label: "Is the enemy a boss?", type: "boolean", defaultValue: false, eligible: true, options: [] },
+        { name: "bandit", label: "Bandit quest:", type: "list", defaultValue: "None", eligible: true, options: [{ label: "Kill all", value: "None" }, { label: "Help Alira", value: "Alira" }] },
+        { name: "enemyLevel", label: "Enemy level:", type: "number", defaultValue: 84, eligible: false, options: [] },
+      ]}
+      onChange={() => undefined}
+    />);
+
+    expect(markup).toContain("Is the enemy a boss?");
+    expect(markup).toContain("Bandit quest:");
+    expect(markup).toContain("Kill all");
+    expect(markup).toContain("Help Alira");
+    expect(markup).toContain("PoB default");
+    expect(markup).not.toContain("Enemy level:");
+    expect(markup).toContain("Show all configurations");
   });
 
   it("does not expose internal calculation keys", () => {

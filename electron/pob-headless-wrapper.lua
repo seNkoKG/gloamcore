@@ -1,5 +1,5 @@
 #@
--- Vendored from PathOfBuildingCommunity/PathOfBuilding v2.66.1:
+-- Vendored from PathOfBuildingCommunity/PathOfBuilding v2.67.2:
 -- src/HeadlessWrapper.lua. Distributed under the MIT license in
 -- pob-headless-wrapper.LICENSE.md. GloamCore overrides the incomplete file,
 -- path, and compression stubs in pob-engine-worker.lua before loading a build.

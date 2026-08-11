@@ -8,6 +8,7 @@ const WEALTHY_EXILE_PARTITION = "persist:gloamcore-wealthy-exile";
 const AD_BLOCK_CACHE_FILE = "ads-only.bin";
 const AD_BLOCK_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const AD_BLOCK_LOAD_TIMEOUT_MS = 10_000;
+const WEALTHY_EXILE_LOAD_TIMEOUT_MS = 30_000;
 const configuredSessions = new WeakSet();
 const sessionAdBlockers = new WeakMap();
 
@@ -118,6 +119,7 @@ function createWealthyExileView({
   WebContentsView,
   loadAdBlocker = loadWealthyExileAdBlocker,
   adBlockTimeoutMs = AD_BLOCK_LOAD_TIMEOUT_MS,
+  loadTimeoutMs = WEALTHY_EXILE_LOAD_TIMEOUT_MS,
 }) {
   const view = new WebContentsView({
     webPreferences: {
@@ -136,6 +138,21 @@ function createWealthyExileView({
   const contents = view.webContents;
   const session = contents.session;
   let adBlocker = null;
+  let settleReady;
+  let readyTimer;
+  const ready = new Promise((resolve) => {
+    settleReady = (value) => {
+      clearTimeout(readyTimer);
+      resolve(value);
+    };
+  });
+  readyTimer = setTimeout(() => settleReady(false), loadTimeoutMs);
+  readyTimer.unref?.();
+  view.wealthyExileReady = ready;
+  contents.once("did-finish-load", () => settleReady(true));
+  contents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
+    if (isMainFrame !== false) settleReady(false);
+  });
   const navigate = (value) => {
     const url = allowedNavigationUrl(value);
     if (!url) return false;
@@ -185,6 +202,7 @@ function createWealthyExileView({
 module.exports = {
   AD_BLOCK_CACHE_MAX_AGE_MS,
   AD_BLOCK_LOAD_TIMEOUT_MS,
+  WEALTHY_EXILE_LOAD_TIMEOUT_MS,
   WEALTHY_EXILE_PARTITION,
   WEALTHY_EXILE_URL,
   allowedNavigationUrl,

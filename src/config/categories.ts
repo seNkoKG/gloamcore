@@ -406,9 +406,15 @@ export function defaultSource(category: CategoryDefinition): DataSource {
   return category.source === "exchange" ? "exchange" : "stash-item";
 }
 
-export function supportsFaustus(_category: CategoryDefinition) {
-  // GGG documents the completed-hour feed as public, but also requires an
-  // identifiable OAuth-style application User-Agent with a real contact.
-  // This personal/friends build has no registered application identity.
-  return false;
+function hasFaustusTransport() {
+  if (typeof window === "undefined") return false;
+  const runtime = window as Window & {
+    poeWidget?: unknown;
+    Capacitor?: { isNativePlatform?: () => boolean };
+  };
+  return Boolean(runtime.poeWidget || runtime.Capacitor?.isNativePlatform?.());
+}
+
+export function supportsFaustus(category: CategoryDefinition, transportAvailable = hasFaustusTransport()) {
+  return transportAvailable && (category.source === "exchange" || category.source === "dual");
 }

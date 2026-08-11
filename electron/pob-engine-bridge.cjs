@@ -23,29 +23,29 @@ const BUNDLED_RESOURCE_NAMES = [
 
 // Deliberately exact. A newer PoB version must be exercised against the
 // integration fixtures and added here in an app release before it is trusted.
-// The manifest's per-file hashes are not used: PoB 2.66.1's generated manifest
+// The manifest's per-file hashes are not used: PoB 2.67.2's generated manifest
 // does not describe the tagged active source files. These hashes were verified
-// directly against the official v2.66.1 Git tag.
+// directly against the official v2.67.2 Git tag (b32759ab0f31a1c8499a0d420cb0f0633d4fe478).
 const PROVEN_ENGINES = Object.freeze({
-  "2.66.1": Object.freeze({
+  "2.67.2": Object.freeze({
     branch: "master",
     platform: "win32",
     runtimeArchitecture: "x64",
-    // Canonical SHA-256 of 300 official v2.66.1 calculation-relevant Lua
+    // Canonical SHA-256 of 304 official v2.67.2 calculation-relevant Lua
     // blobs: relativePath + NUL + Git-blob-SHA1 + LF. Text is normalized to
     // UTF-8/LF first because the PoB updater installs some source with CRLF.
-    sourceFileCount: 300,
-    sourceAggregateSha256: "cd5a2577e7cb7cb845bd8184ee8d407fb9ee016dea26ab49fa4fb96bc1cb9613",
+    sourceFileCount: 304,
+    sourceAggregateSha256: "2c4c575da66e5400cf190dafd3372e90af740d014c1cd36d541304adff303282",
     // The worker deliberately ignores generated .bin caches and inflates only
-    // these 15 official immutable zip/part blobs in memory.
-    timelessFileCount: 15,
-    timelessAggregateSha256: "3129433803447e204b755244ab617fc05eb439bb9194c7527a0d85a0d39f1267",
+    // these 40 official immutable zip/part blobs in memory.
+    timelessFileCount: 40,
+    timelessAggregateSha256: "d0436b254c5d9bbed27d80d9c11130c8513ba1eb19682dcc2f3571e4b019ca0d",
     sourceSha1: Object.freeze({
       "Launch.lua": "accb470b8433e41f9f7c293f65f8153cd49dcf8c",
-      "Modules/Build.lua": "a1b3171a2c5e9b091d16fc6c899d568ca2a778c2",
+      "Modules/Build.lua": "30e9bcc345b7040f72f8d7302d1a947add36bfe1",
       "Classes/CalcsTab.lua": "a82fb6670bbd9be861e49343e543f607794ce809",
-      "Modules/CalcPerform.lua": "c5b61320502640f30ab5ab199e1f607cd8875d3d",
-      "Modules/ModParser.lua": "900914301123d0fd80aaec16ca6c38b52055daca",
+      "Modules/CalcPerform.lua": "f9efafe2866d503c733fec909fd147b6f400165a",
+      "Modules/ModParser.lua": "aaf06de05531c2d8ddf531389bfd399606e5626c",
     }),
     runtimeSha256: Object.freeze({
       "lua51.dll": "2e4e58e4cc6f6cb01d119ff3715253108041f6c59f9a6a464a62b2f70623bca6",
@@ -78,8 +78,10 @@ function normalizeError(error) {
   return String(error || "Unknown error").slice(0, 4000);
 }
 
-function sha1File(fileName) {
-  return crypto.createHash("sha1").update(fs.readFileSync(fileName)).digest("hex");
+function canonicalSourceSha1(fileName) {
+  let source = fs.readFileSync(fileName, "utf8");
+  if (source.charCodeAt(0) === 0xfeff) source = source.slice(1);
+  return crypto.createHash("sha1").update(Buffer.from(source.replace(/\r\n?/g, "\n"), "utf8")).digest("hex");
 }
 
 function sha256File(fileName) {
@@ -333,7 +335,11 @@ function inspectInstallation(options = {}) {
       const fileName = path.join(root, ...relative.split("/"));
       if (!fs.existsSync(fileName)) mismatches.push({ file: relative, reason: "missing" });
       else {
-        const actual = sha1File(fileName);
+        // PoB's updater may install the official source with CRLF even though
+        // GitHub and the release audit use LF. Line endings are not executable
+        // source changes, so compare the same canonical text used by the full
+        // official-source aggregate below.
+        const actual = canonicalSourceSha1(fileName);
         if (actual !== expected) mismatches.push({ file: relative, reason: "hash", expected, actual });
       }
     }
@@ -883,6 +889,9 @@ async function calculateInternal(input, options = {}) {
       mainSocketGroup: payload.mainSocketGroup ?? null,
       mainSkillName: payload.mainSkillName ?? null,
       skillGroups: Array.isArray(payload.skillGroups) ? payload.skillGroups : [],
+      items: Array.isArray(payload.items) ? payload.items : [],
+      gemCatalog: Array.isArray(payload.gemCatalog) ? payload.gemCatalog : [],
+      configCatalog: Array.isArray(payload.configCatalog) ? payload.configCatalog : [],
       scalarCount: payload.scalarCount,
       stats: payload.stats,
       warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
@@ -1157,6 +1166,9 @@ async function importCharacterInternal(input, options = {}) {
       mainSocketGroup: payload.mainSocketGroup ?? null,
       mainSkillName: payload.mainSkillName ?? null,
       skillGroups: Array.isArray(payload.skillGroups) ? payload.skillGroups : [],
+      items: Array.isArray(payload.items) ? payload.items : [],
+      gemCatalog: Array.isArray(payload.gemCatalog) ? payload.gemCatalog : [],
+      configCatalog: Array.isArray(payload.configCatalog) ? payload.configCatalog : [],
       scalarCount: payload.scalarCount,
       stats: payload.stats,
     },
@@ -1220,6 +1232,7 @@ module.exports = {
     ensureHost,
     runWorker,
     validateImportWorkerPayload,
+    canonicalSourceSha1,
     validateNodeAnalysisWorkerPayload,
     validateTimelessPreviewWorkerPayload,
     validateTimelessHuntWorkerPayload,

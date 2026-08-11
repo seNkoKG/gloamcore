@@ -24,7 +24,7 @@ price dashboard until its data, performance, and accuracy checks pass.
   refund previews, remote-jewel dependencies, tooltip hit testing, and PoB's
   mastery chooser behavior and effect order.
 - Added exact PoE 1 public/OAuth character import and scalar recalculation
-  through the verified local Path of Building Community 2.66.1 engine. OAuth
+  through the verified local Path of Building Community 2.67.2 engine. OAuth
   character data is never cached and unknown engine fingerprints fail closed.
 - Kept PoB2 XML/code import and installed-tree editing, but intentionally
   disabled PoE 2 account import until skills, weapon-set specialisations, and

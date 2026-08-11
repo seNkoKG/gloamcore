@@ -49,7 +49,7 @@ Build Lab reads tree and build data from a separately installed
 installation. GloamCore does not redistribute the PoB runtime or its game
 databases.
 
-The bundled headless adapter is copied from Path of Building Community 2.66.1's
+The bundled headless adapter is copied from Path of Building Community 2.67.2's
 `src/HeadlessWrapper.lua` and is covered by the MIT License. Its complete notice
 is shipped at `electron/pob-headless-wrapper.LICENSE.md`. The bridge verifies the
 supported local PoB engine before character import or recalculation and fails

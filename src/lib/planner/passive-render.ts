@@ -5,6 +5,12 @@ export interface PassiveTreeConnection {
   to: PassiveTreeNodeData;
 }
 
+export interface PassiveTreeCircle {
+  x: number;
+  y: number;
+  radius: number;
+}
+
 /** Keeps PoB's authored mastery row order; integer object keys cannot preserve it. */
 export function orderedMasteryEffects(node: PassiveTreeNodeData) {
   const effects = node.masteryEffects || {};
@@ -66,6 +72,38 @@ export function defaultPassiveTreeViewport(tree: PassiveTreeData, width: number,
     scale: (Math.min(width, height) / size) * (1.2 ** 3),
     x: width / 2,
     y: height / 2,
+  };
+}
+
+export function passiveTreeViewportWithCircles(
+  tree: PassiveTreeData,
+  width: number,
+  height: number,
+  circles: readonly PassiveTreeCircle[],
+  padding = 10,
+) {
+  const base = defaultPassiveTreeViewport(tree, width, height);
+  if (!circles.length || width <= 0 || height <= 0) return base;
+  const safePadding = Math.min(Math.max(0, padding), width / 3, height / 3);
+  let minX = -width / 2 / base.scale;
+  let maxX = width / 2 / base.scale;
+  let minY = -height / 2 / base.scale;
+  let maxY = height / 2 / base.scale;
+  for (const circle of circles) {
+    const radius = Math.max(0, circle.radius);
+    minX = Math.min(minX, circle.x - radius);
+    maxX = Math.max(maxX, circle.x + radius);
+    minY = Math.min(minY, circle.y - radius);
+    maxY = Math.max(maxY, circle.y + radius);
+  }
+  const scale = Math.min(
+    (width - safePadding * 2) / (maxX - minX),
+    (height - safePadding * 2) / (maxY - minY),
+  );
+  return {
+    scale,
+    x: width / 2 - ((minX + maxX) / 2) * scale,
+    y: height / 2 - ((minY + maxY) / 2) * scale,
   };
 }
 

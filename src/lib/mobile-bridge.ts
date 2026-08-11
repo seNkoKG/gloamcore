@@ -6,9 +6,12 @@ import type {
   CacheEnvelope,
   DesktopSettings,
   EconomyLeague,
+  FaustusOverviewRequest,
   KnowledgeSearchRequest,
   PoeWidgetBridge,
   RawExchangeOverview,
+  RawFaustusMarket,
+  RawFaustusOverview,
   RawItemOverview,
   RawKnowledgeSearchResponse,
   RawStashCurrencyOverview,
@@ -77,6 +80,10 @@ const SETTINGS_KEY = "desktop-settings";
 const DEFAULT_TTL = 15 * 60 * 1000;
 const MAX_MARKET_STALE_MS = 2 * 60 * 60 * 1000;
 const MARKET_CACHE_VERSION = "v2";
+const FAUSTUS_API_ROOT = "https://web.poecdn.com/api/currency-exchange";
+const FAUSTUS_USER_AGENT = `GloamCore/${packageMetadata.version} (+https://github.com/seNkoKG/gloamcore)`;
+const CHAOS_METADATA_ID = "Metadata/Items/Currency/CurrencyRerollRare";
+const DIVINE_METADATA_ID = "Metadata/Items/Currency/CurrencyModValues";
 const mobileRequestInflight = new Map<string, Promise<CacheEnvelope<unknown>>>();
 
 const mobileSettings: DesktopSettings = {
@@ -187,6 +194,7 @@ async function cachedGetUncoalesced<T>(
   force = false,
   fallbackTtl = DEFAULT_TTL,
   maxStaleMs = Number.POSITIVE_INFINITY,
+  requestHeaders: Record<string, string> = {},
 ): Promise<CacheEnvelope<T>> {
   const cacheKey = `http:${key}`;
   const now = Date.now();
@@ -201,6 +209,7 @@ async function cachedGetUncoalesced<T>(
       maximumBytes: MAX_MOBILE_JSON_BYTES,
       headers: {
         Accept: "application/json",
+        ...requestHeaders,
         ...(cached?.etag ? { "If-None-Match": cached.etag } : {}),
       },
     });
@@ -269,6 +278,7 @@ async function cachedGet<T>(
   force = false,
   fallbackTtl = DEFAULT_TTL,
   maxStaleMs = Number.POSITIVE_INFINITY,
+  requestHeaders: Record<string, string> = {},
 ) {
   const normalKey = `http:${key}:normal`;
   const forceKey = `http:${key}:force`;
@@ -286,6 +296,7 @@ async function cachedGet<T>(
       force,
       fallbackTtl,
       maxStaleMs,
+      requestHeaders,
     );
   const request = weaker
     ? weaker.catch(() => undefined).then(run)
@@ -575,6 +586,116 @@ async function readSettings() {
   return readStoredSettings();
 }
 
+interface MobileFaustusDigest {
+  next_change_id?: number;
+  markets: RawFaustusMarket[];
+}
+
+function isMobileFaustusDigest(value: unknown): value is MobileFaustusDigest {
+  return isRecord(value) && Array.isArray(value.markets) && value.markets.every(isRecord);
+}
+
+function mobileFaustusMetadataUrl(names: string[]) {
+  const quoted = names.map((name) => `"${name.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
+  const search = new URLSearchParams({
+    action: "cargoquery",
+    format: "json",
+    formatversion: "2",
+    limit: "100",
+    tables: "items",
+    fields: "name,metadata_id,is_in_game,removal_version",
+    where: `name IN (${quoted})`,
+  });
+  return `https://www.poewiki.net/w/api.php?${search}`;
+}
+
+async function resolveMobileFaustusItems(request: FaustusOverviewRequest) {
+  const missing = [...new Set(request.items.filter((item) => !item.metadataId).map((item) => item.name))];
+  const metadataByName = new Map<string, string>();
+  for (let offset = 0; offset < missing.length; offset += 35) {
+    const batch = missing.slice(offset, offset + 35);
+    const envelope = await cachedGet(
+      `faustus-metadata:${batch.slice().sort().join("|")}`,
+      mobileFaustusMetadataUrl(batch),
+      isWikiCargoPayload,
+      request.force,
+      7 * 24 * 60 * 60 * 1000,
+      Number.POSITIVE_INFINITY,
+      { "User-Agent": FAUSTUS_USER_AGENT },
+    );
+    for (const entry of envelope.data.cargoquery || []) {
+      const record = entry.title || {};
+      const name = record.name;
+      const metadataId = record["metadata id"] || record.metadata_id;
+      const inGame = String(record["is in game"] ?? record.is_in_game ?? "1");
+      const removed = record["removal version"] || record.removal_version;
+      if (typeof name === "string" && typeof metadataId === "string" && inGame !== "0" && !removed) {
+        metadataByName.set(name.toLocaleLowerCase(), metadataId);
+      }
+    }
+  }
+  return request.items.map((item) => ({
+    ...item,
+    metadataId: item.metadataId || metadataByName.get(item.name.toLocaleLowerCase()),
+  }));
+}
+
+function filterMobileFaustusMarkets(markets: RawFaustusMarket[], league: string, targets: ReadonlySet<string>) {
+  return markets.filter((market) => {
+    if (market.league !== league || !Array.isArray(market.market_pair)) return false;
+    const pair = market.market_pair;
+    if (pair.includes(CHAOS_METADATA_ID) && pair.includes(DIVINE_METADATA_ID)) return true;
+    return (pair.includes(CHAOS_METADATA_ID) || pair.includes(DIVINE_METADATA_ID))
+      && pair.some((metadataId) => targets.has(metadataId));
+  });
+}
+
+async function getMobileFaustusOverview(request: FaustusOverviewRequest): Promise<CacheEnvelope<RawFaustusOverview>> {
+  const items = await resolveMobileFaustusItems(request);
+  const targets = new Set(items.map((item) => item.metadataId).filter((id): id is string => Boolean(id) && id !== CHAOS_METADATA_ID && id !== DIVINE_METADATA_ID));
+  const currentHour = Math.floor(Date.now() / 3_600_000) * 3_600;
+  let latestHour = 0;
+  let latestFailure: unknown;
+  for (let offset = 1; offset <= 3; offset += 1) {
+    const hour = currentHour - offset * 3_600;
+    try {
+      await cachedGet(`faustus-hour:${hour}`, `${FAUSTUS_API_ROOT}/${hour}`, isMobileFaustusDigest, false, 30 * 24 * 60 * 60 * 1000, Number.POSITIVE_INFINITY, { "User-Agent": FAUSTUS_USER_AGENT });
+      latestHour = hour;
+      break;
+    } catch (error) {
+      latestFailure = error;
+      // The latest completed digest can appear shortly after the hour.
+    }
+  }
+  if (!latestHour) {
+    const reason = latestFailure instanceof Error ? latestFailure.message : "Unknown upstream failure.";
+    throw new Error(`The latest completed Faustus market hour is unavailable. ${reason}`);
+  }
+  const envelopes = await Promise.all(Array.from({ length: 8 }, async (_value, index) => {
+    const hour = latestHour - index * 3_600;
+    try {
+      return { hour, envelope: await cachedGet(`faustus-hour:${hour}`, `${FAUSTUS_API_ROOT}/${hour}`, isMobileFaustusDigest, false, 30 * 24 * 60 * 60 * 1000, Number.POSITIVE_INFINITY, { "User-Agent": FAUSTUS_USER_AGENT }) };
+    } catch {
+      return null;
+    }
+  }));
+  const available = envelopes.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  return {
+    data: {
+      latestHour,
+      items,
+      hours: available.map(({ hour, envelope }) => ({
+        id: hour,
+        markets: filterMobileFaustusMarkets(envelope.data.markets, request.league, targets),
+      })).sort((left, right) => left.id - right.id),
+    },
+    fetchedAt: latestHour * 1000,
+    expiresAt: (currentHour + 3_600) * 1000 + 2 * 60 * 1000,
+    stale: available.some((entry) => entry.envelope.stale),
+    cache: "mobile",
+  };
+}
+
 export const mobileBridge: PoeWidgetBridge = {
   async getLeagues(options) {
     return cachedGet<EconomyLeague[]>(
@@ -605,6 +726,7 @@ export const mobileBridge: PoeWidgetBridge = {
       24 * 60 * 60 * 1000,
     );
   },
+  getFaustusOverview: getMobileFaustusOverview,
   searchKnowledge: getMobileKnowledge,
   async readClipboardItem() {
     let text = "";

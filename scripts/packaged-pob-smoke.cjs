@@ -6,7 +6,7 @@ const path = require("node:path");
 const physicalFs = process.versions.electron ? require("original-fs") : fs;
 
 const CACHE_PREFIX = "gloamcore-packaged-pob-";
-const EXPECTED_ENGINE_VERSION = "2.66.1";
+const EXPECTED_ENGINE_VERSION = "2.67.2";
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);

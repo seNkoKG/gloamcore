@@ -2,19 +2,24 @@ function cargoQuoted(value) {
   return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-function plannerArtworkCargoUrl(apiRoot, values) {
-  const list = values.map(cargoQuoted).join(",");
+function plannerArtworkCargoUrl(apiRoot, entries) {
+  const items = entries.map((entry) => typeof entry === "string" ? { name: entry } : entry);
+  const names = [...new Set(items.flatMap((item) => [item?.name, item?.baseType]).filter(Boolean))];
+  const metadataIds = [...new Set(items.map((item) => item?.metadataId).filter(Boolean))];
+  const clauses = [];
+  if (names.length) clauses.push(`name IN (${names.map(cargoQuoted).join(",")})`);
+  if (metadataIds.length) clauses.push(`metadata_id IN (${metadataIds.map(cargoQuoted).join(",")})`);
   const search = new URLSearchParams({
     action: "cargoquery",
     format: "json",
     formatversion: "2",
     limit: "100",
     tables: "items",
-    fields: "name,base_item,inventory_icon,is_in_game,removal_version",
+    fields: "name,base_item,inventory_icon,metadata_id,size_x,size_y,is_in_game,removal_version",
     // Query the requested unique and generic base records themselves. A
     // base_item IN query also returns every unique on common bases, can hit
     // Cargo's limit, and may assign a different unique's art to a rare item.
-    where: `name IN (${list}) AND is_in_game=1 AND removal_version IS NULL`,
+    where: `(${clauses.join(" OR ")}) AND is_in_game=1 AND removal_version IS NULL`,
   });
   return `${apiRoot}?${search}`;
 }
@@ -38,14 +43,37 @@ function normalizedWikiArtworkTitle(value) {
 function selectPlannerArtworkRow(rows, item) {
   const name = decodedCargoText(item?.name).trim().toLocaleLowerCase();
   const baseType = decodedCargoText(item?.baseType).trim().toLocaleLowerCase();
+  const metadataId = decodedCargoText(item?.metadataId).trim().toLocaleLowerCase();
   const exact = rows.find((row) => decodedCargoText(row?.name).trim().toLocaleLowerCase() === name);
+  const metadata = metadataId
+    ? rows.find((row) => decodedCargoText(row?.["metadata id"] || row?.metadata_id).trim().toLocaleLowerCase() === metadataId)
+    : null;
   const base = rows.find((row) => decodedCargoText(row?.name).trim().toLocaleLowerCase() === baseType);
-  return exact || base || null;
+  // Transfigured gems can retain their base gem metadata id, so the exact
+  // display name must win before the metadata fallback.
+  return exact || metadata || base || null;
+}
+
+function plannerArtworkDimensions(row) {
+  const width = Number(row?.size_x ?? row?.["size x"]);
+  const height = Number(row?.size_y ?? row?.["size y"]);
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width < 1 ||
+    width > 4 ||
+    height < 1 ||
+    height > 6
+  ) {
+    return null;
+  }
+  return { width, height };
 }
 
 module.exports = {
   decodedCargoText,
   normalizedWikiArtworkTitle,
+  plannerArtworkDimensions,
   plannerArtworkCargoUrl,
   selectPlannerArtworkRow,
 };

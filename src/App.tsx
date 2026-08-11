@@ -49,6 +49,7 @@ import {
   sortRows,
 } from "./lib/economy";
 import { displayPrice, formatCompact, formatPrice, tradeUrl } from "./lib/format";
+import { faustusItemSeeds, normalizeFaustusOverview } from "./lib/faustus";
 import {
   marketFailureDisposition,
   marketRefreshDelayMs,
@@ -112,6 +113,7 @@ import type {
   NormalizedOverview,
   QuickSearchRow,
   RawExchangeOverview,
+  RawFaustusOverview,
   RawItemOverview,
   RawStashCurrencyOverview,
   ShortcutEvent,
@@ -135,6 +137,7 @@ const defaultDesktopSettings: DesktopSettings = {
 
 type OverviewEnvelope = CacheEnvelope<
   | RawExchangeOverview
+  | RawFaustusOverview
   | RawItemOverview
   | RawStashCurrencyOverview
 >;
@@ -200,9 +203,14 @@ async function loadCategoryMarket(
   force = false,
 ) {
   if (source === "faustus") {
-    throw new Error(
-      "Official completed-hour history needs an identifiable registered app client.",
-    );
+    const baseSource = defaultSource(category);
+    const baseEnvelope = await bridge.getOverview({ league, type: category.apiType, source: baseSource, force });
+    const base = normalizeOverview(baseEnvelope.data, baseSource, category);
+    const envelope = await bridge.getFaustusOverview({ league, items: faustusItemSeeds(base.rows), force });
+    return {
+      normalized: normalizeFaustusOverview(base, envelope.data, category),
+      envelope,
+    };
   }
   const envelope = await bridge.getOverview({
     league,
@@ -1490,7 +1498,13 @@ export default function App() {
           />
         )}
 
-        <main className="main-content" ref={mainContentRef}>
+        <main
+          className={clsx(
+            "main-content",
+            !isMobileApp && mode === "stash" && "main-content--edge-to-edge",
+          )}
+          ref={mainContentRef}
+        >
           {mode === "market" ? (
             renderMarket()
           ) : mode === "price-check" ? (

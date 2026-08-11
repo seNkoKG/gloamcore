@@ -4,6 +4,8 @@
 local RESULT_PREFIX = "GLOAMCORE_POB_RESULT:"
 local MAX_SCALAR_STATS = 4096
 local MAX_WARNINGS = 32
+local MAX_CONFIG_INPUTS = 4096
+local MAX_CONFIG_OPTIONS = 2048
 local MAX_CHARACTER_BYTES = 8 * 1024 * 1024
 local MAX_IMPORTED_XML_BYTES = 8 * 1024 * 1024
 
@@ -296,6 +298,148 @@ local function collectSkillGroups()
 	return groups
 end
 
+local function collectItems()
+	local items = { }
+	local itemsTab = build.itemsTab
+	for _, itemId in ipairs(itemsTab and itemsTab.itemOrderList or { }) do
+		local item = itemsTab.items and itemsTab.items[itemId]
+		if item then
+			local raw = item:BuildRaw()
+			table.insert(items, {
+				id = tonumber(item.id) or tonumber(itemId),
+				raw = tostring(raw or item.raw or ""),
+				primarySlot = type(item.GetPrimarySlot) == "function" and tostring(item:GetPrimarySlot() or "") or "",
+			})
+		end
+	end
+	return items
+end
+
+local function collectGemCatalog()
+	local catalog = { }
+	local seen = { }
+	for _, gem in pairs(data and data.gems or { }) do
+		local name = tostring(gem.nameSpec or gem.name or "")
+		local skillId = tostring(gem.grantedEffectId or gem.grantedEffect and gem.grantedEffect.id or "")
+		local gemId = tostring(gem.gameId or gem.id or "")
+		local variantId = tostring(gem.variantId or "")
+		local key = table.concat({ name, skillId, gemId, variantId }, "\0")
+		if name ~= "" and skillId ~= "" and not seen[key] then
+			seen[key] = true
+			table.insert(catalog, {
+				name = name,
+				skillId = skillId,
+				gemId = gemId,
+				variantId = variantId,
+				naturalMaxLevel = math.max(1, math.floor(tonumber(gem.naturalMaxLevel) or 20)),
+				support = gem.grantedEffect and gem.grantedEffect.support == true or false,
+			})
+		end
+	end
+	table.sort(catalog, function(left, right)
+		if left.name == right.name then return left.variantId < right.variantId end
+		return left.name < right.name
+	end)
+	return catalog
+end
+
+local function plainControlText(value)
+	if type(value) == "function" then
+		local ok, resolved = pcall(value)
+		if not ok then return "" end
+		value = resolved
+	end
+	local text = tostring(value or "")
+	if type(StripEscapes) == "function" then
+		local ok, stripped = pcall(StripEscapes, text)
+		if ok and type(stripped) == "string" then text = stripped end
+	end
+	return text:gsub("^%s+", ""):gsub("%s+$", ""):sub(1, 1000)
+end
+
+local function configControlLabel(configTab, control, name)
+	if control._className == "CheckBoxControl" then
+		local label = plainControlText(control.label)
+		if label ~= "" then return label end
+	end
+	for _, candidate in pairs(configTab.controls or { }) do
+		if type(candidate) == "table"
+			and candidate._className == "LabelControl"
+			and candidate.anchor
+			and candidate.anchor.other == control then
+			local label = plainControlText(candidate.label)
+			if label ~= "" then return label end
+		end
+	end
+	return tostring(name)
+end
+
+local function configControlEligible(control)
+	if type(control.IsShown) == "function" then
+		local ok, shown = pcall(control.IsShown, control)
+		if ok then return shown ~= false end
+	end
+	if type(control.shown) == "function" then
+		local ok, shown = pcall(control.shown)
+		if ok then return shown ~= false end
+	elseif control.shown ~= nil then
+		return control.shown ~= false
+	end
+	return true
+end
+
+local function collectConfigCatalog()
+	local configTab = build.configTab
+	if type(configTab) ~= "table" then return { } end
+	local catalog = { }
+	for name, control in pairs(configTab.varControls or { }) do
+		if type(name) == "string" and name ~= "" and type(control) == "table" and #catalog < MAX_CONFIG_INPUTS then
+			local defaultValue = configTab.defaultState and configTab.defaultState[name]
+			local controlType = control._className
+			local inputType
+			if controlType == "CheckBoxControl" then
+				inputType = "boolean"
+			elseif controlType == "DropDownControl" then
+				inputType = "list"
+			elseif type(defaultValue) == "number" then
+				inputType = "number"
+			else
+				inputType = "string"
+			end
+			if defaultValue == nil then
+				defaultValue = inputType == "boolean" and false or inputType == "number" and 0 or ""
+			end
+			local options = { }
+			if inputType == "list" then
+				for _, option in ipairs(control.list or { }) do
+					if #options >= MAX_CONFIG_OPTIONS then break end
+					local value = type(option) == "table" and option.val or option
+					local valueType = type(value)
+					if valueType == "string" or valueType == "number" or valueType == "boolean" then
+						table.insert(options, {
+							label = plainControlText(type(option) == "table" and (option.label or option[1] or option.val) or option),
+							value = value,
+						})
+					end
+				end
+			end
+			table.insert(catalog, {
+				name = name,
+				label = configControlLabel(configTab, control, name),
+				type = inputType,
+				defaultValue = defaultValue,
+				eligible = configControlEligible(control),
+				options = options,
+			})
+		end
+	end
+	table.sort(catalog, function(left, right)
+		if left.label == right.label then return left.name < right.name end
+		return left.label < right.label
+	end)
+	return catalog
+end
+
 local function collectCalculationOutput()
 	local output = build.calcsTab and build.calcsTab.mainOutput
 	if type(output) ~= "table" then error("Path of Building produced no main calculation output.") end
@@ -335,6 +479,9 @@ local function collectCalculationOutput()
 		end
 	end
 	local skillGroups = collectSkillGroups()
+	local items = collectItems()
+	local gemCatalog = collectGemCatalog()
+	local configCatalog = collectConfigCatalog()
 	local mainGroup = skillGroups[build.mainSocketGroup]
 	local mainActiveSkill = mainGroup and mainGroup.activeSkills[mainGroup.mainActiveSkill]
 	return {
@@ -345,6 +492,9 @@ local function collectCalculationOutput()
 		mainSocketGroup = build.mainSocketGroup,
 		mainSkillName = mainActiveSkill and mainActiveSkill.name or (mainGroup and mainGroup.label or nil),
 		skillGroups = skillGroups,
+		items = items,
+		gemCatalog = gemCatalog,
+		configCatalog = configCatalog,
 		scalarCount = scalarCount,
 		stats = stats,
 	}
@@ -388,6 +538,9 @@ local ok, result = xpcall(function()
 			mainSocketGroup = calculation.mainSocketGroup,
 			mainSkillName = calculation.mainSkillName,
 			skillGroups = calculation.skillGroups,
+			items = calculation.items,
+			gemCatalog = calculation.gemCatalog,
+			configCatalog = calculation.configCatalog,
 			scalarCount = calculation.scalarCount,
 			stats = calculation.stats,
 			warnings = warnings,
@@ -765,6 +918,9 @@ local ok, result = xpcall(function()
 		mainSocketGroup = calculation.mainSocketGroup,
 		mainSkillName = calculation.mainSkillName,
 		skillGroups = calculation.skillGroups,
+		items = calculation.items,
+		gemCatalog = calculation.gemCatalog,
+		configCatalog = calculation.configCatalog,
 		scalarCount = calculation.scalarCount,
 		stats = calculation.stats,
 		warnings = warnings,

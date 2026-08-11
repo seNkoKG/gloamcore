@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PassiveTreeData, PassiveTreeNodeData } from "../../types";
-import { emptyPobBuild, enrichPobBuildWithCharacterAssets, itemsWithPassiveSpecLoadout, parsePobXml, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout } from "./pob-build";
+import { addPobConfigSet, addPobSkillSet, emptyPobBuild, enrichPobBuildWithCharacterAssets, itemsWithPassiveSpecLoadout, parsePobXml, pobConfigSetSummaries, pobCustomModifierBlocks, pobSkillSetSummaries, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout, withActivePobConfigSet, withActivePobItemSet, withActivePobSkillSet, withPobConfigSetTitle, withPobCustomModifierBlocks, withPobItemEquipped, withPobItemText, withPobSkillSetTitle, withoutPobConfigSet, withoutPobItem, withoutPobSkillSet } from "./pob-build";
 import { applyImportedMasteryEffects } from "./cluster-jewel-graph";
 import {
   comparePlannerBuilds,
@@ -336,14 +336,36 @@ describe("Path of Building XML import", () => {
         name: "Storm Crown",
         typeLine: "Hubris Circlet",
         icon: "https://web.poecdn.com/image/helmet.png",
+        w: 2,
+        h: 2,
         socketedItems: [{ typeLine: "Kinetic Blast", icon: "https://web.poecdn.com/image/kinetic-blast.png", support: false }],
       }],
       jewels: [{ id: "bad", typeLine: "Cobalt Jewel", icon: "https://example.com/tracker.png" }],
     });
 
-    expect(enriched.items[0].icon).toBe("https://web.poecdn.com/image/helmet.png");
+    expect(enriched.items[0]).toMatchObject({ icon: "https://web.poecdn.com/image/helmet.png", width: 2, height: 2 });
     expect(enriched.skillGroups[0].gems[0]).toMatchObject({ icon: "https://web.poecdn.com/image/kinetic-blast.png", support: false });
     expect(JSON.stringify(enriched)).not.toContain("example.com");
+  });
+
+  it("maps official active and swap weapon slots without conflating Weapon2 with the off-hand", () => {
+    const item = (id: number) => `<Item id="${id}">Rarity: NORMAL\nTest Sword</Item>`;
+    const build = parsePobXml(`<PathOfBuilding><Build/><Tree><Spec nodes="1"/></Tree><Items activeItemSet="1">${[1, 2, 3, 4].map(item).join("")}<ItemSet id="1"><Slot name="Weapon 1" itemId="1"/><Slot name="Weapon 2" itemId="2"/><Slot name="Weapon 1 Swap" itemId="3"/><Slot name="Weapon 2 Swap" itemId="4"/></ItemSet></Items><Skills><SkillSet id="1"/></Skills></PathOfBuilding>`);
+    const enriched = enrichPobBuildWithCharacterAssets(build, {
+      equipment: [
+        { inventoryId: "Weapon", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/active-main.png", w: 1, h: 3 },
+        { inventoryId: "Offhand", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/active-off.png", w: 1, h: 3 },
+        { inventoryId: "Weapon2", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/swap-main.png", w: 2, h: 4 },
+        { inventoryId: "Offhand2", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/swap-off.png", w: 2, h: 3 },
+      ],
+    });
+
+    expect(enriched.items.map(({ slot, icon, width, height }) => ({ slot, icon, width, height }))).toEqual([
+      { slot: "Weapon 1", icon: "https://web.poecdn.com/image/active-main.png", width: 1, height: 3 },
+      { slot: "Weapon 2", icon: "https://web.poecdn.com/image/active-off.png", width: 1, height: 3 },
+      { slot: "Weapon 1 Swap", icon: "https://web.poecdn.com/image/swap-main.png", width: 2, height: 4 },
+      { slot: "Weapon 2 Swap", icon: "https://web.poecdn.com/image/swap-off.png", width: 2, height: 3 },
+    ]);
   });
 
   it("exports edited trees and skills without dropping PoB-only spec children", () => {
@@ -442,6 +464,83 @@ describe("Path of Building XML import", () => {
     expect(xml).toContain('<GemMeta value="keep"/>');
     expect(xml).toContain('<SkillMeta value="keep"/>');
     expect(xml).toContain('<SetMeta value="keep"/>');
+  });
+
+  it("switches, duplicates, renames, edits, and removes independent PoB skill sets", () => {
+    const imported = parsePobXml(`<PathOfBuilding>
+      <Build level="90" className="Scion" mainSocketGroup="1"/>
+      <Tree activeSpec="1"><Spec title="Tree" treeVersion="3_29" classId="0" nodes="1"/></Tree>
+      <Skills activeSkillSet="2" sortGemsByDPS="true">
+        <SkillSet id="1" title="Mapping"><Skill slot="Helmet" label="Map"><Gem nameSpec="Grace" skillId="Grace" level="20" quality="0"/></Skill></SkillSet>
+        <SkillSet id="2" title="Bossing" customSet="keep"><Skill slot="Body Armour" label="Boss"><Gem nameSpec="Kinetic Blast" skillId="KineticBlast" level="20" quality="0"/></Skill><SetMeta value="keep"/></SkillSet>
+      </Skills>
+      <Config activeConfigSet="1"><ConfigSet id="1"/></Config>
+      <Items activeItemSet="1"><ItemSet id="1"/></Items>
+    </PathOfBuilding>`);
+
+    const renamed = withPobSkillSetTitle(imported, 2, "Pinnacle");
+    const duplicated = addPobSkillSet(renamed, true);
+    const duplicateId = pobSkillSetSummaries(duplicated).find((set) => set.active)!.id;
+    const editedDuplicate = {
+      ...duplicated,
+      skillGroups: duplicated.skillGroups.map((group) => ({
+        ...group,
+        gems: group.gems.map((gem) => ({ ...gem, quality: 30 })),
+      })),
+    };
+    const mapping = withActivePobSkillSet(editedDuplicate, 1);
+    const returned = withActivePobSkillSet(mapping, duplicateId);
+
+    expect(pobSkillSetSummaries(returned)).toMatchObject([
+      { id: 1, title: "Mapping", active: false },
+      { id: 2, title: "Pinnacle", active: false },
+      { id: duplicateId, title: "Skill set 3 copy", active: true },
+    ]);
+    expect(mapping.skillGroups[0].gems[0].name).toBe("Grace");
+    expect(returned.skillGroups[0].gems[0].quality).toBe(30);
+    expect(returned.xml).toContain('customSet="keep"');
+    expect(returned.xml).toContain('<SetMeta value="keep"/>');
+
+    const removed = withoutPobSkillSet(returned, duplicateId);
+    expect(pobSkillSetSummaries(removed)).toHaveLength(2);
+    expect(pobSkillSetSummaries(removed).some((set) => set.active)).toBe(true);
+  });
+
+  it("manages independent config sets and exact custom-modifier blocks", () => {
+    const imported = parsePobXml(`<PathOfBuilding>
+      <Build level="90" className="Scion"/>
+      <Tree activeSpec="1"><Spec title="Tree" treeVersion="3_29" classId="0" nodes="1"/></Tree>
+      <Skills activeSkillSet="1"><SkillSet id="1"/></Skills>
+      <Config activeConfigSet="2" customConfig="keep">
+        <ConfigSet id="1" title="Mapping"><Input name="conditionBoss" boolean="false"/></ConfigSet>
+        <ConfigSet id="2" title="Bossing" customSet="keep"><Input name="conditionBoss" boolean="true"/><CustomModifierBlock title="Default" enabled="true">+25% to Fire Resistance</CustomModifierBlock><ConfigMeta value="keep"/></ConfigSet>
+      </Config>
+      <Items activeItemSet="1"><ItemSet id="1"/></Items>
+    </PathOfBuilding>`);
+
+    const withBlocks = withPobCustomModifierBlocks(imported, [
+      { title: "Damage", enabled: true, text: "30% increased Damage" },
+      { title: "Disabled", enabled: false, text: "+5% to all maximum Resistances" },
+    ]);
+    const renamed = withPobConfigSetTitle(withBlocks, 2, "Pinnacle");
+    const duplicated = addPobConfigSet(renamed, true);
+    const duplicateId = pobConfigSetSummaries(duplicated).find((set) => set.active)!.id;
+    const editedDuplicate = { ...duplicated, config: { ...duplicated.config, enemyLevel: 84 } };
+    const mapping = withActivePobConfigSet(editedDuplicate, 1);
+    const returned = withActivePobConfigSet(mapping, duplicateId);
+
+    expect(mapping.config.conditionBoss).toBe(false);
+    expect(returned.config).toMatchObject({ conditionBoss: true, enemyLevel: 84 });
+    expect(pobCustomModifierBlocks(returned)).toEqual([
+      { title: "Damage", enabled: true, text: "30% increased Damage" },
+      { title: "Disabled", enabled: false, text: "+5% to all maximum Resistances" },
+    ]);
+    expect(returned.xml).toContain('customConfig="keep"');
+    expect(returned.xml).toContain('customSet="keep"');
+    expect(returned.xml).toContain('<ConfigMeta value="keep"/>');
+
+    const removed = withoutPobConfigSet(returned, duplicateId);
+    expect(pobConfigSetSummaries(removed)).toHaveLength(2);
   });
 
   it("emits and reparses exact gem identity and skill-group selection attributes", () => {
@@ -543,6 +642,31 @@ describe("Path of Building XML import", () => {
 
     expect(xml).not.toContain('nodeId="77"');
     expect(xml).toContain('<SocketMeta value="keep"/>');
+  });
+
+  it("writes edited raw item text, clears stale ranges, and removes deleted items from every loadout", () => {
+    const build = parsePobXml(`<PathOfBuilding><Build/><Tree><Spec nodes="1"/></Tree><Skills><SkillSet id="1"/></Skills><Items activeItemSet="1"><Item id="1">Rarity: RARE\nOld Name\nHubris Circlet\n<ModRange id="1" range="0.4"/></Item><Item id="2">Rarity: NORMAL\nIron Hat</Item><ItemSet id="1"><Slot name="Helmet" itemId="1"/></ItemSet><ItemSet id="2"><Slot name="Helmet" itemId="1"/></ItemSet></Items></PathOfBuilding>`);
+    const edited = { ...build, items: build.items.map((item) => item.id === 1 ? withPobItemText(item, "Rarity: RARE\nNew Name\nHubris Circlet\n--------\n+50 to maximum Life") : item) };
+    const editedXml = serializePobXml(edited, edited.specs, edited.specs[0].id);
+    expect(editedXml).toContain("New Name");
+    expect(editedXml).not.toContain("Old Name");
+    expect(editedXml).not.toContain("ModRange");
+    const deletedXml = serializePobXml(withoutPobItem(edited, 1), edited.specs, edited.specs[0].id);
+    expect(deletedXml).not.toContain('<Item id="1">');
+    expect(deletedXml).not.toMatch(/<Slot\b[^>]*itemId="1"/);
+  });
+
+  it("switches and edits independent item sets without changing inactive equipment", () => {
+    const build = parsePobXml(`<PathOfBuilding><Build/><Tree><Spec nodes="1"/></Tree><Skills><SkillSet id="1"/></Skills><Items activeItemSet="1"><Item id="1">Rarity: NORMAL\nIron Hat</Item><Item id="2">Rarity: NORMAL\nLeather Cap</Item><ItemSet id="1" title="Mapping"><Slot name="Helmet" itemId="1"/></ItemSet><ItemSet id="2" title="Bossing"><Slot name="Helmet" itemId="2"/></ItemSet></Items></PathOfBuilding>`);
+    const bossing = withActivePobItemSet(build, 2);
+    expect(bossing.items.find((item) => item.id === 2)).toMatchObject({ slot: "Helmet", equipped: true });
+    const unequipped = withPobItemEquipped(bossing, 2, "");
+    expect(unequipped.itemSets.find((itemSet) => itemSet.id === 1)?.slots.Helmet.itemId).toBe(1);
+    expect(unequipped.itemSets.find((itemSet) => itemSet.id === 2)?.slots.Helmet.itemId).toBe(0);
+    const reparsed = parsePobXml(serializePobXml(unequipped, unequipped.specs, unequipped.specs[0].id));
+    expect(reparsed.activeItemSet).toBe(2);
+    expect(reparsed.itemSets.find((itemSet) => itemSet.id === 1)?.slots.Helmet.itemId).toBe(1);
+    expect(reparsed.items.every((item) => !item.equipped)).toBe(true);
   });
 });
 
