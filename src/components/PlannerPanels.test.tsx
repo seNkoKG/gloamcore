@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { emptyPobBuild } from "../lib/planner/pob-build";
-import { PlannerBuildsPanel, PlannerCalcsPanel, PlannerConfigPanel, PlannerItemsPanel, presentPlannerItem } from "./PlannerPanels";
+import { PlannerBuildsPanel, PlannerCalcsPanel, PlannerConfigPanel, PlannerItemsPanel, PlannerSkillsPanel, presentPlannerItem } from "./PlannerPanels";
 
 const clusterJewel = {
   id: 7,
@@ -158,14 +158,47 @@ Allow Duplicate Variants: true`,
     };
     const markup = renderToStaticMarkup(<PlannerItemsPanel build={build} onChange={() => undefined}/>);
 
-    expect(markup).toContain("Active loadout");
-    expect(markup).toContain("Other imported items");
+    expect(markup).toContain("planner-paper-doll");
+    expect(markup).toContain("Cluster jewels");
+    expect(markup).toContain("Imported alternatives");
     expect(markup).toContain("Passive tree jewel");
     expect(markup).toContain("Not assigned");
     expect(markup).toContain("planner-item-modifiers");
-    expect(markup).toContain("disabled=\"\"");
+    expect(markup).toContain("Official artwork is unavailable");
     expect(markup).not.toContain("<pre");
     expect(markup).not.toMatch(/Jewel 64583|Unique ID|ModRange|\{crafted\}/);
+  });
+
+  it("renders official gem art and exact PoB main-skill selectors", () => {
+    const build = {
+      ...emptyPobBuild(),
+      mainSocketGroup: 1,
+      skillGroups: [{
+        id: "skill-1",
+        slot: "Helmet",
+        label: "Kinetic Blast",
+        enabled: true,
+        includeInFullDps: true,
+        mainActiveSkill: 1,
+        activeSkills: [{ index: 1, name: "Kinetic Blast", parts: ["Projectile", "Explosion"] }],
+        gems: [{
+          name: "Kinetic Blast",
+          skillId: "KineticBlast",
+          level: 21,
+          quality: 20,
+          enabled: true,
+          support: false,
+          icon: "https://web.poecdn.com/image/Art/2DItems/Gems/KineticBlast.png",
+        }],
+      }],
+    };
+    const markup = renderToStaticMarkup(<PlannerSkillsPanel build={build} onChange={() => undefined}/>);
+
+    expect(markup).toContain("Main socket group");
+    expect(markup).toContain("Selected for calculations");
+    expect(markup).toContain("Main active skill");
+    expect(markup).toContain("web.poecdn.com/image/Art/2DItems/Gems/KineticBlast.png");
+    expect(markup).toContain("MAIN");
   });
 
   it("shows only imported PoB config inputs with readable labels and reset semantics", () => {

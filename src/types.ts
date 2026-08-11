@@ -884,6 +884,13 @@ export type ShortcutEvent =
 
 export type PobEngineScalar = number | string | boolean;
 
+export interface PobEngineSkillGroup {
+  index: number;
+  label: string;
+  mainActiveSkill: number;
+  activeSkills: Array<{ index: number; name: string; parts: string[] }>;
+}
+
 export interface PobEngineFailure {
   ok: false;
   authoritative: false;
@@ -931,7 +938,9 @@ export interface PobEngineCalculationSuccess {
     scalarCount: number;
     stats: Record<string, PobEngineScalar>;
     warnings: string[];
+    mainSocketGroup: number | null;
     mainSkillName: string | null;
+    skillGroups: PobEngineSkillGroup[];
     className: string | null;
     ascendancyName: string | null;
     targetVersion: string | null;
@@ -1070,6 +1079,16 @@ export interface PobEngineCharacterImportSuccess {
     runtimeArchitecture: string;
   };
   warnings: string[];
+  calculation: {
+    scalarCount: number;
+    stats: Record<string, PobEngineScalar>;
+    mainSocketGroup: number | null;
+    mainSkillName: string | null;
+    skillGroups: PobEngineSkillGroup[];
+    className: string | null;
+    ascendancyName: string | null;
+    targetVersion: string | null;
+  };
   engineMilliseconds: number | null;
   durationMilliseconds: number;
   isolation: {

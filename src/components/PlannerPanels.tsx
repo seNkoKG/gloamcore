@@ -1,22 +1,13 @@
 import clsx from "clsx";
 import {
-  Backpack,
-  CircleDot,
   Copy,
-  Crown,
-  FlaskConical,
-  Footprints,
-  Gem,
   GitCompare,
-  Hand,
   Library,
   RotateCcw,
   Save,
   Search,
   Shield,
-  Shirt,
   Sparkles,
-  Sword,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -111,18 +102,12 @@ function itemKind(item: ImportedPobItem) {
   return "item";
 }
 
-function ItemGlyph({ item, size = 18 }: { item: ImportedPobItem; size?: number }) {
-  const kind = itemKind(item);
-  if (kind === "jewel") return <Gem size={size}/>;
-  if (kind === "flask") return <FlaskConical size={size}/>;
-  if (kind === "helmet") return <Crown size={size}/>;
-  if (kind === "body") return <Shirt size={size}/>;
-  if (kind === "gloves") return <Hand size={size}/>;
-  if (kind === "boots") return <Footprints size={size}/>;
-  if (kind === "offhand") return <Shield size={size}/>;
-  if (kind === "accessory") return <CircleDot size={size}/>;
-  if (kind === "weapon") return <Sword size={size}/>;
-  return <Backpack size={size}/>;
+function ItemArtwork({ item, compact = false }: { item: ImportedPobItem; compact?: boolean }) {
+  return <span className={clsx("planner-item-art", `is-${itemKind(item)}`, compact && "is-compact")}>
+    {item.icon
+      ? <img src={item.icon} alt="" draggable={false}/>
+      : <b title="Official artwork is unavailable for this imported item">{(item.baseType || item.name).replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "?"}</b>}
+  </span>;
 }
 
 interface ItemVariantSelection {
@@ -262,65 +247,87 @@ export function presentPlannerItem(item: ImportedPobItem): PlannerItemPresentati
   };
 }
 
+const PAPER_DOLL_SLOTS = [
+  { key: "weapon-1", label: "Main hand", slots: ["Weapon 1", "Weapon"], area: "main" },
+  { key: "helmet", label: "Helmet", slots: ["Helmet", "Helm"], area: "helmet" },
+  { key: "weapon-2", label: "Off hand", slots: ["Weapon 2", "Off Hand", "Offhand"], area: "off" },
+  { key: "ring-1", label: "Left ring", slots: ["Ring 1", "Ring"], area: "ring1" },
+  { key: "body", label: "Body armour", slots: ["Body Armour"], area: "body" },
+  { key: "ring-2", label: "Right ring", slots: ["Ring 2"], area: "ring2" },
+  { key: "gloves", label: "Gloves", slots: ["Gloves"], area: "gloves" },
+  { key: "amulet", label: "Amulet", slots: ["Amulet"], area: "amulet" },
+  { key: "boots", label: "Boots", slots: ["Boots"], area: "boots" },
+  { key: "belt", label: "Belt", slots: ["Belt"], area: "belt" },
+] as const;
+
+function slotMatches(itemSlot: string, choices: readonly string[], swap = false) {
+  const normalized = itemSlot.replace(/\s+/g, " ").trim().toLowerCase();
+  const isSwap = /\bswap\b/i.test(normalized);
+  if (swap !== isSwap) return false;
+  const withoutSwap = normalized.replace(/\s*swap\s*$/i, "");
+  return choices.some((choice) => withoutSwap === choice.toLowerCase());
+}
+
 export function PlannerItemsPanel({ build, onChange }: { build: ImportedPobBuild | null; onChange: (build: ImportedPobBuild) => void }) {
-  const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(0);
+  const [weaponSet, setWeaponSet] = useState<1 | 2>(1);
   if (!build?.items.length) return <PlannerEmpty>Import a character or PoB build to inspect and edit its item loadout.</PlannerEmpty>;
   const presented = build.items.map((item) => ({ item, view: presentPlannerItem(item) }));
-  const needle = query.trim().toLowerCase();
-  const filtered = presented.filter(({ item, view }) => !needle || [
-    item.name,
-    item.baseType,
-    view.slotLabel,
-    ...view.properties.flatMap((property) => [property.label, property.value]),
-    ...view.modifiers.map((modifier) => modifier.text),
-  ].join(" ").toLowerCase().includes(needle));
-  const bySlotAndName = (left: typeof filtered[number], right: typeof filtered[number]) => left.view.slotLabel.localeCompare(right.view.slotLabel, "en", { numeric: true }) || left.item.name.localeCompare(right.item.name, "en");
-  const active = filtered.filter(({ item }) => item.equipped && item.slot).sort(bySlotAndName);
-  const stored = filtered.filter(({ item }) => !item.equipped || !item.slot).sort(bySlotAndName);
+  const equipped = presented.filter(({ item }) => item.equipped && item.slot);
+  const isSocketedJewel = (item: ImportedPobItem) => /^Jewel \d+$/i.test(item.slot) || /Abyssal Socket/i.test(item.slot);
+  const jewels = equipped.filter(({ item }) => isSocketedJewel(item));
+  const clusterJewels = jewels.filter(({ item }) => /cluster jewel/i.test(`${item.name} ${item.baseType}`));
+  const baseJewels = jewels.filter(({ item }) => !/cluster jewel/i.test(`${item.name} ${item.baseType}`));
+  const flasks = [1, 2, 3, 4, 5].map((index) => equipped.find(({ item }) => slotMatches(item.slot, [`Flask ${index}`, index === 1 ? "Flask" : ""])));
+  const alternatives = presented.filter(({ item }) => !item.equipped || !item.slot);
   const selected = presented.find(({ item }) => item.id === selectedId)
-    || active[0]
-    || stored[0]
+    || equipped.find(({ item }) => !isSocketedJewel(item))
+    || jewels[0]
     || presented[0];
   const toggle = (id: number) => {
-    const selected = build.items.find((item) => item.id === id);
-    if (!selected?.slot) return;
-    const equipped = !selected.equipped;
+    const target = build.items.find((item) => item.id === id);
+    if (!target?.slot) return;
+    const nextEquipped = !target.equipped;
     onChange({
       ...build,
       items: build.items.map((item) => item.id === id
-        ? { ...item, equipped }
-        : equipped && selected.slot && item.slot === selected.slot
+        ? { ...item, equipped: nextEquipped }
+        : nextEquipped && target.slot && item.slot === target.slot
           ? { ...item, equipped: false }
           : item),
     });
   };
-  const renderRows = (items: typeof filtered, title: string) => items.length > 0 && <section className="planner-item-list-section">
-    <header><strong>{title}</strong><span>{items.length}</span></header>
-    {items.map(({ item, view }) => <button
+  const paperSlot = (definition: typeof PAPER_DOLL_SLOTS[number]) => {
+    const entry = equipped.find(({ item }) => slotMatches(item.slot, definition.slots, weaponSet === 2 && /weapon/.test(definition.key)));
+    return <button
       type="button"
-      key={item.id}
-      className={clsx("planner-item-row", selected.item.id === item.id && "is-selected", `is-${view.rarity}`)}
-      onClick={() => setSelectedId(item.id)}
+      key={definition.key}
+      className={clsx("planner-paper-slot", `is-${definition.area}`, entry && `is-${entry.view.rarity}`, entry?.item.id === selected.item.id && "is-selected")}
+      onClick={() => entry && setSelectedId(entry.item.id)}
+      title={entry ? `${definition.label}: ${entry.item.name}` : `${definition.label}: empty`}
     >
-      <span className={clsx("planner-item-glyph", `is-${itemKind(item)}`)}><ItemGlyph item={item}/></span>
-      <span><small>{view.slotLabel}</small><strong>{item.name}</strong><em>{item.baseType && item.baseType !== item.name ? item.baseType : view.rarityLabel}</em></span>
-      {item.equipped ? <b>ON</b> : !item.slot ? <input type="checkbox" disabled aria-label={`${item.name} has no saved equipment slot`}/> : null}
-    </button>)}
+      {entry ? <><ItemArtwork item={entry.item}/><span>{entry.item.name}</span></> : <><i/><span>{definition.label}</span></>}
+    </button>;
+  };
+  const jewelTray = (title: string, entries: typeof jewels) => entries.length > 0 && <section className="planner-jewel-tray">
+    <header><strong>{title}</strong><small>{entries.length}</small></header>
+    <div>{entries.map(({ item, view }) => <button type="button" key={item.id} className={clsx(`is-${view.rarity}`, item.id === selected.item.id && "is-selected")} onClick={() => setSelectedId(item.id)} title={`${item.name} · ${view.slotLabel}`}><ItemArtwork item={item} compact/><span>{item.name}</span></button>)}</div>
   </section>;
   const selectedEquipped = Boolean(selected.item.equipped && selected.item.slot);
   return <div className="planner-items-panel">
-    <aside className="planner-equipment-column">
-      <header><span><Shield size={15}/><strong>Equipment</strong></span><small>{active.length} active</small></header>
-      <label className="planner-compact-search"><Search size={12}/><input aria-label="Search items, slots, or modifiers" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search items"/><small>{filtered.length}/{build.items.length}</small></label>
-      <div>{renderRows(active, "Active loadout")}{filtered.length === 0 && <PlannerEmpty>No items match this search.</PlannerEmpty>}</div>
-    </aside>
-    <section className="planner-item-inventory">
-      <header><span><Backpack size={15}/><strong>Imported inventory</strong></span><small>{stored.length} available</small></header>
-      <div>{renderRows(stored, "Other imported items")}</div>
+    <section className="planner-loadout-board">
+      <header><span><Shield size={15}/><strong>Equipment</strong><small>{equipped.length} equipped · official game artwork</small></span><div className="planner-weapon-set"><button type="button" className={weaponSet === 1 ? "is-active" : ""} onClick={() => setWeaponSet(1)}>I</button><button type="button" className={weaponSet === 2 ? "is-active" : ""} onClick={() => setWeaponSet(2)}>II</button></div></header>
+      <div className="planner-paper-doll">{PAPER_DOLL_SLOTS.map(paperSlot)}</div>
+      <section className="planner-flask-belt"><header><strong>Flasks</strong></header><div>{[1, 2, 3, 4, 5].map((index) => {
+        const entry = flasks[index - 1];
+        return <button type="button" key={index} className={clsx("planner-flask-slot", entry && `is-${entry.view.rarity}`, entry?.item.id === selected.item.id && "is-selected")} onClick={() => entry && setSelectedId(entry.item.id)} title={entry?.item.name || `Flask ${index}: empty`}>{entry ? <ItemArtwork item={entry.item}/> : <i/>}</button>;
+      })}</div></section>
+      {jewelTray("Cluster jewels", clusterJewels)}
+      {jewelTray("Base & Timeless jewels", baseJewels)}
+      {alternatives.length > 0 && <section className="planner-item-alternatives"><header><strong>Imported alternatives</strong><small>{alternatives.length}</small></header><div>{alternatives.map(({ item, view }) => <button type="button" key={item.id} className={clsx(`is-${view.rarity}`, item.id === selected.item.id && "is-selected")} onClick={() => setSelectedId(item.id)} title={`${item.name} · ${view.slotLabel}`}><ItemArtwork item={item} compact/><span><strong>{item.name}</strong><small>{view.slotLabel}</small></span></button>)}</div></section>}
     </section>
     <aside className={clsx("planner-item-inspector", `is-${selected.view.rarity}`)}>
-      <header><span className={clsx("planner-item-glyph", `is-${itemKind(selected.item)}`)}><ItemGlyph item={selected.item} size={23}/></span><span><small>{selected.view.slotLabel}</small><strong>{selected.item.name}</strong></span></header>
+      <header><ItemArtwork item={selected.item}/><span><small>{selected.view.slotLabel}</small><strong>{selected.item.name}</strong></span></header>
       <div className="planner-item-identity"><small>{selected.view.rarityLabel}</small>{selected.item.baseType && selected.item.baseType !== selected.item.name && <span>{selected.item.baseType}</span>}</div>
       <label className="planner-item-loadout" title={selected.item.slot ? `${selectedEquipped ? "Remove" : "Equip"} ${selected.item.name}` : "This imported item has no saved equipment slot"}><input type="checkbox" checked={selectedEquipped} disabled={!selected.item.slot} onChange={() => toggle(selected.item.id)}/><span>{selectedEquipped ? "Equipped" : selected.item.slot ? "Equip in this slot" : "No saved slot"}</span></label>
       {selected.view.statuses.length > 0 && <div className="planner-item-badges">{selected.view.statuses.map((status) => <b key={status}>{status}</b>)}</div>}
@@ -346,18 +353,29 @@ export function PlannerSkillsPanel({ build, onChange }: { build: ImportedPobBuil
   });
   const selectedGroupIndex = Math.max(0, build.skillGroups.findIndex((group) => group.id === selectedGroupId));
   const selected = build.skillGroups[selectedGroupIndex];
+  const isSupport = (gem: typeof selected.gems[number]) => gem.support === true || /support/i.test(`${gem.skillId} ${gem.gemId || ""}`);
+  const activeSkills = selected.activeSkills?.length
+    ? selected.activeSkills
+    : selected.gems.filter((gem) => gem.enabled && !isSupport(gem)).map((gem, index) => ({ index: index + 1, name: gem.name }));
+  const selectedActiveSkill = activeSkills.find((skill) => skill.index === (selected.mainActiveSkill || 1)) || activeSkills[0];
+  const gemArtwork = (gem: typeof selected.gems[number], compact = false) => <span className={clsx("planner-gem-art", compact && "is-compact", isSupport(gem) && "is-support")}>
+    {gem.icon ? <img src={gem.icon} alt="" draggable={false}/> : <b title="Official gem artwork is unavailable">{gem.name.slice(0, 1)}</b>}
+  </span>;
   return <div className="planner-skills-workbench">
     <aside className="planner-skill-groups">
       <header><span><Sparkles size={15}/><strong>Socket groups</strong></span><small>{build.skillGroups.length} groups</small></header>
-      <div>{build.skillGroups.map((group, groupIndex) => <button type="button" key={group.id} className={clsx(selected.id === group.id && "is-selected", !group.enabled && "is-disabled")} onClick={() => setSelectedGroupId(group.id)}>
-        <span className="planner-skill-orb">{group.gems.length}</span><span><small>{group.slot}</small><strong>{group.label || group.gems[0]?.name || `Skill group ${groupIndex + 1}`}</strong><em>{group.gems.map((gem) => gem.name).join(" · ")}</em></span>{group.includeInFullDps && <b>DPS</b>}
-      </button>)}</div>
+      <div>{build.skillGroups.map((group, groupIndex) => {
+        const representative = group.gems.find((gem) => gem.enabled && !(gem.support === true || /support/i.test(`${gem.skillId} ${gem.gemId || ""}`))) || group.gems[0];
+        return <button type="button" key={group.id} className={clsx(selected.id === group.id && "is-selected", !group.enabled && "is-disabled", build.mainSocketGroup === groupIndex + 1 && "is-main")} onClick={() => setSelectedGroupId(group.id)}>
+        {representative ? gemArtwork(representative, true) : <span className="planner-gem-art is-compact"><b>0</b></span>}<span><small>{group.slot}</small><strong>{group.label || group.gems[0]?.name || `Skill group ${groupIndex + 1}`}</strong><em>{group.gems.map((gem) => gem.name).join(" · ")}</em></span><b>{build.mainSocketGroup === groupIndex + 1 ? "MAIN" : group.includeInFullDps ? "DPS" : ""}</b>
+      </button>;})}</div>
     </aside>
     <section className="planner-skill-editor">
       <header><span><small>{selected.slot}</small><strong>{selected.label || selected.gems[0]?.name || "Socket group"}</strong></span><label><input type="checkbox" checked={selected.enabled} onChange={(event) => updateGroup(selectedGroupIndex, { enabled: event.target.checked })}/> Group enabled</label></header>
-      <div className="planner-skill-options"><label><input type="checkbox" checked={selected.includeInFullDps} onChange={(event) => updateGroup(selectedGroupIndex, { includeInFullDps: event.target.checked })}/> Include in Full DPS</label><span>{selected.gems.filter((gem) => gem.enabled).length}/{selected.gems.length} enabled</span></div>
+      <div className="planner-main-skill-controls"><label><span>Main socket group</span><button type="button" className={build.mainSocketGroup === selectedGroupIndex + 1 ? "is-active" : ""} onClick={() => onChange({ ...build, mainSocketGroup: selectedGroupIndex + 1 })}>{build.mainSocketGroup === selectedGroupIndex + 1 ? "Selected for calculations" : "Use this group"}</button></label><label><span>Main active skill</span><select aria-label="Main active skill" value={selectedActiveSkill?.index || 1} disabled={!activeSkills.length} onChange={(event) => updateGroup(selectedGroupIndex, { mainActiveSkill: Number(event.target.value), mainActiveSkillCalcs: Number(event.target.value) })}>{activeSkills.map((skill) => <option key={`${skill.index}-${skill.name}`} value={skill.index}>{skill.name}</option>)}</select></label></div>
+      <div className="planner-skill-options"><label><input type="checkbox" checked={selected.includeInFullDps} onChange={(event) => updateGroup(selectedGroupIndex, { includeInFullDps: event.target.checked })}/> Include in Full DPS</label><span>{selected.gems.filter((gem) => gem.enabled).length}/{selected.gems.length} enabled · recalculation uses the selected group and skill</span></div>
       <div className="planner-gem-editor-list">{selected.gems.map((gem, gemIndex) => <article key={`${gem.skillId}-${gemIndex}`} className={!gem.enabled ? "is-disabled" : ""}>
-        <label className="planner-gem-toggle"><input type="checkbox" checked={gem.enabled} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { enabled: event.target.checked })}/><span className="planner-gem-orb">{gem.name.slice(0, 1)}</span><span><strong>{gem.name}</strong><small>{gem.skillId || gem.gemId}</small></span></label>
+        <label className="planner-gem-toggle"><input type="checkbox" checked={gem.enabled} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { enabled: event.target.checked })}/>{gemArtwork(gem)}<span><strong>{gem.name}</strong><small>{isSupport(gem) ? "Support gem" : "Active gem"} · {gem.skillId || gem.gemId}</small></span></label>
         <span className="planner-gem-values"><label>LEVEL<input type="number" min="1" max="40" value={gem.level} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { level: Math.max(1, Math.min(40, Number(event.target.value) || 1)) })}/></label><label>QUALITY<input type="number" min="0" max="100" value={gem.quality} onChange={(event) => updateGem(selectedGroupIndex, gemIndex, { quality: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })}/></label></span>
       </article>)}</div>
     </section>

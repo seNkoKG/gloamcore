@@ -647,6 +647,27 @@ function validateWorkerPayload(payload, installation) {
       return failure("POB_RESULT_INVALID", "Path of Building returned a non-scalar or non-finite output value.");
     }
   }
+  if (payload.skillGroups != null) {
+    if (!Array.isArray(payload.skillGroups) || payload.skillGroups.length > 256) {
+      return failure("POB_RESULT_INVALID", "Path of Building returned an invalid socket-group list.");
+    }
+    for (const group of payload.skillGroups) {
+      if (!group || typeof group !== "object" || !Number.isInteger(group.index) || group.index < 1
+        || typeof group.label !== "string" || group.label.length > 512
+        || !Number.isInteger(group.mainActiveSkill) || group.mainActiveSkill < 1
+        || !Array.isArray(group.activeSkills) || group.activeSkills.length > 128) {
+        return failure("POB_RESULT_INVALID", "Path of Building returned a malformed socket group.");
+      }
+      for (const skill of group.activeSkills) {
+        if (!skill || typeof skill !== "object" || !Number.isInteger(skill.index) || skill.index < 1
+          || typeof skill.name !== "string" || skill.name.length > 512
+          || !Array.isArray(skill.parts) || skill.parts.length > 32
+          || skill.parts.some((part) => typeof part !== "string" || part.length > 512)) {
+          return failure("POB_RESULT_INVALID", "Path of Building returned a malformed active skill.");
+        }
+      }
+    }
+  }
   return null;
 }
 
@@ -771,6 +792,8 @@ function validateImportWorkerPayload(payload, installation) {
   if (payload.warnings != null && (!Array.isArray(payload.warnings) || payload.warnings.length > 32)) {
     return failure("POB_IMPORT_RESULT_INVALID", "Path of Building returned an invalid character-import warning list.");
   }
+  const calculationValidation = validateWorkerPayload(payload, installation);
+  if (calculationValidation) return calculationValidation;
   return null;
 }
 
@@ -846,6 +869,7 @@ async function calculateInternal(input, options = {}) {
       ascendancyName: payload.ascendancyName ?? null,
       mainSocketGroup: payload.mainSocketGroup ?? null,
       mainSkillName: payload.mainSkillName ?? null,
+      skillGroups: Array.isArray(payload.skillGroups) ? payload.skillGroups : [],
       scalarCount: payload.scalarCount,
       stats: payload.stats,
       warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
@@ -1112,6 +1136,17 @@ async function importCharacterInternal(input, options = {}) {
       bridgeFingerprint: resources.fingerprint,
     },
     warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
+    calculation: {
+      outputRevision: payload.outputRevision ?? null,
+      targetVersion: payload.targetVersion ?? null,
+      className: payload.className ?? null,
+      ascendancyName: payload.ascendancyName ?? null,
+      mainSocketGroup: payload.mainSocketGroup ?? null,
+      mainSkillName: payload.mainSkillName ?? null,
+      skillGroups: Array.isArray(payload.skillGroups) ? payload.skillGroups : [],
+      scalarCount: payload.scalarCount,
+      stats: payload.stats,
+    },
     engineMilliseconds: Number.isFinite(payload.importMilliseconds) ? payload.importMilliseconds : null,
     durationMilliseconds: Date.now() - startedAt,
     isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },

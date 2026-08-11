@@ -20,6 +20,8 @@ export interface ImportedPobItem {
   baseType: string;
   slot: string;
   equipped: boolean;
+  /** Official game artwork URL. Kept outside PoB XML and stored only in the user's local workspace. */
+  icon?: string;
 }
 
 export interface ImportedPobGem {
@@ -33,6 +35,15 @@ export interface ImportedPobGem {
   enableGlobal1?: boolean;
   enableGlobal2?: boolean;
   count?: number;
+  /** Official game artwork URL. Kept outside PoB XML and stored only in the user's local workspace. */
+  icon?: string;
+  support?: boolean;
+}
+
+export interface ImportedPobActiveSkill {
+  index: number;
+  name: string;
+  parts?: string[];
 }
 
 export interface ImportedPobSkillGroup {
@@ -46,6 +57,7 @@ export interface ImportedPobSkillGroup {
   mainActiveSkillCalcs?: number;
   groupCount?: number;
   source?: string;
+  activeSkills?: ImportedPobActiveSkill[];
   gems: ImportedPobGem[];
 }
 
@@ -135,6 +147,148 @@ function itemIdentity(text: string) {
   const candidates = lines.slice(rarityIndex + 1, separator < 0 ? rarityIndex + 4 : separator).filter(Boolean);
   if (candidates.length >= 2) return { name: candidates[0], baseType: candidates[1] };
   return { name: candidates[0] || "Imported item", baseType: candidates[0] || "" };
+}
+
+export function trustedPoeIconUrl(value: unknown) {
+  if (typeof value !== "string" || value.length > 2_048) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "web.poecdn.com"
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizedAssetName(value: unknown) {
+  return String(value || "")
+    .replace(/<<[^>]+>>/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function canonicalEquipmentSlot(value: unknown) {
+  const slot = String(value || "").replace(/[^a-z0-9]+/gi, "").toLowerCase();
+  const aliases: Record<string, string> = {
+    weapon: "weapon1",
+    weapon1: "weapon1",
+    mainhand: "weapon1",
+    offhand: "weapon2",
+    weapon2: "weapon2",
+    helm: "helmet",
+    helmet: "helmet",
+    bodyarmour: "bodyarmour",
+    bodyarmor: "bodyarmour",
+    chest: "bodyarmour",
+    gloves: "gloves",
+    boots: "boots",
+    amulet: "amulet",
+    ring: "ring1",
+    ring1: "ring1",
+    ring2: "ring2",
+    belt: "belt",
+    flask: "flask1",
+    flask1: "flask1",
+    flask2: "flask2",
+    flask3: "flask3",
+    flask4: "flask4",
+    flask5: "flask5",
+    weapon1swap: "weapon1swap",
+    weapon2swap: "weapon2swap",
+    weaponswap: "weapon1swap",
+    offhandswap: "weapon2swap",
+  };
+  return aliases[slot] || slot;
+}
+
+function characterCollections(character: Record<string, unknown>) {
+  const arrays = [character.equipment, character.inventory, character.jewels]
+    .filter(Array.isArray) as unknown[][];
+  const queue = arrays.flat().filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object");
+  const items: Record<string, unknown>[] = [];
+  const seen = new Set<Record<string, unknown>>();
+  while (queue.length) {
+    const item = queue.shift();
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    items.push(item);
+    if (Array.isArray(item.socketedItems)) {
+      queue.push(...item.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object"));
+    }
+  }
+  return items;
+}
+
+function rawCharacterItemNames(item: Record<string, unknown>) {
+  return [item.name, item.typeLine, item.baseType]
+    .map(normalizedAssetName)
+    .filter(Boolean);
+}
+
+function itemUniqueId(item: ImportedPobItem) {
+  return /^Unique ID:\s*(.+)$/im.exec(item.text)?.[1]?.trim() || "";
+}
+
+/**
+ * Reattaches official item and gem artwork that PoB necessarily drops when it
+ * serializes an official character payload to XML. No account data is copied;
+ * only already-public web.poecdn.com image URLs are retained in local state.
+ */
+export function enrichPobBuildWithCharacterAssets(
+  build: ImportedPobBuild,
+  character: Record<string, unknown>,
+) {
+  const rawItems = characterCollections(character);
+  const rawById = new Map(rawItems.flatMap((item) => {
+    const id = typeof item.id === "string" ? item.id.trim() : "";
+    return id ? [[id, item] as const] : [];
+  }));
+  const equipment = rawItems.filter((item) => canonicalEquipmentSlot(item.inventoryId));
+  const rawForBuildItem = (item: ImportedPobItem) => {
+    const uniqueId = itemUniqueId(item);
+    if (uniqueId && rawById.has(uniqueId)) return rawById.get(uniqueId);
+    const slot = canonicalEquipmentSlot(item.slot);
+    const itemNames = [normalizedAssetName(item.name), normalizedAssetName(item.baseType)].filter(Boolean);
+    const candidates = slot
+      ? equipment.filter((candidate) => canonicalEquipmentSlot(candidate.inventoryId) === slot)
+      : rawItems;
+    return candidates.find((candidate) => rawCharacterItemNames(candidate).some((name) => itemNames.includes(name)))
+      || rawItems.find((candidate) => rawCharacterItemNames(candidate).some((name) => itemNames.includes(name)));
+  };
+  const items = build.items.map((item) => {
+    const raw = rawForBuildItem(item);
+    const icon = trustedPoeIconUrl(raw?.icon);
+    return icon ? { ...item, icon } : item;
+  });
+
+  const allSocketed = rawItems.flatMap((item) => Array.isArray(item.socketedItems)
+    ? item.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+    : []);
+  const usedSocketed = new Set<Record<string, unknown>>();
+  const skillGroups = build.skillGroups.map((group) => {
+    const slot = canonicalEquipmentSlot(group.slot);
+    const slotItem = rawItems.find((item) => slot && canonicalEquipmentSlot(item.inventoryId) === slot);
+    const localSocketed = Array.isArray(slotItem?.socketedItems)
+      ? slotItem.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+      : [];
+    const gems = group.gems.map((gem) => {
+      const name = normalizedAssetName(gem.name);
+      const candidates = [...localSocketed, ...allSocketed].filter((candidate) => !usedSocketed.has(candidate));
+      const raw = candidates.find((candidate) => rawCharacterItemNames(candidate).includes(name));
+      if (!raw) return gem;
+      usedSocketed.add(raw);
+      const icon = trustedPoeIconUrl(raw.icon);
+      return {
+        ...gem,
+        ...(icon ? { icon } : {}),
+        ...(typeof raw.support === "boolean" ? { support: raw.support } : {}),
+      };
+    });
+    return { ...group, gems };
+  });
+  return { ...build, items, skillGroups };
 }
 
 function valueFromInput(attrs: Record<string, string>) {
@@ -896,6 +1050,7 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
       baseType: typeof item.baseType === "string" && item.baseType.trim() ? item.baseType : identity.baseType,
       slot,
       equipped: typeof item.equipped === "boolean" ? item.equipped : Boolean(slot),
+      ...(trustedPoeIconUrl(item.icon) ? { icon: trustedPoeIconUrl(item.icon) } : {}),
     }];
   }) : [];
   const skillGroups = Array.isArray(source.skillGroups) ? source.skillGroups.flatMap((rawGroup, groupIndex) => {
@@ -915,8 +1070,20 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
         ...(typeof gem.enableGlobal1 === "boolean" ? { enableGlobal1: gem.enableGlobal1 } : {}),
         ...(typeof gem.enableGlobal2 === "boolean" ? { enableGlobal2: gem.enableGlobal2 } : {}),
         ...(Number.isFinite(Number(gem.count)) ? { count: Number(gem.count) } : {}),
+        ...(trustedPoeIconUrl(gem.icon) ? { icon: trustedPoeIconUrl(gem.icon) } : {}),
+        ...(typeof gem.support === "boolean" ? { support: gem.support } : {}),
       }];
     }) : [];
+    const activeSkills = Array.isArray(group.activeSkills) ? group.activeSkills.flatMap((rawSkill, skillIndex) => {
+      if (!rawSkill || typeof rawSkill !== "object") return [];
+      const skill = record(rawSkill);
+      const name = typeof skill.name === "string" ? skill.name.trim().slice(0, 200) : "";
+      if (!name) return [];
+      const parts = Array.isArray(skill.parts)
+        ? skill.parts.filter((part): part is string => typeof part === "string" && Boolean(part.trim())).map((part) => part.slice(0, 200)).slice(0, 32)
+        : undefined;
+      return [{ index: Math.max(1, finiteInteger(skill.index, skillIndex + 1)), name, ...(parts?.length ? { parts } : {}) }];
+    }) : undefined;
     const slot = typeof group.slot === "string" ? group.slot : "";
     return [{
       id: typeof group.id === "string" && group.id ? group.id : `skill-${groupIndex + 1}`,
@@ -929,6 +1096,7 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
       ...(Number.isFinite(Number(group.mainActiveSkillCalcs)) ? { mainActiveSkillCalcs: Number(group.mainActiveSkillCalcs) } : {}),
       ...(Number.isFinite(Number(group.groupCount)) ? { groupCount: Number(group.groupCount) } : {}),
       ...(typeof group.source === "string" ? { source: group.source } : {}),
+      ...(activeSkills?.length ? { activeSkills } : {}),
       gems,
     }];
   }) : [];

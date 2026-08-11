@@ -356,7 +356,10 @@ export function formatPobStatValue(stat: Pick<ImportedPobStat, "value" | "percen
   const value = stat.value;
   if (!Number.isFinite(value)) return "—";
   if (stat.name === "CritMultiplier") return `${Number((value * 100).toFixed(1))}%`;
-  if (stat.name === "EffectiveMovementSpeedMod") return `${Number((value * 100).toFixed(1))}%`;
+  if (stat.name === "EffectiveMovementSpeedMod") {
+    const percent = Number(((value - 1) * 100).toFixed(1));
+    return `${percent > 0 ? "+" : ""}${percent}%`;
+  }
   const absolute = Math.abs(value);
   const formatted = absolute >= 1_000_000
     ? `${Number((value / 1_000_000).toFixed(2))}m`

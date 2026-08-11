@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PassiveTreeData, PassiveTreeNodeData } from "../../types";
-import { emptyPobBuild, itemsWithPassiveSpecLoadout, parsePobXml, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout } from "./pob-build";
+import { emptyPobBuild, enrichPobBuildWithCharacterAssets, itemsWithPassiveSpecLoadout, parsePobXml, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout } from "./pob-build";
 import { applyImportedMasteryEffects } from "./cluster-jewel-graph";
 import {
   comparePlannerBuilds,
@@ -325,6 +325,25 @@ describe("Path of Building XML import", () => {
     ]);
     expect(pobStatPercent("CritChance")).toBe(true);
     expect(pobStatPercent("EffectiveMovementSpeedMod")).toBe(false);
+  });
+
+  it("retains only trusted official artwork from character imports", () => {
+    const build = parsePobXml(`<PathOfBuilding><Build mainSocketGroup="1"/><Tree><Spec nodes="1"/></Tree><Items activeItemSet="1"><Item id="7">Rarity: RARE\nStorm Crown\nHubris Circlet\n--------\nUnique ID: helmet-id</Item><ItemSet id="1"><Slot name="Helmet" itemId="7"/></ItemSet></Items><Skills><SkillSet id="1"><Skill slot="Helmet"><Gem nameSpec="Kinetic Blast" skillId="KineticBlast" level="20" quality="0"/></Skill></SkillSet></Skills></PathOfBuilding>`);
+    const enriched = enrichPobBuildWithCharacterAssets(build, {
+      equipment: [{
+        id: "helmet-id",
+        inventoryId: "Helm",
+        name: "Storm Crown",
+        typeLine: "Hubris Circlet",
+        icon: "https://web.poecdn.com/image/helmet.png",
+        socketedItems: [{ typeLine: "Kinetic Blast", icon: "https://web.poecdn.com/image/kinetic-blast.png", support: false }],
+      }],
+      jewels: [{ id: "bad", typeLine: "Cobalt Jewel", icon: "https://example.com/tracker.png" }],
+    });
+
+    expect(enriched.items[0].icon).toBe("https://web.poecdn.com/image/helmet.png");
+    expect(enriched.skillGroups[0].gems[0]).toMatchObject({ icon: "https://web.poecdn.com/image/kinetic-blast.png", support: false });
+    expect(JSON.stringify(enriched)).not.toContain("example.com");
   });
 
   it("exports edited trees and skills without dropping PoB-only spec children", () => {
@@ -696,6 +715,8 @@ describe("planner saved builds and comparisons", () => {
     expect(comparison.removedGems[0]).toContain("Grace");
     expect(comparison.stats[0]).toMatchObject({ name: "Life", delta: 500 });
     expect(formatPobStatValue(nextBuild.playerStats[0])).toBe("4,500");
+    expect(formatPobStatValue({ name: "CritMultiplier", value: 5.21, percent: false })).toBe("521%");
+    expect(formatPobStatValue({ name: "EffectiveMovementSpeedMod", value: 1.19, percent: false })).toBe("+19%");
   });
 });
 

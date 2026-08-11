@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 2.6.0
+
+- Replaced placeholder planner item rows with a PoE-style equipment paper doll,
+  weapon-set controls, flasks, cluster/base/timeless jewel trays, and a focused
+  item inspector.
+- Retained trusted official Path of Exile CDN artwork from character imports
+  for equipment, active and support gems, passive-tree jewels, and nested Abyss
+  jewels while keeping local fallback presentation deterministic.
+- Added explicit main socket-group and main active-skill controls matching Path
+  of Building, including Full DPS membership and per-gem enable, level, and
+  quality state.
+- Extended the isolated local PoB worker to return authoritative skill metadata
+  and display-stat semantics, correcting critical multiplier, movement speed,
+  suppression, block, recovery, Hit DPS, and Full DPS presentation.
+- Kept restored planner workspaces private to each operating-system user; no
+  imported characters, tokens, caches, or local planner data ship in GitHub or
+  release packages.
+
 ## 2.5.0
 
 - Rebuilt the Build Planner around a compact build context bar, persistent

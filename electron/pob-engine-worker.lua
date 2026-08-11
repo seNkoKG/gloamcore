@@ -231,6 +231,88 @@ else
 end
 
 local startedAt = os.clock()
+
+local function collectSkillGroups()
+	local groups = { }
+	local socketGroups = build.skillsTab and build.skillsTab.socketGroupList or { }
+	for groupIndex, group in ipairs(socketGroups) do
+		local activeSkills = { }
+		for skillIndex, activeSkill in ipairs(group.displaySkillList or { }) do
+			local grantedEffect = activeSkill.activeEffect and activeSkill.activeEffect.grantedEffect
+			local parts = { }
+			for _, part in ipairs(grantedEffect and grantedEffect.parts or { }) do
+				if type(part.name) == "string" and part.name ~= "" then table.insert(parts, part.name) end
+			end
+			table.insert(activeSkills, {
+				index = skillIndex,
+				name = tostring(grantedEffect and grantedEffect.name or group.displayLabel or group.label or ("Skill " .. skillIndex)),
+				parts = parts,
+			})
+		end
+		table.insert(groups, {
+			index = groupIndex,
+			label = tostring(group.displayLabel or group.label or ("Socket group " .. groupIndex)),
+			mainActiveSkill = math.max(1, math.floor(tonumber(group.mainActiveSkill) or 1)),
+			activeSkills = activeSkills,
+		})
+	end
+	return groups
+end
+
+local function collectCalculationOutput()
+	local output = build.calcsTab and build.calcsTab.mainOutput
+	if type(output) ~= "table" then error("Path of Building produced no main calculation output.") end
+	local stats = { }
+	local scalarCount = 0
+	for key, value in pairs(output) do
+		if type(key) == "string" and scalarCount < MAX_SCALAR_STATS then
+			local valueType = type(value)
+			if valueType == "number" then
+				if value == value and value ~= math.huge and value ~= -math.huge then
+					stats[key] = value
+					scalarCount = scalarCount + 1
+				end
+			elseif valueType == "string" or valueType == "boolean" then
+				stats[key] = value
+				scalarCount = scalarCount + 1
+			end
+		end
+	end
+	-- PoB intentionally combines player and minion output for its comparison and
+	-- sidebar damage stats. Preserve that exact behavior instead of leaking the
+	-- raw mainOutput fallback used by older GloamCore releases.
+	local combinedDamageStats = {
+		FullDPS = true, CombinedDPS = true, TotalDPS = true, WithImpaleDPS = true,
+		AverageDamage = true, TotalDot = true, TotalDotDPS = true, BleedDPS = true,
+		IgniteDPS = true, PoisonDPS = true,
+	}
+	if data and data.powerStatList and type(data.powerStatList.GetFromOutput) == "function" then
+		for _, statEntry in ipairs(data.powerStatList) do
+			if statEntry.stat and combinedDamageStats[statEntry.stat] then
+				local value = data.powerStatList.GetFromOutput(output, statEntry)
+				if type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge then
+					if stats[statEntry.stat] == nil then scalarCount = scalarCount + 1 end
+					stats[statEntry.stat] = value
+				end
+			end
+		end
+	end
+	local skillGroups = collectSkillGroups()
+	local mainGroup = skillGroups[build.mainSocketGroup]
+	local mainActiveSkill = mainGroup and mainGroup.activeSkills[mainGroup.mainActiveSkill]
+	return {
+		outputRevision = build.outputRevision,
+		targetVersion = build.targetVersion,
+		className = build.spec and build.spec.curClassName or nil,
+		ascendancyName = build.spec and build.spec.curAscendClassName or nil,
+		mainSocketGroup = build.mainSocketGroup,
+		mainSkillName = mainActiveSkill and mainActiveSkill.name or (mainGroup and mainGroup.label or nil),
+		skillGroups = skillGroups,
+		scalarCount = scalarCount,
+		stats = stats,
+	}
+end
+
 local ok, result = xpcall(function()
 	if operation == "import-character" then
 		-- Use PoB's own ImportTab implementation. This is the authoritative path for
@@ -246,6 +328,7 @@ local ok, result = xpcall(function()
 		if fatalDataWarning then
 			error(fatalDataWarning)
 		end
+		local calculation = collectCalculationOutput()
 		local importedXml = build:SaveDB("code")
 		if type(importedXml) ~= "string"
 			or #importedXml == 0
@@ -261,6 +344,15 @@ local ok, result = xpcall(function()
 			engineBranch = launch and launch.versionBranch or nil,
 			enginePlatform = launch and launch.versionPlatform or nil,
 			importedXml = importedXml,
+			outputRevision = calculation.outputRevision,
+			targetVersion = calculation.targetVersion,
+			className = calculation.className,
+			ascendancyName = calculation.ascendancyName,
+			mainSocketGroup = calculation.mainSocketGroup,
+			mainSkillName = calculation.mainSkillName,
+			skillGroups = calculation.skillGroups,
+			scalarCount = calculation.scalarCount,
+			stats = calculation.stats,
 			warnings = warnings,
 			importMilliseconds = math.floor((os.clock() - startedAt) * 1000),
 			readOnly = true,
@@ -621,32 +713,7 @@ local ok, result = xpcall(function()
 			freshProcess = true,
 		}
 	end
-	local output = build.calcsTab and build.calcsTab.mainOutput
-	if type(output) ~= "table" then
-		error("Path of Building produced no main calculation output.")
-	end
-
-	local stats = { }
-	local scalarCount = 0
-	for key, value in pairs(output) do
-		if type(key) == "string" and scalarCount < MAX_SCALAR_STATS then
-			local valueType = type(value)
-			if valueType == "number" then
-				if value == value and value ~= math.huge and value ~= -math.huge then
-					stats[key] = value
-					scalarCount = scalarCount + 1
-				end
-			elseif valueType == "string" or valueType == "boolean" then
-				stats[key] = value
-				scalarCount = scalarCount + 1
-			end
-		end
-	end
-
-	local mainGroup = build.skillsTab
-		and build.skillsTab.socketGroupList
-		and build.skillsTab.socketGroupList[build.mainSocketGroup]
-	local mainSkillName = mainGroup and (mainGroup.displayLabel or mainGroup.label) or nil
+	local calculation = collectCalculationOutput()
 
 	return {
 		ok = true,
@@ -654,14 +721,15 @@ local ok, result = xpcall(function()
 		engineVersion = launch and launch.versionNumber or nil,
 		engineBranch = launch and launch.versionBranch or nil,
 		enginePlatform = launch and launch.versionPlatform or nil,
-		outputRevision = build.outputRevision,
-		targetVersion = build.targetVersion,
-		className = build.spec and build.spec.curClassName or nil,
-		ascendancyName = build.spec and build.spec.curAscendClassName or nil,
-		mainSocketGroup = build.mainSocketGroup,
-		mainSkillName = mainSkillName,
-		scalarCount = scalarCount,
-		stats = stats,
+		outputRevision = calculation.outputRevision,
+		targetVersion = calculation.targetVersion,
+		className = calculation.className,
+		ascendancyName = calculation.ascendancyName,
+		mainSocketGroup = calculation.mainSocketGroup,
+		mainSkillName = calculation.mainSkillName,
+		skillGroups = calculation.skillGroups,
+		scalarCount = calculation.scalarCount,
+		stats = calculation.stats,
 		warnings = warnings,
 		calculationMilliseconds = math.floor((os.clock() - startedAt) * 1000),
 		readOnly = true,

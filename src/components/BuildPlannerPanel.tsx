@@ -45,6 +45,7 @@ import {
 import { bridge } from "../lib/bridge";
 import {
   emptyPobBuild,
+  enrichPobBuildWithCharacterAssets,
   parsePobXml,
   pobStatCategory,
   pobStatLabel,
@@ -100,6 +101,8 @@ import type {
   PassiveTreeNodeData,
   PassiveTreeSpriteRect,
   PobEngineDiagnostic,
+  PobEngineScalar,
+  PobEngineSkillGroup,
   PobNodePower,
   PobTimelessAffectedNode,
   PobTimelessHuntResultEntry,
@@ -149,10 +152,62 @@ function railStat(build: ImportedPobBuild | null, ...names: string[]) {
 
 function railValue(stat: ReturnType<typeof railStat>, suffix = "") {
   if (!stat) return "—";
+  if (stat.name === "CritMultiplier") return `${Number((stat.value * 100).toFixed(1)).toLocaleString("en-US")}%`;
+  if (stat.name === "EffectiveMovementSpeedMod") {
+    const percent = Number(((stat.value - 1) * 100).toFixed(1));
+    return `${percent > 0 ? "+" : ""}${percent.toLocaleString("en-US")}%`;
+  }
   const value = Math.abs(stat.value) >= 1000
     ? Math.round(stat.value).toLocaleString("en-US")
     : Number(stat.value.toFixed(Math.abs(stat.value) < 10 ? 2 : 1)).toLocaleString("en-US");
   return `${value}${stat.percent ? "%" : suffix}`;
+}
+
+function playerStatsFromEngine(stats: Record<string, PobEngineScalar>) {
+  return Object.entries(stats)
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]))
+    .map(([name, value]) => ({
+      name,
+      label: pobStatLabel(name),
+      value,
+      category: pobStatCategory(name),
+      percent: pobStatPercent(name),
+    }));
+}
+
+function buildWithEngineCalculation(
+  build: ImportedPobBuild,
+  calculation: {
+    stats: Record<string, PobEngineScalar>;
+    mainSocketGroup: number | null;
+    skillGroups: PobEngineSkillGroup[];
+    className?: string | null;
+    ascendancyName?: string | null;
+  },
+) {
+  const metadata = new Map(calculation.skillGroups.map((group) => [group.index, group]));
+  return {
+    ...build,
+    className: calculation.className || build.className,
+    ascendancyName: calculation.ascendancyName && calculation.ascendancyName !== "None"
+      ? calculation.ascendancyName
+      : build.ascendancyName,
+    mainSocketGroup: calculation.mainSocketGroup || build.mainSocketGroup,
+    skillGroups: build.skillGroups.map((group, index) => {
+      const engineGroup = metadata.get(index + 1);
+      return engineGroup ? {
+        ...group,
+        mainActiveSkill: engineGroup.mainActiveSkill,
+        activeSkills: engineGroup.activeSkills.map((skill) => ({
+          index: skill.index,
+          name: skill.name,
+          ...(skill.parts.length ? { parts: skill.parts } : {}),
+        })),
+      } : group;
+    }),
+    playerStats: playerStatsFromEngine(calculation.stats),
+    statSource: "pob-engine" as const,
+  };
 }
 
 function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calculating }: {
@@ -162,8 +217,9 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
   onRecalculate: () => void;
   calculating: boolean;
 }) {
-  const mainSkill = build?.skillGroups.find((group) => group.includeInFullDps && group.enabled)
+  const mainSkill = build?.skillGroups[Math.max(0, (build.mainSocketGroup || 1) - 1)]
     || build?.skillGroups.find((group) => group.enabled);
+  const mainActiveSkill = mainSkill?.activeSkills?.find((skill) => skill.index === (mainSkill.mainActiveSkill || 1));
   const sections = [
     { title: "Offence", rows: [
       ["Full DPS", railStat(build, "FullDPS", "CombinedDPS", "TotalDPS")],
@@ -177,7 +233,7 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
       ["Evasion", railStat(build, "Evasion")],
       ["Attack block", railStat(build, "BlockChance")],
       ["Spell block", railStat(build, "SpellBlockChance")],
-      ["Suppression", railStat(build, "SpellSuppressionChance")],
+      ["Suppression", railStat(build, "EffectiveSpellSuppressionChance", "SpellSuppressionChance")],
     ] },
     { title: "Recovery", rows: [
       ["Life regen", railStat(build, "LifeRegen", "LifeRegenRecovery")],
@@ -202,7 +258,7 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
         <span><strong>{railValue(railStat(build, "EnergyShield"))}</strong><small>ES</small></span>
         <span><strong>{railValue(railStat(build, "ManaUnreserved", "Mana"))}</strong><small>Mana</small></span>
       </div>
-      <section className="planner-active-skill"><small>Active skill</small><strong>{mainSkill?.label || mainSkill?.gems.find((gem) => gem.enabled)?.name || "No evaluated skill"}</strong></section>
+      <section className="planner-active-skill"><small>Main skill</small><strong>{mainActiveSkill?.name || mainSkill?.gems.find((gem) => gem.enabled && gem.support !== true)?.name || mainSkill?.label || "No evaluated skill"}</strong></section>
       {!build?.playerStats.length && <button type="button" className="planner-stat-empty" onClick={onRecalculate} disabled={calculating || !build}>
         {calculating ? <LoaderCircle className="is-spinning" size={13}/> : <CircleGauge size={13}/>} Calculate build stats
       </button>}
@@ -578,6 +634,7 @@ function PassiveTreeCanvas({
   classId,
   ascendancyName,
   secondaryAscendancyName,
+  socketedItems,
   powerScores,
   powerMetric,
   powerMax,
@@ -596,6 +653,7 @@ function PassiveTreeCanvas({
   classId: number;
   ascendancyName: string;
   secondaryAscendancyName: string;
+  socketedItems: ReadonlyMap<number, ImportedPobItem>;
   powerScores: ReadonlyMap<number, PobNodePower> | null;
   powerMetric: NodePowerMetric;
   powerMax: Readonly<Record<string, number>>;
@@ -609,6 +667,7 @@ function PassiveTreeCanvas({
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 0.03 });
   const [revision, setRevision] = useState(0);
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const jewelImagesRef = useRef<Map<number, HTMLImageElement>>(new Map());
   const drag = useRef<{ x: number; y: number; originX: number; originY: number; moved: boolean } | null>(null);
 
   const visibleNodes = useMemo(
@@ -645,6 +704,24 @@ function PassiveTreeCanvas({
       for (const image of images.values()) image.onload = image.onerror = null;
     };
   }, [tree.assets]);
+
+  useEffect(() => {
+    let active = true;
+    const images = new Map<number, HTMLImageElement>();
+    jewelImagesRef.current = images;
+    for (const [nodeId, item] of socketedItems) {
+      if (!item.icon) continue;
+      const image = new Image();
+      images.set(nodeId, image);
+      image.onload = image.onerror = () => active && setRevision((value) => value + 1);
+      image.src = item.icon;
+    }
+    setRevision((value) => value + 1);
+    return () => {
+      active = false;
+      for (const image of images.values()) image.onload = image.onerror = null;
+    };
+  }, [socketedItems]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -837,6 +914,24 @@ function PassiveTreeCanvas({
         context.fillStyle = refunding ? "#ff5b5b" : active ? "#39dcb9" : preview ? "#d9f4ff" : match ? "#ffd76c" : start ? "#ef9f45" : node.ascendancyName ? "#8a6de9" : "#314551";
         context.fill();
       }
+      const socketedItem = node.jewelSocket ? socketedItems.get(node.id) : null;
+      const jewelImage = socketedItem && jewelImagesRef.current.get(node.id);
+      if (jewelImage?.complete && jewelImage.naturalWidth) {
+        const radius = Math.max(3.3, Math.min(20, 42 * view.scale * 2.66));
+        context.save();
+        context.beginPath();
+        context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        context.clip();
+        context.fillStyle = "#071017";
+        context.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
+        context.drawImage(jewelImage, point.x - radius, point.y - radius, radius * 2, radius * 2);
+        context.restore();
+        context.beginPath();
+        context.arc(point.x, point.y, radius + .7, 0, Math.PI * 2);
+        context.strokeStyle = active ? "rgba(230,255,248,.96)" : "rgba(156,174,182,.8)";
+        context.lineWidth = Math.max(1, view.scale * 14);
+        context.stroke();
+      }
       if (active || preview || match || start || hovered) {
         const radius = Math.max(fallbackRadius + 1.5, (node.keystone ? 112 : node.notable || node.mastery || node.jewelSocket ? 78 : 55) * view.scale);
         context.beginPath();
@@ -847,7 +942,7 @@ function PassiveTreeCanvas({
       }
       context.restore();
     }
-  }, [allocated, ascendancyName, classId, connections, groupMap, highlighted, hoveredId, powerMax, powerMaximum, powerMetric, powerScores, previewed, refundPreview, secondaryAscendancyName, tree.assets, tree.classes, visibleGroups, visibleNodes]);
+  }, [allocated, ascendancyName, classId, connections, groupMap, highlighted, hoveredId, powerMax, powerMaximum, powerMetric, powerScores, previewed, refundPreview, secondaryAscendancyName, socketedItems, tree.assets, tree.classes, visibleGroups, visibleNodes]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1371,6 +1466,16 @@ export function BuildPlannerPanel() {
     const itemId = Number(activePassiveSpec.sockets[hover.node.id]);
     return build.items.find((item) => item.id === itemId) || null;
   }, [activePassiveSpec?.sockets, build, hoverNodeId]);
+  const socketedItems = useMemo(() => {
+    const items = new Map<number, ImportedPobItem>();
+    if (!build || !activePassiveSpec?.sockets) return items;
+    const itemById = new Map(build.items.filter((item) => item.equipped).map((item) => [item.id, item]));
+    for (const [rawNodeId, rawItemId] of Object.entries(activePassiveSpec.sockets)) {
+      const item = itemById.get(Number(rawItemId));
+      if (item) items.set(Number(rawNodeId), item);
+    }
+    return items;
+  }, [activePassiveSpec?.sockets, build]);
   const hoverRadiusSummary = useMemo(() => {
     if (hoverNodeId == null || !materializedTree) return null;
     const provider = allocationContext.remoteProviders.find((entry) => entry.providerId === hoverNodeId);
@@ -1770,8 +1875,16 @@ export function BuildPlannerPanel() {
       const targetTree = requestedVersion && (normalizedTreeVersion(tree.version) !== normalizedTreeVersion(requestedVersion) || tree.game !== requestedGame)
         ? await bridge.getPassiveTreeData({ game: requestedGame, treeVersion: requestedVersion })
         : tree;
+      let importedBuild = parsed;
+      if (requestedGame === "poe1" && engineCapability?.ok === true) {
+        const calculated = await bridge.calculatePobBuild({
+          xml,
+          name: `${parsed.ascendancyName || parsed.className || "Character"} · imported build`,
+        });
+        if (calculated.ok) importedBuild = buildWithEngineCalculation(parsed, calculated.calculation);
+      }
       if (!replacementCanApply(request, "the Path of Building import was loading")) return;
-      applyBuild(parsed, targetTree);
+      applyBuild(importedBuild, targetTree);
       setImportText("");
     } catch (error) {
       reportReplacementError(request, "the build import was loading", error);
@@ -1845,13 +1958,13 @@ export function BuildPlannerPanel() {
       if (!imported.ok) {
         throw new Error(`${imported.message}${imported.detail ? ` ${imported.detail}` : ""}`);
       }
-      const parsed = parsePobXml(imported.xml);
+      const parsed = enrichPobBuildWithCharacterAssets(parsePobXml(imported.xml), character);
       const importedSpec = parsed.specs[Math.max(0, Math.min(parsed.specs.length - 1, parsed.activeSpec - 1))] || parsed.specs[0];
       if (!importedSpec?.treeVersion) throw new Error("Path of Building returned no passive-tree version for this character.");
       const targetTree = await bridge.getPassiveTreeData({ game: "poe1", treeVersion: importedSpec.treeVersion });
       if (!replacementCanApply(request, "the character import was loading")) return;
       const importedBuild: ImportedPobBuild = {
-        ...parsed,
+        ...buildWithEngineCalculation(parsed, imported.calculation),
         config: {
           ...parsed.config,
           league: String(character.league || parsed.config.league || ""),
@@ -2305,26 +2418,13 @@ export function BuildPlannerPanel() {
         setEngineCapability(diagnostic);
         return;
       }
-      const playerStats = Object.entries(result.calculation.stats)
-        .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]))
-        .map(([name, value]) => ({
-          name,
-          label: pobStatLabel(name),
-          value,
-          category: pobStatCategory(name),
-          percent: pobStatPercent(name),
-        }));
+      const calculatedBuild = buildWithEngineCalculation(effectiveBuild, result.calculation);
+      const playerStats = calculatedBuild.playerStats;
       markPlannerChanged();
       setBuild({
-        ...effectiveBuild,
+        ...calculatedBuild,
         xml,
-        className: result.calculation.className || effectiveBuild.className,
-        ascendancyName: result.calculation.ascendancyName && result.calculation.ascendancyName !== "None"
-          ? result.calculation.ascendancyName
-          : effectiveBuild.ascendancyName,
         specs: effectiveSpecs,
-        playerStats,
-        statSource: "pob-engine",
       });
       setSpecs(effectiveSpecs);
       if (!activeSpecId && effectiveActiveSpecId) setActiveSpecId(effectiveActiveSpecId);
@@ -2419,7 +2519,7 @@ export function BuildPlannerPanel() {
         {tab === "tree" && (
           <div className="passive-tree-stage">
             {materializedTree
-              ? <PassiveTreeCanvas tree={materializedTree} allocated={allocated} previewed={previewed} refundPreview={hoverDependents} highlighted={highlighted} hoveredId={hoverNodeId} classId={classId} ascendancyName={currentAscendancy?.internalId || ""} secondaryAscendancyName={secondaryAscendancyName} powerScores={nodePowers.length ? nodePowerMap : null} powerMetric={powerMetric} powerMax={nodePowerMax} viewCommand={viewCommand} onAllocate={(node) => allocate(node, traceMode && tracePath[tracePath.length - 1] === node.id ? tracePath : undefined)} onRefund={refund} onMastery={openMasteryPicker} onHover={(node, point) => setHover(node && point ? { node, ...point } : null)} />
+              ? <PassiveTreeCanvas tree={materializedTree} allocated={allocated} previewed={previewed} refundPreview={hoverDependents} highlighted={highlighted} hoveredId={hoverNodeId} classId={classId} ascendancyName={currentAscendancy?.internalId || ""} secondaryAscendancyName={secondaryAscendancyName} socketedItems={socketedItems} powerScores={nodePowers.length ? nodePowerMap : null} powerMetric={powerMetric} powerMax={nodePowerMax} viewCommand={viewCommand} onAllocate={(node) => allocate(node, traceMode && tracePath[tracePath.length - 1] === node.id ? tracePath : undefined)} onRefund={refund} onMastery={openMasteryPicker} onHover={(node, point) => setHover(node && point ? { node, ...point } : null)} />
               : <div className="planner-loading"><LoaderCircle className="is-spinning" /><strong>Loading the matching PoB {activePassiveSpec?.treeVersion} tree…</strong></div>}
             <div className="tree-toolbar">
               <button type="button" title="Zoom in" onClick={() => setViewCommand({ action: "zoom-in", nonce: Date.now() })}><ZoomIn size={14}/></button>

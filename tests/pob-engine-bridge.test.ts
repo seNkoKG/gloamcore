@@ -298,8 +298,16 @@ describe("authoritative local Path of Building bridge", () => {
       ok: true,
       authoritative: true,
       engine: { version: "2.66.1" },
+      calculation: {
+        mainSocketGroup: 2,
+        scalarCount: expect.any(Number),
+        stats: { Life: expect.any(Number) },
+        skillGroups: expect.any(Array),
+      },
       isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
     });
+    if (!imported.ok) throw new Error(imported.message);
+    expect(imported.calculation.skillGroups[1].activeSkills.map((skill) => skill.name)).toContain("Arc");
     expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Helmet")(?=[^>]*itemId="1")[^>]*\/>/);
     expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Flask 1")(?=[^>]*itemId="2")[^>]*\/>/);
     expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Belt Abyssal Socket 1")(?=[^>]*itemId="3")[^>]*\/>/);
