@@ -198,6 +198,9 @@ const QA_CLIPBOARD_BASE64 = QA_RUNTIME ? process.env.GLOAMCORE_QA_CLIPBOARD_BASE
 const QA_CLIPBOARD_TEXT = QA_RUNTIME ? process.env.GLOAMCORE_QA_CLIPBOARD_TEXT : undefined;
 const QA_TARGET_TITLE = QA_RUNTIME ? process.env.GLOAMCORE_QA_TARGET_TITLE || "" : "";
 const QA_RESULT_PATH = QA_RUNTIME ? process.env.GLOAMCORE_QA_RESULT_PATH || "" : "";
+const QA_NATIVE_CLOSE_SIGNAL_PATH = QA_RUNTIME
+  ? process.env.GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH || ""
+  : "";
 const QA_NATIVE_CAPTURE = Boolean(
   QA_RUNTIME &&
   QA_OPEN_SURFACE === "price-check" &&
@@ -2123,9 +2126,9 @@ function restorePriceCheckTargetFocus(generation) {
     lastError: "",
   };
   if (QA_RESULT_PATH) priceCheckFocusRestoreAudit = audit;
-  // X/Escape schedules this on the next turn. If the user Alt-Tabbed in that
-  // gap, the close request no longer owns foreground authority and must not
-  // pull them back into the game.
+  // The caller invokes this synchronously while the focused locked overlay
+  // still owns foreground authority. Blur and Alt-Tab paths never request a
+  // restore, so a later unrelated focus change cannot be pulled back here.
   if (!priceCheckWindow || priceCheckWindow.isDestroyed() || !priceCheckWindow.isFocused()) {
     audit.aborted = "overlay-focus-lost";
     return;
@@ -2146,7 +2149,7 @@ function restorePriceCheckTargetFocus(generation) {
       }
     }
   };
-  setImmediate(handoff);
+  handoff();
   const verify = () => {
     if (
       generation !== priceCheckActivationGeneration ||
@@ -2507,14 +2510,16 @@ function deactivatePriceCheck({
   applyPriceCheckOverlayShape();
   sendPriceCheckOverlayState();
   if (priceCheckWindow && !priceCheckWindow.isDestroyed()) {
-    if (wasInteractiveLocked) priceCheckWindow.setFocusable(false);
+    if (wasInteractiveLocked && !restoreTargetFocus) {
+      priceCheckWindow.setFocusable(false);
+    }
     priceCheckWindow.setIgnoreMouseEvents(true);
   }
   syncPriceCheckShortcutRegistration();
   if (restoreTargetFocus) {
-    // Return focus after native cleanup. External blur/Alt-Tab paths pass
-    // focusTarget=false and never enter this branch.
-    if (!wasInteractiveLocked) priceCheckWindow?.blur();
+    // Let the native mouse/key event finish, then hand focus back while the
+    // locked overlay still owns foreground authority. Releasing focusability
+    // in the same turn used to make Windows choose an unrelated prior window.
     setImmediate(() => {
       if (
         generation === priceCheckActivationGeneration &&
@@ -2522,6 +2527,9 @@ function deactivatePriceCheck({
         !priceCheckOverlayVisible
       ) {
         restorePriceCheckTargetFocus(generation);
+      }
+      if (wasInteractiveLocked && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
+        priceCheckWindow.setFocusable(false);
       }
     });
   } else if (!priceCheckOverlayAttached) {
@@ -3654,12 +3662,52 @@ const deadline = Date.now() + 150_000;
       // longer than one electron-overlay-window 83 ms focus poll; settling the
       // QA driver keeps this test from manufacturing an impossible user race.
       await new Promise((resolve) => setTimeout(resolve, 200));
-      const closeButtonClicked = await priceCheckWindow.webContents.executeJavaScript(`(() => {
+      const closeButtonTarget = await priceCheckWindow.webContents.executeJavaScript(`(() => {
         const closeButton = document.querySelector('button[aria-label="Close price check"]');
-        if (!(closeButton instanceof HTMLButtonElement)) return false;
-        closeButton.click();
-        return true;
+        if (!(closeButton instanceof HTMLButtonElement)) return null;
+        window.__gloamcoreQaNativeCloseClicked = false;
+        closeButton.addEventListener('click', () => {
+          window.__gloamcoreQaNativeCloseClicked = true;
+        }, { once: true });
+        const bounds = closeButton.getBoundingClientRect();
+        return {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height / 2,
+        };
       })()`);
+      let closeButtonClicked = false;
+      const resolvedCloseSignalPath = QA_NATIVE_CLOSE_SIGNAL_PATH
+        ? path.resolve(QA_NATIVE_CLOSE_SIGNAL_PATH)
+        : "";
+      const closeSignalInsideQaRoot = Boolean(
+        resolvedCloseSignalPath &&
+        path.dirname(resolvedCloseSignalPath) === path.dirname(resolvedResultPath),
+      );
+      if (closeButtonTarget && closeSignalInsideQaRoot) {
+        const overlayBounds = priceCheckWindow.getBounds();
+        const clickPoint = screen.dipToScreenPoint({
+          x: Math.round(overlayBounds.x + closeButtonTarget.x),
+          y: Math.round(overlayBounds.y + closeButtonTarget.y),
+        });
+        fs.writeFileSync(
+          resolvedCloseSignalPath,
+          JSON.stringify({ x: clickPoint.x, y: clickPoint.y }),
+        );
+        const nativeClickDeadline = Date.now() + 4_000;
+        while (Date.now() < nativeClickDeadline && priceCheckOverlayVisible) {
+          await new Promise((resolve) => setTimeout(resolve, 35));
+        }
+        closeButtonClicked = await priceCheckWindow.webContents.executeJavaScript(
+          "Boolean(window.__gloamcoreQaNativeCloseClicked)",
+        );
+      } else {
+        closeButtonClicked = await priceCheckWindow.webContents.executeJavaScript(`(() => {
+          const closeButton = document.querySelector('button[aria-label="Close price check"]');
+          if (!(closeButton instanceof HTMLButtonElement)) return false;
+          closeButton.click();
+          return true;
+        })()`);
+      }
       const dismissalDeadline = Date.now() + 4_000;
       let panelVisibleAfterClose = true;
       do {

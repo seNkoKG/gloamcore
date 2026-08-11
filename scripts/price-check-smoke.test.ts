@@ -45,6 +45,12 @@ describe("native price-check smoke harness", () => {
     expect(smoke).toContain(
       "Synthetic target failed native identity readiness with code $($identityProbe.ExitCode).",
     );
+    expect(smoke).toContain("GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH");
+    expect(smoke).toContain("[GloamCoreQaWindow]::mouse_event(0x0002");
+    expect(smoke).toContain("[GloamCoreQaWindow]::mouse_event(0x0004");
+    expect(smoke).toContain(
+      "Native close QA could not accept the app's target-focus handoff.",
+    );
 
     expectOrdered(
       "$smokeMutex.WaitOne(45000)",

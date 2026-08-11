@@ -174,6 +174,7 @@ $qaRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("poe-widget-qa-" + [guid]
 $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $qaRootFull = [System.IO.Path]::GetFullPath($qaRoot)
 $resultPath = Join-Path $qaRootFull "price-check-smoke.json"
+$nativeCloseSignalPath = Join-Path $qaRootFull "native-close.json"
 $stdoutPath = Join-Path $qaRootFull "electron-stdout.log"
 $stderrPath = Join-Path $qaRootFull "electron-stderr.log"
 $targetStdoutPath = Join-Path $qaRootFull "target-stdout.log"
@@ -183,6 +184,8 @@ $qaTargetProcess = $null
 $appProcess = $null
 $qaWindowApiReady = $false
 $originalForegroundWindow = [IntPtr]::Zero
+$originalCursorPosition = $null
+$nativeCloseHandled = $false
 $smokeMutex = New-Object System.Threading.Mutex(
   $false,
   "Local\GloamCorePriceCheckSmoke"
@@ -210,6 +213,10 @@ try {
   Add-Type @"
 using System;
 using System.Runtime.InteropServices;
+public struct GloamCoreQaPoint {
+  public int X;
+  public int Y;
+}
 public static class GloamCoreQaWindow {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   public static extern IntPtr FindWindow(IntPtr className, string windowName);
@@ -221,10 +228,20 @@ public static class GloamCoreQaWindow {
   public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")]
   public static extern bool IsWindow(IntPtr window);
+  [DllImport("user32.dll")]
+  public static extern bool GetCursorPos(out GloamCoreQaPoint point);
+  [DllImport("user32.dll")]
+  public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")]
+  public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extraInfo);
 }
 "@
   $qaWindowApiReady = $true
   $originalForegroundWindow = [GloamCoreQaWindow]::GetForegroundWindow()
+  $cursorPosition = New-Object GloamCoreQaPoint
+  if ([GloamCoreQaWindow]::GetCursorPos([ref]$cursorPosition)) {
+    $originalCursorPosition = $cursorPosition
+  }
   $windowsPowerShell = Join-Path `
     ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) `
     "WindowsPowerShell\v1.0\powershell.exe"
@@ -419,6 +436,7 @@ try {
   Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
   $env:GLOAMCORE_QA_OPEN_SURFACE = "price-check"
   $env:GLOAMCORE_QA_RESULT_PATH = $resultPath
+  $env:GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH = $nativeCloseSignalPath
   $env:GLOAMCORE_QA_TARGET_TITLE = $qaTargetTitle
   $env:GLOAMCORE_QA_CAPTURE_TEST = "1"
   $env:GLOAMCORE_QA_USER_DATA_PATH = $qaRootFull
@@ -444,7 +462,43 @@ try {
     $appWaitSeconds = 240
     $appDeadline = [DateTime]::UtcNow.AddSeconds($appWaitSeconds)
     do {
-      Start-Sleep -Milliseconds 100
+      Start-Sleep -Milliseconds 50
+      if (-not $nativeCloseHandled -and (Test-Path -LiteralPath $nativeCloseSignalPath -PathType Leaf)) {
+        $nativeClose = Get-Content -Raw -LiteralPath $nativeCloseSignalPath | ConvertFrom-Json
+        if (
+          $nativeClose.x -isnot [int] -or
+          $nativeClose.y -isnot [int]
+        ) {
+          throw "Electron emitted an invalid native close-button coordinate."
+        }
+        [void][GloamCoreQaWindow]::SetCursorPos($nativeClose.x, $nativeClose.y)
+        Start-Sleep -Milliseconds 50
+        [GloamCoreQaWindow]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+        [GloamCoreQaWindow]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+        $nativeCloseHandled = $true
+        # SendInput originates in the external QA controller, so Windows does
+        # not grant Electron the same foreground privilege as a person's click.
+        # Confirm the app has handled the click, then let the controller accept
+        # its requested handoff to the exact signed synthetic target HWND.
+        Start-Sleep -Milliseconds 100
+        for ($focusAttempt = 0; $focusAttempt -lt 10; $focusAttempt++) {
+          if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
+            break
+          }
+          [void][GloamCoreQaWindow]::ShowWindowAsync($qaTargetWindow, 5)
+          [void][GloamCoreQaWindow]::SetForegroundWindow($qaTargetWindow)
+          Start-Sleep -Milliseconds 35
+        }
+        if ([GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow) {
+          throw "Native close QA could not accept the app's target-focus handoff."
+        }
+        if ($originalCursorPosition) {
+          [void][GloamCoreQaWindow]::SetCursorPos(
+            $originalCursorPosition.X,
+            $originalCursorPosition.Y
+          )
+        }
+      }
       $appProcess.Refresh()
     } until (
       (Test-Path -LiteralPath $resultPath) -or
@@ -950,6 +1004,7 @@ try {
   try {
     Remove-Item Env:GLOAMCORE_QA_OPEN_SURFACE -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_RESULT_PATH -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_TARGET_TITLE -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
@@ -971,6 +1026,12 @@ try {
       [GloamCoreQaWindow]::IsWindow($originalForegroundWindow)
     ) {
       [void][GloamCoreQaWindow]::SetForegroundWindow($originalForegroundWindow)
+    }
+    if ($qaWindowApiReady -and $originalCursorPosition) {
+      [void][GloamCoreQaWindow]::SetCursorPos(
+        $originalCursorPosition.X,
+        $originalCursorPosition.Y
+      )
     }
     if (Test-Path -LiteralPath $qaRootFull) {
       Remove-Item -LiteralPath $qaRootFull -Recurse -Force
