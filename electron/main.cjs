@@ -83,9 +83,11 @@ const {
   validateShortcutPlan,
 } = require("./shortcut-settings.cjs");
 
+app.setName("GloamCore");
+
 const API_ROOT = "https://poe.ninja";
 const WIKI_API_ROOT = "https://www.poewiki.net/w/api.php";
-const USER_AGENT = `Ninja-Lens/${app.getVersion()} (personal desktop widget)`;
+const USER_AGENT = `GloamCore/${app.getVersion()} (Path of Exile companion)`;
 const officialTradeListingService = createOfficialTradeListingService({
   userAgent: USER_AGENT,
 });
@@ -147,6 +149,10 @@ const REGEX_DATA_SHA256 = "ea0b93a6498a2af2f9f467e6945c392f7aee89b7344de27e8c644
 const DEFAULT_PRICE_CHECK_HOTKEY = "CommandOrControl+D";
 const DEFAULT_LOCKED_PRICE_CHECK_HOTKEY = "CommandOrControl+Alt+D";
 const PRICE_CHECK_CLIPBOARD_TIMEOUT_MS = 600;
+// The first copy after launch may pay Windows image/JIT and PoE clipboard
+// initialization costs. It still completes immediately on the normal path;
+// only its failure ceiling is wider than an already-warmed capture.
+const PRICE_CHECK_COLD_CLIPBOARD_TIMEOUT_MS = 1_200;
 const PRICE_CHECK_PENDING_TTL_MS = 15_000;
 const NATIVE_INPUT_OUTPUT_LIMIT = 1024;
 const POE_PROCESS_NAMES = Object.freeze([
@@ -161,9 +167,9 @@ const TRUSTED_RENDERER_PATH = path.resolve(__dirname, "..", "dist", "index.html"
 const DEV_RUNTIME = !app.isPackaged;
 const START_MINIMIZED = process.argv.includes("--start-minimized");
 const QA_RUNTIME = DEV_RUNTIME || (
-  process.argv.includes("--ninja-lens-qa-smoke") &&
-  Boolean(process.env.POE_WIDGET_QA_USER_DATA_PATH) &&
-  Boolean(process.env.POE_WIDGET_QA_RESULT_PATH)
+  process.argv.includes("--gloamcore-qa-smoke") &&
+  Boolean(process.env.GLOAMCORE_QA_USER_DATA_PATH) &&
+  Boolean(process.env.GLOAMCORE_QA_RESULT_PATH)
 );
 const DEV_SERVER_URL = (() => {
   if (!DEV_RUNTIME || !process.env.VITE_DEV_SERVER_URL) return "";
@@ -180,23 +186,23 @@ const DEV_SERVER_URL = (() => {
     return "";
   }
 })();
-const QA_OPEN_SURFACE = QA_RUNTIME ? process.env.POE_WIDGET_QA_OPEN_SURFACE || "" : "";
-const QA_USER_DATA_PATH = QA_RUNTIME ? process.env.POE_WIDGET_QA_USER_DATA_PATH : undefined;
-const QA_CLIPBOARD_BASE64 = QA_RUNTIME ? process.env.POE_WIDGET_QA_CLIPBOARD_BASE64 : undefined;
-const QA_CLIPBOARD_TEXT = QA_RUNTIME ? process.env.POE_WIDGET_QA_CLIPBOARD_TEXT : undefined;
-const QA_TARGET_TITLE = QA_RUNTIME ? process.env.POE_WIDGET_QA_TARGET_TITLE || "" : "";
-const QA_RESULT_PATH = QA_RUNTIME ? process.env.POE_WIDGET_QA_RESULT_PATH || "" : "";
+const QA_OPEN_SURFACE = QA_RUNTIME ? process.env.GLOAMCORE_QA_OPEN_SURFACE || "" : "";
+const QA_USER_DATA_PATH = QA_RUNTIME ? process.env.GLOAMCORE_QA_USER_DATA_PATH : undefined;
+const QA_CLIPBOARD_BASE64 = QA_RUNTIME ? process.env.GLOAMCORE_QA_CLIPBOARD_BASE64 : undefined;
+const QA_CLIPBOARD_TEXT = QA_RUNTIME ? process.env.GLOAMCORE_QA_CLIPBOARD_TEXT : undefined;
+const QA_TARGET_TITLE = QA_RUNTIME ? process.env.GLOAMCORE_QA_TARGET_TITLE || "" : "";
+const QA_RESULT_PATH = QA_RUNTIME ? process.env.GLOAMCORE_QA_RESULT_PATH || "" : "";
 const QA_NATIVE_CAPTURE = Boolean(
   QA_RUNTIME &&
   QA_OPEN_SURFACE === "price-check" &&
   QA_USER_DATA_PATH &&
   QA_RESULT_PATH &&
-  process.env.POE_WIDGET_QA_CAPTURE_TEST === "1",
+  process.env.GLOAMCORE_QA_CAPTURE_TEST === "1",
 );
 const QA_EXPAND_OPTIONAL_STATS = Boolean(
-  QA_NATIVE_CAPTURE && process.env.POE_WIDGET_QA_EXPAND_STATS === "1",
+  QA_NATIVE_CAPTURE && process.env.GLOAMCORE_QA_EXPAND_STATS === "1",
 );
-const FOCUS_TRACE_ENABLED = DEV_RUNTIME && process.env.POE_WIDGET_FOCUS_TRACE === "1";
+const FOCUS_TRACE_ENABLED = DEV_RUNTIME && process.env.GLOAMCORE_FOCUS_TRACE === "1";
 const mainCommandQueue = createRendererCommandQueue();
 
 if (QA_USER_DATA_PATH) {
@@ -266,6 +272,7 @@ let pendingPriceCheckCaptureGeneration = 0;
 let priceCheckCaptureGeneration = 0;
 let priceCheckCaptureFocusHandoffCount = 0;
 let priceCheckCapturePreparationAudit = null;
+let priceCheckNativeCaptureCold = true;
 let configuredPriceCheckHotkey = "";
 let registeredPriceCheckHotkey = "";
 let registeredLockedPriceCheckHotkey = "";
@@ -1477,20 +1484,20 @@ function electronInputMatchesAccelerator(input, accelerator) {
 
 function nativeInputHelperPath() {
   return app.isPackaged
-    ? path.join(process.resourcesPath, "native-input", "NinjaLensInput.exe")
-    : path.join(__dirname, "..", "build", "native-input", "NinjaLensInput.exe");
+    ? path.join(process.resourcesPath, "native-input", "GloamCoreInput.exe")
+    : path.join(__dirname, "..", "build", "native-input", "GloamCoreInput.exe");
 }
 
 function priceCheckTargetTitle() {
   return QA_TARGET_TITLE ||
     (QA_OPEN_SURFACE === "price-check"
-      ? "Ninja Lens QA Path of Exile"
+      ? "GloamCore QA Path of Exile"
       : POE_WINDOW_TITLE);
 }
 
 function priceCheckTargetProcessNames() {
   return QA_NATIVE_CAPTURE
-    ? [...POE_PROCESS_NAMES, "NinjaLensQaTarget.exe"]
+    ? [...POE_PROCESS_NAMES, "GloamCoreQaTarget.exe"]
     : [...POE_PROCESS_NAMES];
 }
 
@@ -1510,7 +1517,7 @@ function runNativeInputHelper(
     }
     const helperPath = nativeInputHelperPath();
     if (!fs.existsSync(helperPath)) {
-      reject(new Error("Ninja Lens input helper is missing."));
+      reject(new Error("GloamCore input helper is missing."));
       return;
     }
 
@@ -1674,8 +1681,10 @@ async function injectHoveredItemCopy({ deadline, signal, context } = {}) {
   const preserveHeldModifier = Number.isFinite(holdVirtualKey) && releaseKeys.includes(holdVirtualKey)
     ? holdVirtualKey
     : 0;
+  const coldStart = priceCheckNativeCaptureCold;
+  priceCheckNativeCaptureCold = false;
   const nativeStartedAt = Date.now();
-  auditPriceCheckLifecycle("capture-native-start");
+  auditPriceCheckLifecycle("capture-native-start", { coldStart });
   const copied = await runNativeInputHelper(
     [
       "capture",
@@ -1694,6 +1703,7 @@ async function injectHoveredItemCopy({ deadline, signal, context } = {}) {
     nativeElapsedMs: Date.now() - nativeStartedAt,
     nativeCode: copied.code,
     nativeTimedOut: copied.timedOut,
+    coldStart,
   });
   const verified = copied.code === 0 && !copied.timedOut;
   return {
@@ -1712,7 +1722,9 @@ const oneKeyItemCapture = createOneKeyItemCapture({
   isTargetFocused: () => Boolean(OverlayController.targetHasFocus),
   getCaptureAccelerator: (context) =>
     context?.accelerator || configuredPriceCheckHotkey,
-  timeoutMs: PRICE_CHECK_CLIPBOARD_TIMEOUT_MS,
+  timeoutMs: () => priceCheckNativeCaptureCold
+    ? PRICE_CHECK_COLD_CLIPBOARD_TIMEOUT_MS
+    : PRICE_CHECK_CLIPBOARD_TIMEOUT_MS,
   maxTextLength: MAX_CLIPBOARD_ITEM_BYTES,
 });
 
@@ -2043,7 +2055,7 @@ function schedulePriceCheckGeometrySync() {
       if (!updatePriceCheckPanelLayout(nextPanel)) {
         deactivatePriceCheck({ focusTarget: false });
         notifyPriceCheckUnavailable(
-          "Native overlay shaping became unavailable, so Ninja Lens closed the panel to keep Path of Exile clickable.",
+          "Native overlay shaping became unavailable, so GloamCore closed the panel to keep Path of Exile clickable.",
         );
         return;
       }
@@ -2085,7 +2097,7 @@ function notifyPriceCheckUnavailable(message) {
   priceCheckOverlayMessage = message;
   try {
     tray?.displayBalloon({
-      title: "Ninja Lens in-game overlay",
+      title: "GloamCore in-game overlay",
       content: message,
       iconType: "warning",
     });
@@ -2215,6 +2227,7 @@ function promotePriceCheckOverlayFromTracker(
   try {
     // This sets the overlay library's intentional focus target before Windows
     // emits the PoE blur, preventing the host from being hidden mid-click.
+    priceCheckWindow.setFocusable(true);
     OverlayController.activateOverlay();
     priceCheckWindow.moveTop();
   } catch {
@@ -2265,6 +2278,7 @@ function startPriceCheckPanelInteractionWatch(generation) {
   const interactionArea = currentPriceCheckInteractionAreaInScreenPixels();
   const panelArea = currentPriceCheckPanelAreaInScreenPixels();
   if (!interactionArea || !panelArea) return;
+  auditPriceCheckLifecycle("panel-watch-start", { interactionArea, panelArea });
   const controller = new AbortController();
   priceCheckPanelWatchAbort = controller;
   const deadline = Date.now() + 60_000;
@@ -2487,6 +2501,7 @@ function deactivatePriceCheck({
   applyPriceCheckOverlayShape();
   sendPriceCheckOverlayState();
   if (priceCheckWindow && !priceCheckWindow.isDestroyed()) {
+    if (wasInteractiveLocked) priceCheckWindow.setFocusable(false);
     priceCheckWindow.setIgnoreMouseEvents(true);
   }
   syncPriceCheckShortcutRegistration();
@@ -2517,6 +2532,9 @@ function setPriceCheckOverlayPassive() {
   priceCheckPromotionTracksPointerExit = false;
   auditPriceCheckLifecycle("set-passive");
   if (priceCheckWindow && !priceCheckWindow.isDestroyed()) {
+    // A normal Ctrl+D preview stays mouse-interactive without becoming the
+    // Windows foreground window. Ctrl+Alt+D remains the explicit focused mode.
+    priceCheckWindow.setFocusable(false);
     priceCheckWindow.setIgnoreMouseEvents(false);
     if (!priceCheckWindow.isVisible()) priceCheckWindow.showInactive();
   }
@@ -2567,7 +2585,7 @@ function showPriceCheck(
       notifyPriceCheckUnavailable(
         priceCheckOverlayHasAccess
           ? "Path of Exile is not active. Open it, hover an item, then press Ctrl+D."
-          : "Ninja Lens cannot access the Path of Exile window. Run both apps at the same Windows privilege level.",
+          : "GloamCore cannot access the Path of Exile window. Run both apps at the same Windows privilege level.",
       );
     }
     return;
@@ -2595,6 +2613,7 @@ function showPriceCheck(
   pendingPriceCheckCaptureExpiresAt = 0;
   pendingPriceCheckCaptureGeneration = 0;
   priceCheckOverlayMessage = "";
+  if (!passive) priceCheckWindow.setFocusable(true);
   priceCheckWindow.setIgnoreMouseEvents(true);
   priceCheckPanelBounds = replacementPanel
     ? clampPriceCheckPanelLayout(replacementPanel)
@@ -2607,7 +2626,7 @@ function showPriceCheck(
   if (!applyPriceCheckOverlayShape()) {
     deactivatePriceCheck({ focusTarget: false });
     notifyPriceCheckUnavailable(
-      "Native overlay shaping is unavailable, so Ninja Lens left the panel closed to keep Path of Exile clickable.",
+      "Native overlay shaping is unavailable, so GloamCore left the panel closed to keep Path of Exile clickable.",
     );
     return;
   }
@@ -2658,6 +2677,7 @@ function showPriceCheck(
       // A detached/recovered host may be hidden; make it renderable before the
       // one deliberate interactive focus transfer.
       if (!priceCheckWindow.isVisible()) priceCheckWindow.showInactive();
+      priceCheckWindow.setFocusable(true);
       OverlayController.activateOverlay();
       priceCheckWindow.moveTop();
       const focusDeadline = Date.now() + PRICE_CHECK_FOCUS_TIMEOUT_MS;
@@ -2681,7 +2701,7 @@ function showPriceCheck(
         }
         deactivatePriceCheck({ focusTarget: Boolean(priceCheckWindow?.isFocused()) });
         notifyPriceCheckUnavailable(
-          "The Path of Exile overlay did not accept input focus, so Ninja Lens left it closed.",
+          "The Path of Exile overlay did not accept input focus, so GloamCore left it closed.",
         );
       };
       setTimeout(confirmOverlayFocus, 35);
@@ -2711,7 +2731,7 @@ function showPriceCheck(
       }
       deactivatePriceCheck({ focusTarget: false });
       notifyPriceCheckUnavailable(
-        "Path of Exile did not accept focus, so Ninja Lens left the overlay closed.",
+        "Path of Exile did not accept focus, so GloamCore left the overlay closed.",
       );
     };
     setTimeout(activateWhenFocused, 35);
@@ -2719,7 +2739,7 @@ function showPriceCheck(
     if (!activate() && generation === priceCheckActivationGeneration) {
       deactivatePriceCheck({ focusTarget: false });
       notifyPriceCheckUnavailable(
-        "Path of Exile lost focus before the overlay could open, so Ninja Lens left it closed.",
+        "Path of Exile lost focus before the overlay could open, so GloamCore left it closed.",
       );
     }
   }
@@ -3151,6 +3171,7 @@ const deadline = Date.now() + 150_000;
           mode: priceCheckPresentationMode,
           targetActive: Boolean(OverlayController.targetHasFocus),
           overlayFocused: priceCheckWindow.isFocused(),
+          overlayFocusable: priceCheckWindow.isFocusable(),
           interactive: priceCheckOverlayInteractive,
           focusHandoffs: priceCheckCaptureFocusHandoffCount,
         },
@@ -3298,6 +3319,7 @@ const deadline = Date.now() + 150_000;
         mode: priceCheckPresentationMode,
         targetActive: Boolean(OverlayController.targetHasFocus),
         overlayFocused: priceCheckWindow.isFocused(),
+        overlayFocusable: priceCheckWindow.isFocusable(),
         interactive: priceCheckOverlayInteractive,
         normalRegistered: registeredPriceCheckHotkey,
         lockedRegistered: registeredLockedPriceCheckHotkey,
@@ -3525,7 +3547,7 @@ const deadline = Date.now() + 150_000;
         show: false,
         frame: true,
         skipTaskbar: true,
-        title: "Ninja Lens QA unrelated foreground window",
+        title: "GloamCore QA unrelated foreground window",
         webPreferences: {
           sandbox: true,
           contextIsolation: true,
@@ -3916,7 +3938,7 @@ function createPriceCheckWindow() {
     backgroundColor: "#00000000",
     icon: path.join(__dirname, "..", "build", "icon.png"),
     autoHideMenuBar: true,
-    title: "Ninja Lens - Path of Exile Overlay",
+    title: "GloamCore - Path of Exile Overlay",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -3994,9 +4016,9 @@ function createPriceCheckWindow() {
       mode: priceCheckPresentationMode,
       activationPending: priceCheckActivationPending,
       interactive: priceCheckOverlayInteractive,
-      passivePanelHitTest: priceCheckOverlayShapeApplied,
     });
     if (!acceptFocus) {
+      window.setFocusable(false);
       window.setIgnoreMouseEvents(true);
       if (
         priceCheckOverlayVisible &&
@@ -4014,11 +4036,7 @@ function createPriceCheckWindow() {
       }
       return;
     }
-    if (priceCheckPresentationMode === "passive") {
-      priceCheckPresentationMode = "promoted";
-      priceCheckPromotionTracksPointerExit = false;
-      auditPriceCheckLifecycle("passive-panel-click");
-    }
+    if (priceCheckPresentationMode === "passive") return;
     priceCheckActivationPending = false;
     priceCheckOverlayInteractive = true;
     window.setIgnoreMouseEvents(false);
@@ -4235,6 +4253,7 @@ function createPriceCheckWindow() {
     deactivatePriceCheck({ focusTarget: false, preservePending: restorePinned });
   });
 
+  window.setFocusable(false);
   window.setIgnoreMouseEvents(true);
   OverlayController.attachByTitle(
     window,
@@ -4597,16 +4616,40 @@ if (!gotSingleInstanceLock) {
   app.quit();
 }
 
-app.setAppUserModelId("com.ninjalens.poe");
+app.setAppUserModelId("io.github.senkokg.gloamcore");
 
 app.on("second-instance", () => {
   showMainWindow();
 });
 
+const RETIRED_PRODUCT_NAME = String.fromCharCode(
+  78, 105, 110, 106, 97, 32, 76, 101, 110, 115,
+);
+const RETIRED_PRODUCT_SLUG = String.fromCharCode(
+  110, 105, 110, 106, 97, 45, 108, 101, 110, 115,
+);
 const LEGACY_USER_DATA_DIRS = Object.freeze([
+  RETIRED_PRODUCT_NAME,
+  RETIRED_PRODUCT_SLUG,
   "PoE Economy Widget",
   "poe-economy-widget",
 ]);
+
+const LEGACY_WEALTHY_EXILE_PARTITIONS = Object.freeze([
+  `${RETIRED_PRODUCT_SLUG}-wealthy-exile`,
+]);
+
+function migrateLegacyBrowserPartitions(currentUserData) {
+  const partitionsDirectory = path.join(currentUserData, "Partitions");
+  const currentPartition = path.join(partitionsDirectory, "gloamcore-wealthy-exile");
+  if (fs.existsSync(currentPartition)) return;
+  for (const legacyName of LEGACY_WEALTHY_EXILE_PARTITIONS) {
+    const legacyPartition = path.join(partitionsDirectory, legacyName);
+    if (!fs.existsSync(legacyPartition)) continue;
+    fs.renameSync(legacyPartition, currentPartition);
+    return;
+  }
+}
 
 function copyMissingUserDataEntries(legacyUserData, currentUserData) {
   fs.mkdirSync(currentUserData, { recursive: true });
@@ -4628,23 +4671,26 @@ function migrateLegacyDataDirectories() {
   try {
     const currentUserData = app.getPath("userData");
     const currentSettings = path.join(currentUserData, "settings.json");
-    if (fs.existsSync(currentSettings)) return;
-    for (const legacyName of LEGACY_USER_DATA_DIRS) {
-      const legacyUserData = path.join(app.getPath("appData"), legacyName);
-      if (legacyUserData === currentUserData || !fs.existsSync(legacyUserData)) {
-        continue;
-      }
-      try {
-        if (
-          fs.existsSync(path.join(legacyUserData, "settings.json")) ||
-          fs.existsSync(path.join(legacyUserData, "Local Storage"))
-        ) {
-          copyMissingUserDataEntries(legacyUserData, currentUserData);
+    if (!fs.existsSync(currentSettings)) {
+      for (const legacyName of LEGACY_USER_DATA_DIRS) {
+        const legacyUserData = path.join(app.getPath("appData"), legacyName);
+        if (legacyUserData === currentUserData || !fs.existsSync(legacyUserData)) {
+          continue;
         }
-      } catch {
-        // A specific legacy directory may be concurrently locked; try the next one.
+        try {
+          if (
+            fs.existsSync(path.join(legacyUserData, "settings.json")) ||
+            fs.existsSync(path.join(legacyUserData, "Local Storage"))
+          ) {
+            copyMissingUserDataEntries(legacyUserData, currentUserData);
+            break;
+          }
+        } catch {
+          // A specific legacy directory may be concurrently locked; try the next one.
+        }
       }
     }
+    migrateLegacyBrowserPartitions(currentUserData);
   } catch {
     // Legacy data remains untouched if migration is not possible.
   }
@@ -4681,7 +4727,7 @@ app.whenReady().then(() => {
   priceCheckWindow = createPriceCheckWindow();
 
   tray = new Tray(createTrayIcon());
-  tray.setToolTip("Ninja Lens - click for the market panel");
+  tray.setToolTip("GloamCore - click for the market panel");
   tray.on("click", handleTrayClick);
   updateTrayMenu();
 
@@ -4695,10 +4741,10 @@ app.whenReady().then(() => {
     autoCheck: settings.autoCheckUpdates,
     portable: Boolean(process.env.PORTABLE_EXECUTABLE_FILE),
     startDelayMs: DEV_RUNTIME
-      ? process.env.POE_WIDGET_UPDATE_CHECK_DELAY_MS
+      ? process.env.GLOAMCORE_UPDATE_CHECK_DELAY_MS
       : undefined,
     diagnosticsPath: DEV_RUNTIME
-      ? process.env.POE_WIDGET_UPDATE_DIAGNOSTICS_PATH || ""
+      ? process.env.GLOAMCORE_UPDATE_DIAGNOSTICS_PATH || ""
       : "",
     onState: (update) => {
       surfaceState = { ...surfaceState, update };

@@ -20,10 +20,10 @@ if ($Version -ne $packageVersion) {
 $deliverables = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "deliverables"))
 $winUnpacked = [System.IO.Path]::GetFullPath((Join-Path $deliverables "win-unpacked"))
 $setupPath = [System.IO.Path]::GetFullPath(
-  (Join-Path $deliverables "Ninja-Lens-Setup-$Version-x64.exe")
+  (Join-Path $deliverables "GloamCore-Setup-$Version-x64.exe")
 )
 $portablePath = [System.IO.Path]::GetFullPath(
-  (Join-Path $deliverables "Ninja-Lens-Portable-$Version-x64.exe")
+  (Join-Path $deliverables "GloamCore-Portable-$Version-x64.exe")
 )
 $blockmapPath = [System.IO.Path]::GetFullPath("$setupPath.blockmap")
 $latestPath = [System.IO.Path]::GetFullPath((Join-Path $deliverables "latest.yml"))
@@ -75,7 +75,7 @@ try {
     $portablePath,
     $latestPath,
     (Join-Path $winUnpacked "resources/app.asar"),
-    (Join-Path $winUnpacked "resources/native-input/NinjaLensInput.exe"),
+    (Join-Path $winUnpacked "resources/native-input/GloamCoreInput.exe"),
     (Join-Path $winUnpacked "$($packageJson.build.productName).exe")
   )) {
     if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) {

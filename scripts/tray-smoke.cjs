@@ -20,7 +20,7 @@ app
       appRoot,
     });
     const tray = new Tray(image);
-    tray.setToolTip("Ninja Lens tray smoke test");
+    tray.setToolTip("GloamCore tray smoke test");
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: "Tray icon loaded", enabled: false },

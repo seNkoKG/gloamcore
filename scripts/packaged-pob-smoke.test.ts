@@ -8,14 +8,14 @@ const { _internals } = require("./packaged-pob-smoke.cjs");
 
 describe("packaged PoB release smoke", () => {
   it("accepts only the resources directory beside the executable under test", () => {
-    const executable = path.join(process.cwd(), "release-smoke", "Ninja Lens.exe");
+    const executable = path.join(process.cwd(), "release-smoke", "GloamCore.exe");
     const resources = path.join(path.dirname(executable), "resources");
     const realpath = (value: string) => path.resolve(value);
 
     expect(_internals.resolvePackagedLayout(executable, resources, realpath)).toEqual({
       resourcesPath: path.resolve(resources),
       appAsar: path.join(path.resolve(resources), "app.asar"),
-      bundledHost: path.join(path.resolve(resources), "pob-engine", "NinjaLensPobHost-x64.exe"),
+      bundledHost: path.join(path.resolve(resources), "pob-engine", "GloamCorePobHost-x64.exe"),
     });
     expect(() => _internals.resolvePackagedLayout(
       executable,

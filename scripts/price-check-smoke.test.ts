@@ -20,8 +20,8 @@ function expectOrdered(...fragments: string[]) {
 }
 
 describe("native price-check smoke harness", () => {
-  it("binds source and packaged runs to the current 2.3.4 release identity", () => {
-    expect(packageMetadata.version).toBe("2.3.4");
+  it("binds source and packaged runs to the current 2.4.0 release identity", () => {
+    expect(packageMetadata.version).toBe("2.4.0");
     expect(smoke).toContain('(Join-Path $projectRoot "package.json")');
     expect(smoke).toContain(").version)");
     expect(smoke).toContain("$provenance.gitHead -ne $snapshotHead.Trim()");
@@ -30,18 +30,18 @@ describe("native price-check smoke harness", () => {
   });
 
   it("serializes machine-wide focus state and proves the exact signed target identity", () => {
-    expect(smoke).toContain('"Local\\NinjaLensPriceCheckSmoke"');
+    expect(smoke).toContain('"Local\\GloamCorePriceCheckSmoke"');
     expect(smoke).toContain("$smokeMutex.WaitOne(45000)");
     expect(smoke).toContain("$qaHostSignature.Status -ne [System.Management.Automation.SignatureStatus]::Valid");
     expect(compact).toContain(
       "([DateTime]::UtcNow - $focusStableSince).TotalMilliseconds -ge 750",
     );
     expect(compact).toContain(
-      "[NinjaLensQaWindow]::GetForegroundWindow() -ne $qaTargetWindow",
+      "[GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow",
     );
     expect(smoke).toContain("$identityProbe = Start-Process");
     expect(smoke).toContain('"inspect"');
-    expect(smoke).toContain('"NinjaLensQaTarget.exe"');
+    expect(smoke).toContain('"GloamCoreQaTarget.exe"');
     expect(smoke).toContain(
       "Synthetic target failed native identity readiness with code $($identityProbe.ExitCode).",
     );
@@ -53,6 +53,13 @@ describe("native price-check smoke harness", () => {
       "$identityProbe = Start-Process",
       "$appProcess = Start-Process @launch",
     );
+  });
+
+  it("keeps passive and dismissed overlay hosts non-focusable", () => {
+    expect(smoke).toContain("$result.lifecycle.passiveInitial.overlayFocusable -or");
+    expect(smoke).toContain("$result.lifecycle.passiveRepeat.overlayFocusable -or");
+    expect(smoke).toContain("$result.dismissal.overlayFocusable -or");
+    expect(smoke).not.toContain("-not $result.dismissal.overlayFocusable -or");
   });
 
   it("uses the canonical Advanced Mageblood copy and exact Awakened model", () => {
@@ -118,13 +125,13 @@ describe("native price-check smoke harness", () => {
 
   it("restores the prior foreground and cleans only its isolated processes and temp root", () => {
     expect(smoke).toContain(
-      "$originalForegroundWindow = [NinjaLensQaWindow]::GetForegroundWindow()",
+      "$originalForegroundWindow = [GloamCoreQaWindow]::GetForegroundWindow()",
     );
     expect(smoke).toContain(
-      "[NinjaLensQaWindow]::IsWindow($originalForegroundWindow)",
+      "[GloamCoreQaWindow]::IsWindow($originalForegroundWindow)",
     );
     expect(smoke).toContain(
-      "[void][NinjaLensQaWindow]::SetForegroundWindow($originalForegroundWindow)",
+      "[void][GloamCoreQaWindow]::SetForegroundWindow($originalForegroundWindow)",
     );
     expect(smoke).toContain(
       "$qaRootFull.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)",
@@ -135,7 +142,7 @@ describe("native price-check smoke harness", () => {
     expectOrdered(
       "if ($appProcess -and -not $appProcess.HasExited)",
       "if ($qaTargetProcess -and -not $qaTargetProcess.HasExited)",
-      "[void][NinjaLensQaWindow]::SetForegroundWindow($originalForegroundWindow)",
+      "[void][GloamCoreQaWindow]::SetForegroundWindow($originalForegroundWindow)",
       "$smokeMutex.ReleaseMutex()",
     );
   });

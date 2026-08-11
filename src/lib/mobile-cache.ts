@@ -1,4 +1,4 @@
-const DATABASE_NAME = "ninja-lens-cache";
+const DATABASE_NAME = "gloamcore-cache";
 const STORE_NAME = "responses";
 const DATABASE_VERSION = 1;
 

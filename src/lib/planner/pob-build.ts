@@ -877,7 +877,7 @@ export function normalizeImportedPassiveSpecs(value: unknown): ImportedPassiveSp
   });
 }
 
-/** Backfills and validates workspaces written by earlier Ninja Lens planners. */
+/** Backfills and validates workspaces written by earlier planner releases. */
 export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | null | undefined) {
   if (!value || typeof value !== "object") return null;
   const source = record(value);

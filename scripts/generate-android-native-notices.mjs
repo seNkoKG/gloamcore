@@ -484,7 +484,7 @@ function main() {
     })),
   };
   const lines = [
-    "NINJA LENS - ANDROID NATIVE THIRD-PARTY NOTICES",
+    "GLOAMCORE - ANDROID NATIVE THIRD-PARTY NOTICES",
     "",
     "This inventory is generated from the resolved Gradle releaseRuntimeClasspath.",
     "JavaScript/Capacitor package licenses remain in THIRD_PARTY_NOTICES.txt.",

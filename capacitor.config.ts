@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.ninjalens.poe",
-  appName: "Ninja Lens",
+  appId: "io.github.senkokg.gloamcore",
+  appName: "GloamCore",
   webDir: "dist",
   server: {
     androidScheme: "https",
@@ -24,7 +24,7 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
     },
     LocalNotifications: {
-      smallIcon: "ic_stat_ninja_lens",
+      smallIcon: "ic_stat_gloamcore",
       iconColor: "#2fe0ad",
     },
   },

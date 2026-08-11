@@ -1,6 +1,6 @@
 # Security policy
 
-Ninja Lens is a desktop companion that handles global shortcuts, copied item
+GloamCore is a desktop companion that handles global shortcuts, copied item
 text, local files, remote data, native overlay windows, an isolated Wealthy
 Exile browser profile, and an optional official OAuth token. Reports that cross
 one of those trust boundaries are taken seriously.
@@ -9,7 +9,7 @@ one of those trust boundaries are taken seriously.
 
 Security fixes are provided for the latest stable release only. Before
 reporting, reproduce the issue on the version shown on the
-[latest release page](https://github.com/seNkoKG/ninja-lens/releases/latest)
+[latest release page](https://github.com/seNkoKG/gloamcore/releases/latest)
 when it is safe to do so.
 
 ## Report a vulnerability privately
@@ -40,7 +40,7 @@ details should wait until users have had a reasonable opportunity to update.
 
 ## Important security expectations
 
-- Ninja Lens must not inspect game memory, inject into Path of Exile, automate
+- GloamCore must not inspect game memory, inject into Path of Exile, automate
   gameplay, send whispers, or use account-session cookies.
 - The optional `account:characters` OAuth token is held only in process memory,
   cleared after import, and never persisted. Authenticated character responses
@@ -50,13 +50,13 @@ details should wait until users have had a reasonable opportunity to update.
   explicit per-plugin permission.
 - The embedded Wealthy Exile view must remain on its dedicated session partition
   with no preload, Node, Electron, filesystem, download, or permission access.
-  Ninja Lens must not read or reuse Wealthy Exile cookies, OAuth tokens, or
+  GloamCore must not read or reuse Wealthy Exile cookies, OAuth tokens, or
   responses. Ads-only filtering is scoped to Wealthy Exile, disabled on sign-in
   hosts, and fails open if no filter engine is available.
 - External URLs and remote responses must stay allowlisted, bounded, and
   validated before crossing the preload bridge.
 - Update metadata and binaries must come from the public
-  `seNkoKG/ninja-lens` GitHub release channel configured in the packaged app.
+  `seNkoKG/gloamcore` GitHub release channel configured in the packaged app.
 
 Please report any behavior that contradicts these expectations privately.
 

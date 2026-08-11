@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import gloamCoreLogoUrl from "../assets/gloamcore-logo.png";
 import type { AppMode, CategoryDefinition } from "../types";
 import { categories } from "../config/categories";
 import { tactileTap } from "../lib/platform";
@@ -43,10 +44,12 @@ export function MobileTopbar({
         }}
         aria-label={mode === "market" ? "Choose economy category" : undefined}
       >
-        <span className="mobile-brand-mark">N</span>
+        <span className="mobile-brand-mark" aria-hidden>
+          <img src={gloamCoreLogoUrl} alt="" />
+        </span>
         <span>
-          <small>{mode === "price-check" ? "ITEM PRICE CHECK" : mode === "knowledge" ? "POE KNOWLEDGE" : mode === "watchlist" ? "PRICE TRACKING" : "NINJA LENS"}</small>
-          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Ninja Intel" : mode === "watchlist" ? "Watchlist" : category.label}</strong>
+          <small>{mode === "price-check" ? "ITEM PRICE CHECK" : mode === "knowledge" ? "POE KNOWLEDGE" : mode === "watchlist" ? "PRICE TRACKING" : "GLOAMCORE"}</small>
+          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Item Intel" : mode === "watchlist" ? "Watchlist" : category.label}</strong>
         </span>
         {mode === "market" && <ChevronDown size={15} />}
       </button>

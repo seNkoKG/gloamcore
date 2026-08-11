@@ -56,7 +56,7 @@ async function readJson(response) {
 
 function createPoeCharacterService(options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const userAgent = options.userAgent || `Ninja-Lens/${APP_VERSION}`;
+  const userAgent = options.userAgent || `GloamCore/${APP_VERSION}`;
   const cache = new Map();
 
   async function requestJson(url, accessToken = "", ttl = 30_000) {

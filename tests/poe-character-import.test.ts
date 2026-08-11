@@ -20,7 +20,7 @@ describe("PoE character import service", () => {
     const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
       expect(url).toBe("https://api.pathofexile.com/character/Hero");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token");
-      expect((init.headers as Record<string, string>)["User-Agent"]).toBe(`Ninja-Lens/${appVersion}`);
+      expect((init.headers as Record<string, string>)["User-Agent"]).toBe(`GloamCore/${appVersion}`);
       return json({ character: { name: "Hero", passives: { hashes: [1, 2] } } });
     });
     const service = createPoeCharacterService({ fetchImpl });

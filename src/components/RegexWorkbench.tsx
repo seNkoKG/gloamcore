@@ -35,6 +35,10 @@ import {
   type RegexDataPack,
 } from "../lib/toolkit/regex-data";
 import { pruneRegexSelections } from "../lib/toolkit/regex-profile-state";
+import {
+  readMigratedStorage,
+  retiredProductStorageKey,
+} from "../lib/storage-migration";
 
 type TokenMode = "exact" | "optimized";
 
@@ -61,8 +65,11 @@ interface RegexProfile {
   state: RegexWorkbenchState;
 }
 
-const PROFILE_STORAGE = "ninja-lens:toolkit:regex-profiles:v2";
-const PROFILE_FILE_KIND = "ninja-lens-regex-profiles";
+const PROFILE_STORAGE = "gloamcore:toolkit:regex-profiles:v2";
+const LEGACY_PROFILE_STORAGE_KEYS = [
+  retiredProductStorageKey("toolkit:regex-profiles:v2"),
+] as const;
+const PROFILE_FILE_KIND = "gloamcore-regex-profiles";
 const ENTRY_PAGE_SIZE = 160;
 const EMPTY_SELECTIONS: Record<string, RegexEntryMode> = {};
 const EMPTY_CUSTOM_ENTRIES: CustomRegexEntry[] = [];
@@ -227,7 +234,9 @@ function normalizeProfiles(value: unknown): RegexProfile[] {
 function loadStoredProfiles() {
   if (typeof localStorage === "undefined") return [];
   try {
-    return normalizeProfiles(JSON.parse(localStorage.getItem(PROFILE_STORAGE) || "[]"));
+    return normalizeProfiles(JSON.parse(
+      readMigratedStorage(localStorage, PROFILE_STORAGE, LEGACY_PROFILE_STORAGE_KEYS) || "[]",
+    ));
   } catch {
     return [];
   }
@@ -490,7 +499,7 @@ export function RegexWorkbench() {
     try {
       const saved = await bridge.saveToolkitText({
         kind: "text",
-        suggestedName: "Ninja-Lens-Regex-Profiles.json",
+        suggestedName: "GloamCore-Regex-Profiles.json",
         text: JSON.stringify({ kind: PROFILE_FILE_KIND, version: 1, exportedAt: new Date().toISOString(), profiles }, null, 2),
       });
       if (saved) setMessage(`Exported ${profiles.length} profile${profiles.length === 1 ? "" : "s"} to ${saved.name}.`);
@@ -503,7 +512,7 @@ export function RegexWorkbench() {
       const opened = await bridge.openToolkitText("text");
       if (!opened) return;
       const imported = normalizeProfiles(JSON.parse(opened.text));
-      if (!imported.length) throw new Error("The file contains no valid Ninja Lens regex profiles.");
+      if (!imported.length) throw new Error("The file contains no valid GloamCore regex profiles.");
       const merged = new Map(profiles.map((profile) => [profile.id, profile]));
       imported.forEach((profile) => merged.set(profile.id, profile));
       const next = [...merged.values()].sort((left, right) => right.updatedAt - left.updatedAt).slice(0, 100);

@@ -67,10 +67,10 @@ export function Sidebar({
             mode === "knowledge" && "is-active",
           )}
           onClick={() => onMode("knowledge")}
-          title="Ninja Intel"
+          title="Item Intel"
         >
           <Database size={18} />
-          {!collapsed && <span>Ninja Intel</span>}
+          {!collapsed && <span>Item Intel</span>}
           {!collapsed && <small>LIVE</small>}
         </button>
         <button
@@ -165,7 +165,7 @@ export function Sidebar({
         {!collapsed && (
           <div className="sidebar-tip">
             <Search size={14} />
-            <span><kbd>Ctrl K</kbd> opens Ninja Intel</span>
+            <span><kbd>Ctrl K</kbd> opens Item Intel</span>
           </div>
         )}
         <button

@@ -124,7 +124,7 @@ async function mapLimited(values, worker) {
 const packageJson = JSON.parse(
   await fs.readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
-const userAgent = `Ninja-Lens/${packageJson.version} live-market-audit`;
+const userAgent = `GloamCore/${packageJson.version} live-market-audit`;
 const leagueEnvelope = await requestJson(`${ROOT}/poe1/api/economy/leagues`, userAgent);
 if (!Array.isArray(leagueEnvelope.data) || leagueEnvelope.data.length === 0) {
   throw new Error("poe.ninja returned no active leagues.");

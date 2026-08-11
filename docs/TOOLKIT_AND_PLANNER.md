@@ -29,7 +29,7 @@ access. A page sends a message to its parent:
 
 ```js
 parent.postMessage({
-  protocol: "ninja-lens-plugin/v1",
+  protocol: "gloamcore-plugin/v1",
   id: crypto.randomUUID(),
   type: "get-context"
 }, "*")

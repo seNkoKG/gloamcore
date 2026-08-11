@@ -43,7 +43,7 @@ function extensionFilters(kind) {
   if (kind === "build") {
     return [
       { name: "Path of Building XML", extensions: ["xml"] },
-      { name: "Ninja Lens workspace", extensions: ["json"] },
+      { name: "GloamCore workspace", extensions: ["json"] },
       { name: "Text files", extensions: ["txt"] },
     ];
   }
@@ -224,7 +224,7 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
         response = await fetchImpl(current, {
           redirect: "manual",
           signal: controller.signal,
-          headers: { "User-Agent": `Ninja-Lens/${APP_VERSION}` },
+          headers: { "User-Agent": `GloamCore/${APP_VERSION}` },
         });
         if (response.status < 300 || response.status >= 400) break;
         const location = response.headers.get("location");

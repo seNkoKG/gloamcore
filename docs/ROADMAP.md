@@ -1,6 +1,6 @@
-# Ninja Lens roadmap
+# GloamCore roadmap
 
-Ninja Lens 2.2 is the economy, intelligence, one-key in-game price-check, and
+GloamCore is the economy, intelligence, one-key in-game price-check, and
 compact live-listing baseline. New knowledge work remains isolated from the
 price dashboard until its data, performance, and accuracy checks pass.
 
@@ -101,7 +101,7 @@ price dashboard until its data, performance, and accuracy checks pass.
 - One-hour local request caching, forced refresh, and last-good stale fallback.
 - Acquisition restrictions, drop areas/monsters, release patch, metadata,
   affix type, tier, required level, domain, mod groups, and tags.
-- Responsive Ninja Intel interfaces for desktop, phone, and tablet plus
+- Responsive Item Intel interfaces for desktop, phone, and tablet plus
   `Ctrl+K` global access inside the main window.
 - Exact in-game inventory artwork with trusted local data caching, semantic
   fallbacks, rarity accents, and bot-challenge-safe rendering.
@@ -128,7 +128,7 @@ price dashboard until its data, performance, and accuracy checks pass.
 - Stage and validate updates before activation; retain the last known-good
   database for automatic rollback and offline use.
 - Keep calculations reproducible and label estimated or uncertain mechanics.
-- Preserve Ninja Lens's economy, tooltip, watchlist, and mobile paths as
+- Preserve GloamCore's economy, tooltip, watchlist, and mobile paths as
   independently testable modules. Keep future authorized Currency Exchange
   support isolated behind a compliant identifiable application service.
 

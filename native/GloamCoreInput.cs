@@ -10,7 +10,7 @@ using System.Threading;
 // user-triggered action: copying the currently hovered Path of Exile item.
 // Every copy is bound to a foreground HWND/PID/process/title identity obtained
 // immediately beforehand, and to an absolute deadline supplied by the app.
-internal static class NinjaLensInput
+internal static class GloamCoreInput
 {
     private const uint InputKeyboard = 1;
     private const uint KeyEventKeyUp = 0x0002;

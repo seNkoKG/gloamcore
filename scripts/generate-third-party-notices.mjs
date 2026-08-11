@@ -178,7 +178,7 @@ const sections = packages.map((entry) => {
     `${entry.name} ${versions}`,
     `License: ${entry.license}`,
     entry.homepage ? `Project: ${entry.homepage}` : null,
-    `License source: ${licenseFile || "SPDX-compatible fallback retained by Ninja Lens"}`,
+    `License source: ${licenseFile || "SPDX-compatible fallback retained by GloamCore"}`,
     "-".repeat(78),
     licenseText,
   ].filter(Boolean).join("\n");
@@ -187,7 +187,7 @@ const sections = packages.map((entry) => {
 const preamble = `THIRD-PARTY NOTICES
 ===================
 
-Ninja Lens distributes the open-source packages listed below. This inventory
+GloamCore distributes the open-source packages listed below. This inventory
 is generated from the Windows production dependency graph plus the explicit
 native mobile runtime package set; each entry keeps the package version, SPDX
 license identifier, project link, and complete license text. Electron's own
@@ -197,7 +197,7 @@ Windows executable.
 Awakened PoE Trade item and modifier data
 ------------------------------------------
 
-Ninja Lens includes a transformed English modifier-to-Trade-ID snapshot from:
+GloamCore includes a transformed English modifier-to-Trade-ID snapshot from:
 https://github.com/SnosMe/awakened-poe-trade
 
 Source commit: adb6c287bd978a70701e2b65d744dd677c52fb65
@@ -211,7 +211,7 @@ complete ordered ITEM/UNIQUE variant catalogs used to build a readable Trade
 filter plan. StatGroup category selection, merged IDs, per-ID numeric
 transforms, base-property discriminators, and unique fixed-stat declarations
 remain pinned to that source release.
-Ninja Lens does not use POESESSID or account-session cookies. The Windows price
+GloamCore does not use POESESSID or account-session cookies. The Windows price
 checker may anonymously use fixed public official Trade website search/exchange/fetch
 routes for a compact listing snapshot; the mobile packages do not include that
 desktop bridge. Awakened PoE Trade acknowledges RePoE for extracted game data.
@@ -235,7 +235,7 @@ intellectual property of their respective owners.
 Path of Building calculation bridge
 -----------------------------------
 
-Ninja Lens includes a tagged Path of Building Community HeadlessWrapper
+GloamCore includes a tagged Path of Building Community HeadlessWrapper
 adapter under the MIT License and uses it only with a separately installed,
 exactly verified Path of Building release. The app does not redistribute the
 Path of Building runtime or game databases. The adapter's complete notice is

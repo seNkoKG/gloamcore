@@ -34,6 +34,10 @@ import {
   mergeDesktopSettingsPatch,
 } from "./settings-sync";
 import { defaultDesktopShortcuts, validateShortcutDraft } from "./shortcuts";
+import {
+  readMigratedStorage,
+  retiredProductStorageKey,
+} from "./storage-migration";
 
 const browserSettings: DesktopSettings = {
   alwaysOnTop: true,
@@ -261,7 +265,10 @@ function browserOverviewPath(request: OverviewRequest) {
   return `/poe-api/poe1/api/economy/stash/current/item/overview?league=${league}&type=${type}`;
 }
 
-const BROWSER_TOOLKIT_WORKSPACE_KEY = "ninja-lens:toolkit-workspace:v1";
+const BROWSER_TOOLKIT_WORKSPACE_KEY = "gloamcore:toolkit-workspace:v1";
+const LEGACY_BROWSER_TOOLKIT_WORKSPACE_KEYS = [
+  retiredProductStorageKey("toolkit-workspace:v1"),
+] as const;
 const MAX_BROWSER_TOOLKIT_BYTES = 2 * 1024 * 1024;
 const MAX_BROWSER_TOOLKIT_IMAGE_CHARS = 512 * 1024;
 
@@ -547,7 +554,11 @@ const browserBridge: PoeWidgetBridge = {
       stashScroll: { enabled: false, modifier: "Ctrl" },
       plugins: [],
     });
-    const raw = localStorage.getItem(BROWSER_TOOLKIT_WORKSPACE_KEY);
+    const raw = readMigratedStorage(
+      localStorage,
+      BROWSER_TOOLKIT_WORKSPACE_KEY,
+      LEGACY_BROWSER_TOOLKIT_WORKSPACE_KEYS,
+    );
     if (!raw) return clean();
     try {
       if (new TextEncoder().encode(raw).byteLength > MAX_BROWSER_TOOLKIT_BYTES) {

@@ -7,14 +7,14 @@ if (signingPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.ninjalens.poe"
+    namespace = "io.github.senkokg.gloamcore"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.ninjalens.poe"
+        applicationId "io.github.senkokg.gloamcore"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 25
-        versionName "2.2.8"
+        versionCode 30
+        versionName "2.4.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

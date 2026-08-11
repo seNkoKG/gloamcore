@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security report
-    url: https://github.com/seNkoKG/ninja-lens/security/policy
+    url: https://github.com/seNkoKG/gloamcore/security/policy
     about: Read the private vulnerability-reporting process before sharing details.
   - name: Latest Windows release
-    url: https://github.com/seNkoKG/ninja-lens/releases/latest
+    url: https://github.com/seNkoKG/gloamcore/releases/latest
     about: Download the current installer, portable build, and checksums.

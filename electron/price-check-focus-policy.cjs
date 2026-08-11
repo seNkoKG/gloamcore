@@ -1,12 +1,10 @@
 "use strict";
 
 /**
- * A passive price preview never owns foreground input, so closing it outside a
- * click must not issue another Windows foreground request. Only return focus
- * when the overlay actually owned foreground at the moment of the close — a
- * close-button/Escape interaction grants it by OS (the caller is the
- * foreground owner, so the handoff is permitted without flashing the game's
- * taskbar button). Blur/Alt-Tab closes pass focusTarget=false and skip this.
+ * A passive price preview never owns foreground input, so closing it must not
+ * issue another Windows foreground request. Focus restoration is reserved for
+ * the explicit locked/editor mode after that mode actually owned foreground.
+ * Blur and Alt-Tab also pass focusTarget=false and skip the handoff.
  */
 function shouldRestorePriceCheckTargetFocus({
   requested,
@@ -27,10 +25,11 @@ function shouldAcceptPriceCheckOverlayFocus({
   mode,
   activationPending,
   interactive,
-  passivePanelHitTest,
 } = {}) {
   if (!visible || mode === "hidden") return false;
-  if (mode === "passive") return Boolean(passivePanelHitTest);
+  // Normal Ctrl+D previews are native non-activating windows. Mouse controls
+  // remain usable, but a card click must never take foreground from the game.
+  if (mode === "passive") return false;
   return Boolean(activationPending || interactive);
 }
 

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "applicationId": "com.ninjalens.poe",
-  "versionName": "2.3.3",
-  "versionCode": 29,
-  "previousPublishedVersionCode": 27
+  "applicationId": "io.github.senkokg.gloamcore",
+  "versionName": "2.4.0",
+  "versionCode": 30,
+  "previousPublishedVersionCode": 29
 }

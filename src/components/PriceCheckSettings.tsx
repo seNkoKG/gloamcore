@@ -144,6 +144,14 @@ export function PriceCheckSettings({
             </div>
             <span>IN-GAME</span>
           </div>
+          <div className="pc-setting-readonly">
+            <ShieldCheck size={17} aria-hidden />
+            <div>
+              <strong>Focus-safe preview</strong>
+              <small>Ctrl+D keeps Path of Exile focused. Use Ctrl+Alt+D only for keyboard editing.</small>
+            </div>
+            <span>DEFAULT</span>
+          </div>
           <SettingSwitch
             checked={settings.openNearCursor}
             title="Open near cursor"

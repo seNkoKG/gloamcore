@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a focused improvement to Ninja Lens.
+description: Suggest a focused improvement to GloamCore.
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,14 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Describe the player problem first. Features must preserve Ninja Lens's no-game-memory, no-automation, local-first safety boundaries.
+        Describe the player problem first. Features must preserve GloamCore's no-game-memory, no-automation, local-first safety boundaries.
   - type: dropdown
     id: surface
     attributes:
       label: Area
       options:
         - Ctrl+D price-check overlay
-        - Market Explorer, Ninja Intel, or watchlist
+        - Market Explorer, Item Intel, or watchlist
         - Build Lab
         - Player Toolkit
         - Desktop, tray, settings, or updates
@@ -39,7 +39,7 @@ body:
     id: alternatives
     attributes:
       label: Alternatives considered
-      description: Note existing Ninja Lens, PoB, Trade, or community workflows that almost solve it.
+      description: Note existing GloamCore, PoB, Trade, or community workflows that almost solve it.
   - type: textarea
     id: data
     attributes:

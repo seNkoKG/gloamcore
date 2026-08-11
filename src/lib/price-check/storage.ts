@@ -1,6 +1,13 @@
 import type { PriceCheckHistoryEntry } from "./types";
+import {
+  readMigratedStorage,
+  retiredProductStorageKey,
+} from "../storage-migration";
 
-const HISTORY_KEY = "ninja-lens:price-check-history:v1";
+const HISTORY_KEY = "gloamcore:price-check-history:v1";
+const LEGACY_HISTORY_KEYS = [
+  retiredProductStorageKey("price-check-history:v1"),
+] as const;
 let pendingHistorySave: PriceCheckHistoryEntry[] | null = null;
 let pendingHistorySaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -24,7 +31,9 @@ function looksLikeHistoryEntry(value: unknown): value is PriceCheckHistoryEntry 
 }
 export function loadPriceCheckHistory(): PriceCheckHistoryEntry[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]") as unknown;
+    const parsed = JSON.parse(
+      readMigratedStorage(localStorage, HISTORY_KEY, LEGACY_HISTORY_KEYS) || "[]",
+    ) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(looksLikeHistoryEntry).slice(0, 200);
   } catch {

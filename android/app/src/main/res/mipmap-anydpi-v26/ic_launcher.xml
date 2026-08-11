@@ -6,5 +6,5 @@
     <foreground>
         <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
     </foreground>
-    <monochrome android:drawable="@drawable/ic_stat_ninja_lens" />
+    <monochrome android:drawable="@drawable/ic_stat_gloamcore" />
 </adaptive-icon>

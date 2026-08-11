@@ -1,6 +1,6 @@
-# Contributing to Ninja Lens
+# Contributing to GloamCore
 
-Thank you for helping improve Ninja Lens. Clear bug reports, reproducible test
+Thank you for helping improve GloamCore. Clear bug reports, reproducible test
 cases, documentation corrections, and focused pull requests are welcome.
 
 ## Before starting

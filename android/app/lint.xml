@@ -6,7 +6,7 @@
     </issue>
 
     <!-- Generated launch art intentionally varies by device aspect ratio. The
-         light/dark copies are identical because Ninja Lens uses one dark theme. -->
+         light/dark copies are identical because GloamCore uses one dark theme. -->
     <issue id="IconDipSize,IconDuplicatesConfig,IconLocation">
         <ignore regexp=".*[/\\]res[/\\]drawable[^/\\]*[/\\]splash\.png" />
     </issue>

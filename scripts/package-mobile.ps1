@@ -425,12 +425,12 @@ try {
     return
   }
 
-  $apkName = "Ninja-Lens-Android-$Version.apk"
-  $apkHashName = "Ninja-Lens-Android-$Version.sha256.txt"
-  $sourceName = "Ninja-Lens-iOS-Source-$Version.zip"
-  $sourceHashName = "Ninja-Lens-iOS-Source-$Version.sha256.txt"
-  $friendsName = "Ninja-Lens-Mobile-Friends-$Version.zip"
-  $friendsHashName = "Ninja-Lens-Mobile-Friends-$Version.sha256.txt"
+  $apkName = "GloamCore-Android-$Version.apk"
+  $apkHashName = "GloamCore-Android-$Version.sha256.txt"
+  $sourceName = "GloamCore-iOS-Source-$Version.zip"
+  $sourceHashName = "GloamCore-iOS-Source-$Version.sha256.txt"
+  $friendsName = "GloamCore-Mobile-Friends-$Version.zip"
+  $friendsHashName = "GloamCore-Mobile-Friends-$Version.sha256.txt"
   $apkPath = Join-Path $mobileOutputFull $apkName
   $apkHashPath = Join-Path $mobileOutputFull $apkHashName
   $sourcePath = Join-Path $mobileOutputFull $sourceName

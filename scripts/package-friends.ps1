@@ -16,11 +16,11 @@ if ($Version -ne $packageVersion) {
   throw "Requested version $Version does not match package.json $packageVersion."
 }
 
-$setupName = "Ninja-Lens-Setup-$Version-x64.exe"
-$portableName = "Ninja-Lens-Portable-$Version-x64.exe"
+$setupName = "GloamCore-Setup-$Version-x64.exe"
+$portableName = "GloamCore-Portable-$Version-x64.exe"
 $setupPath = Join-Path $deliverables $setupName
 $portablePath = Join-Path $deliverables $portableName
-$stageName = "Ninja-Lens-$Version-Friends"
+$stageName = "GloamCore-$Version-Friends"
 $stagePath = Join-Path $deliverables $stageName
 $zipPath = Join-Path $deliverables "$stageName.zip"
 $zipHashPath = Join-Path $deliverables "$stageName.sha256.txt"
@@ -79,7 +79,7 @@ Assert-ReleaseExecutable -Path $portablePath -ExpectedVersion $Version -Expected
 
 $unpackedExePath = Join-Path $deliverables "win-unpacked/$productName.exe"
 $appAsarPath = Join-Path $deliverables "win-unpacked/resources/app.asar"
-$packagedHelperPath = Join-Path $deliverables "win-unpacked/resources/native-input/NinjaLensInput.exe"
+$packagedHelperPath = Join-Path $deliverables "win-unpacked/resources/native-input/GloamCoreInput.exe"
 foreach ($required in @($unpackedExePath, $appAsarPath, $packagedHelperPath)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
     throw "Required unpacked release file is missing: $required"
@@ -130,13 +130,13 @@ Copy-Item -LiteralPath $setupPath -Destination (Join-Path $stageFull $setupName)
 Copy-Item -LiteralPath $portablePath -Destination (Join-Path $stageFull $portableName)
 
 $friendReadme = @"
-NINJA LENS - POE 1 ECONOMY WIDGET $Version
+GLOAMCORE - POE 1 COMPANION $Version
 
 WHAT IT IS
 A slick dark desktop economy dashboard for the current Path of Exile 1 league.
 It covers all poe.ninja economy categories, live prices, seven-day movement,
 liquidity, search, filters, watch targets, tray controls, and instant global
-search. Ninja Intel adds live item, base, and modifier records with acquisition,
+search. Item Intel adds live item, base, and modifier records with acquisition,
 tiers, tags, internal groups, and safe Wiki/PoEDB/Craft of Exile handoffs. Rich
 Item Intel cards explain what an item is and put Inspect, Watch, Trade, and Wiki
 one click away.
@@ -176,7 +176,7 @@ INSTALL
 Recommended: run $setupName
 No install: run $portableName
 
-Before upgrading, quit any older Ninja Lens instance from
+Before upgrading, quit any older GloamCore instance from
 its system-tray menu so Windows can replace every application file cleanly.
 The installer creates Desktop and Start Menu shortcuts. Closing the window sends
 the widget to the tray; use its tray menu to restore or quit.

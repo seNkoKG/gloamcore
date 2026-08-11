@@ -4,7 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const WEALTHY_EXILE_URL = "https://wealthyexile.com/stash";
-const WEALTHY_EXILE_PARTITION = "persist:ninja-lens-wealthy-exile";
+const WEALTHY_EXILE_PARTITION = "persist:gloamcore-wealthy-exile";
 const AD_BLOCK_CACHE_FILE = "ads-only.bin";
 const AD_BLOCK_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const AD_BLOCK_LOAD_TIMEOUT_MS = 10_000;

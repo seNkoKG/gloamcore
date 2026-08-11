@@ -125,7 +125,9 @@ function createOneKeyItemCapture({
   const setTimer = requireFunction(schedule, "schedule");
   const clearTimer = requireFunction(cancelSchedule, "cancelSchedule");
   const clock = requireFunction(now, "now");
-  const timeout = Math.max(0, Number(timeoutMs) || 0);
+  const getTimeout = typeof timeoutMs === "function"
+    ? timeoutMs
+    : () => timeoutMs;
   const abortGrace = Math.max(0, Number(abortGraceMs) || 0);
   const textLimit = Math.max(1, Number(maxTextLength) || DEFAULT_MAX_TEXT_LENGTH);
   let pending = false;
@@ -154,6 +156,7 @@ function createOneKeyItemCapture({
 
     pending = true;
     try {
+      const timeout = Math.max(0, Number(getTimeout(context)) || 0);
       const startedAt = clock();
       const deadline = startedAt + timeout;
       const abortController = new AbortController();

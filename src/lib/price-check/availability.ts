@@ -15,7 +15,7 @@ export function normalizePriceCheckAvailability(
   value: unknown,
 ): PriceCheckAvailability {
   if (value === "securable" || value === "any") return value;
-  // Older Ninja Lens sessions used `online`, which excludes instant-buyout
+  // Older app sessions used `online`, which excludes instant-buyout
   // offers in the current official schema. Upgrade those sessions safely.
   return "available";
 }

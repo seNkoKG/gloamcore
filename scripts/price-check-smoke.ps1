@@ -44,7 +44,7 @@ if ($Executable) {
     throw "Packaged executable provenance does not match this release snapshot."
   }
   $packagedAppAsar = Join-Path $executableDirectory "resources\app.asar"
-  $packagedNativeHelper = Join-Path $executableDirectory "resources\native-input\NinjaLensInput.exe"
+  $packagedNativeHelper = Join-Path $executableDirectory "resources\native-input\GloamCoreInput.exe"
   foreach ($proof in @(
     @{ Path = $electron; Expected = [string]$provenance.files.unpackedExe.sha256; Label = "executable" },
     @{ Path = $packagedAppAsar; Expected = [string]$provenance.files.appAsar.sha256; Label = "app.asar" },
@@ -178,14 +178,14 @@ $stdoutPath = Join-Path $qaRootFull "electron-stdout.log"
 $stderrPath = Join-Path $qaRootFull "electron-stderr.log"
 $targetStdoutPath = Join-Path $qaRootFull "target-stdout.log"
 $targetStderrPath = Join-Path $qaRootFull "target-stderr.log"
-$qaTargetTitle = "Ninja Lens QA Path of Exile " + [guid]::NewGuid().ToString("N")
+$qaTargetTitle = "GloamCore QA Path of Exile " + [guid]::NewGuid().ToString("N")
 $qaTargetProcess = $null
 $appProcess = $null
 $qaWindowApiReady = $false
 $originalForegroundWindow = [IntPtr]::Zero
 $smokeMutex = New-Object System.Threading.Mutex(
   $false,
-  "Local\NinjaLensPriceCheckSmoke"
+  "Local\GloamCorePriceCheckSmoke"
 )
 $smokeMutexAcquired = $false
 if (-not $qaRootFull.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or $qaRootFull -eq $tempRoot) {
@@ -210,7 +210,7 @@ try {
   Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public static class NinjaLensQaWindow {
+public static class GloamCoreQaWindow {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)]
   public static extern IntPtr FindWindow(IntPtr className, string windowName);
   [DllImport("user32.dll")]
@@ -224,7 +224,7 @@ public static class NinjaLensQaWindow {
 }
 "@
   $qaWindowApiReady = $true
-  $originalForegroundWindow = [NinjaLensQaWindow]::GetForegroundWindow()
+  $originalForegroundWindow = [GloamCoreQaWindow]::GetForegroundWindow()
   $windowsPowerShell = Join-Path `
     ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) `
     "WindowsPowerShell\v1.0\powershell.exe"
@@ -239,7 +239,7 @@ public static class NinjaLensQaWindow {
   # under this exact executable name. Reuse Microsoft's signed PowerShell host
   # byte-for-byte instead of compiling an unsigned target that Application
   # Control can reject; only the in-memory command creates the WinForms window.
-  $signedQaTarget = Join-Path $qaRootFull "NinjaLensQaTarget.exe"
+  $signedQaTarget = Join-Path $qaRootFull "GloamCoreQaTarget.exe"
   Copy-Item -LiteralPath $windowsPowerShell -Destination $signedQaTarget
   Copy-Item `
     -LiteralPath $windowsPowerShellConfig `
@@ -330,7 +330,7 @@ try {
   do {
     Start-Sleep -Milliseconds 100
     $qaTargetProcess.Refresh()
-    $qaTargetWindow = [NinjaLensQaWindow]::FindWindow(
+    $qaTargetWindow = [GloamCoreQaWindow]::FindWindow(
       [IntPtr]::Zero,
       $qaTargetTitle
     )
@@ -360,14 +360,14 @@ try {
     if ($qaTargetProcess.HasExited) {
       throw "Synthetic Path of Exile target exited while acquiring foreground focus."
     }
-    if ([NinjaLensQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
+    if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
       if (-not $focusStableSince) {
         $focusStableSince = [DateTime]::UtcNow
       }
     } else {
       $focusStableSince = $null
-      [void][NinjaLensQaWindow]::ShowWindowAsync($qaTargetWindow, 5)
-      [void][NinjaLensQaWindow]::SetForegroundWindow($qaTargetWindow)
+      [void][GloamCoreQaWindow]::ShowWindowAsync($qaTargetWindow, 5)
+      [void][GloamCoreQaWindow]::SetForegroundWindow($qaTargetWindow)
     }
     if (
       $focusStableSince -and
@@ -380,7 +380,7 @@ try {
   if (
     -not $focusStableSince -or
     ([DateTime]::UtcNow - $focusStableSince).TotalMilliseconds -lt 750 -or
-    [NinjaLensQaWindow]::GetForegroundWindow() -ne $qaTargetWindow
+    [GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow
   ) {
     throw "Synthetic Path of Exile target did not hold foreground focus for 750 ms."
   }
@@ -391,7 +391,7 @@ try {
   $nativeIdentityHelper = if ($Executable) {
     $packagedNativeHelper
   } else {
-    Join-Path $projectRoot "build\native-input\NinjaLensInput.exe"
+    Join-Path $projectRoot "build\native-input\GloamCoreInput.exe"
   }
   if (-not (Test-Path -LiteralPath $nativeIdentityHelper -PathType Leaf)) {
     throw "Native identity helper is missing: $nativeIdentityHelper"
@@ -403,7 +403,7 @@ try {
       "inspect",
       [string]$identityDeadline,
       $qaTargetTitleBase64,
-      "NinjaLensQaTarget.exe"
+      "GloamCoreQaTarget.exe"
     ) `
     -WindowStyle Hidden `
     -Wait `
@@ -414,16 +414,16 @@ try {
 
   # Do not allow a parent shell's QA payload or expansion flag to bypass this
   # scenario's native Ctrl+C fixture and initial UI contract.
-  Remove-Item Env:POE_WIDGET_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
-  Remove-Item Env:POE_WIDGET_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
-  Remove-Item Env:POE_WIDGET_QA_EXPAND_STATS -ErrorAction SilentlyContinue
-  $env:POE_WIDGET_QA_OPEN_SURFACE = "price-check"
-  $env:POE_WIDGET_QA_RESULT_PATH = $resultPath
-  $env:POE_WIDGET_QA_TARGET_TITLE = $qaTargetTitle
-  $env:POE_WIDGET_QA_CAPTURE_TEST = "1"
-  $env:POE_WIDGET_QA_USER_DATA_PATH = $qaRootFull
+  Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
+  Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
+  Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
+  $env:GLOAMCORE_QA_OPEN_SURFACE = "price-check"
+  $env:GLOAMCORE_QA_RESULT_PATH = $resultPath
+  $env:GLOAMCORE_QA_TARGET_TITLE = $qaTargetTitle
+  $env:GLOAMCORE_QA_CAPTURE_TEST = "1"
+  $env:GLOAMCORE_QA_USER_DATA_PATH = $qaRootFull
   if ($Wand) {
-    $env:POE_WIDGET_QA_EXPAND_STATS = "1"
+    $env:GLOAMCORE_QA_EXPAND_STATS = "1"
   }
   $env:ELECTRON_ENABLE_LOGGING = "1"
   Push-Location $projectRoot
@@ -438,7 +438,7 @@ try {
     if (-not $Executable) {
       $launch.ArgumentList = "."
     } else {
-      $launch.ArgumentList = "--ninja-lens-qa-smoke"
+      $launch.ArgumentList = "--gloamcore-qa-smoke"
     }
     $appProcess = Start-Process @launch
     $appWaitSeconds = 240
@@ -759,6 +759,7 @@ try {
     $result.window.overlayMode -ne "passive" -or
     -not $result.lifecycle.passiveInitial.targetActive -or
     $result.lifecycle.passiveInitial.overlayFocused -or
+    $result.lifecycle.passiveInitial.overlayFocusable -or
     $result.lifecycle.passiveInitial.interactive
   ) {
     throw "Default Ctrl+D did not open a passive, non-focused in-game preview."
@@ -816,6 +817,7 @@ try {
     $result.lifecycle.passiveRepeat.mode -ne "passive" -or
     -not $result.lifecycle.passiveRepeat.targetActive -or
     $result.lifecycle.passiveRepeat.overlayFocused -or
+    $result.lifecycle.passiveRepeat.overlayFocusable -or
     $result.lifecycle.passiveRepeat.interactive -or
     -not $result.lifecycle.passiveRepeat.positionStable -or
     $result.lifecycle.passiveRepeat.normalRegistered -ne $result.shortcut.configured -or
@@ -884,7 +886,7 @@ try {
     $result.dismissal.overlayInteractive -or
     $result.dismissal.overlayMode -ne "hidden" -or
     -not ($result.dismissal.PSObject.Properties.Name -contains "overlayFocusable") -or
-    -not $result.dismissal.overlayFocusable -or
+    $result.dismissal.overlayFocusable -or
     $result.dismissal.overlayShapeApplied -or
     $result.dismissal.nativePanel -or
     $result.dismissal.geometryTimerPending -or
@@ -946,14 +948,14 @@ try {
   throw
 } finally {
   try {
-    Remove-Item Env:POE_WIDGET_QA_OPEN_SURFACE -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_RESULT_PATH -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_TARGET_TITLE -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_CAPTURE_TEST -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_USER_DATA_PATH -ErrorAction SilentlyContinue
-    Remove-Item Env:POE_WIDGET_QA_EXPAND_STATS -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_OPEN_SURFACE -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_RESULT_PATH -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_TARGET_TITLE -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_CAPTURE_TEST -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_USER_DATA_PATH -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
     Remove-Item Env:ELECTRON_ENABLE_LOGGING -ErrorAction SilentlyContinue
     if ($appProcess -and -not $appProcess.HasExited) {
       Stop-Process -Id $appProcess.Id -Force
@@ -966,9 +968,9 @@ try {
     if (
       $qaWindowApiReady -and
       $originalForegroundWindow -ne [IntPtr]::Zero -and
-      [NinjaLensQaWindow]::IsWindow($originalForegroundWindow)
+      [GloamCoreQaWindow]::IsWindow($originalForegroundWindow)
     ) {
-      [void][NinjaLensQaWindow]::SetForegroundWindow($originalForegroundWindow)
+      [void][GloamCoreQaWindow]::SetForegroundWindow($originalForegroundWindow)
     }
     if (Test-Path -LiteralPath $qaRootFull) {
       Remove-Item -LiteralPath $qaRootFull -Recurse -Force

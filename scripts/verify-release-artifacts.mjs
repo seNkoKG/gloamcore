@@ -735,7 +735,7 @@ function assertElectronRuntimePackaged(root, unpackedRoot) {
       fail(`Packaged Electron runtime contains stale or changed ${packagedRelative}.`);
     }
   }
-  expectedRuntimeFiles.push("Ninja Lens.exe");
+  expectedRuntimeFiles.push("GloamCore.exe");
   const actualRuntimeFiles = walkFiles(unpackedRoot)
     .map((filePath) => normalizeRelative(path.relative(unpackedRoot, filePath)))
     .filter((relativePath) => !relativePath.startsWith("resources/"))
@@ -746,7 +746,7 @@ function assertElectronRuntimePackaged(root, unpackedRoot) {
   }
   const sourceIdentity = peCodeIdentity(path.join(sourceRoot, "electron.exe"));
   const packagedIdentity = peCodeIdentity(
-    path.join(unpackedRoot, "Ninja Lens.exe"),
+    path.join(unpackedRoot, "GloamCore.exe"),
   );
   if (canonicalJson(sourceIdentity) !== canonicalJson(packagedIdentity)) {
     fail("Packaged app executable code sections do not derive from the pinned Electron runtime.");
@@ -756,7 +756,7 @@ function assertElectronRuntimePackaged(root, unpackedRoot) {
 const PUBLIC_UPDATE_REPOSITORY = Object.freeze({
   provider: "github",
   owner: "seNkoKG",
-  repo: "ninja-lens",
+  repo: "gloamcore",
 });
 
 function githubUpdateConfiguration(packageJson) {
@@ -1371,26 +1371,26 @@ function windowsArtifactPaths(root, version) {
   const deliverables = path.join(root, "deliverables");
   return {
     deliverables,
-    setup: path.join(deliverables, `Ninja-Lens-Setup-${version}-x64.exe`),
+    setup: path.join(deliverables, `GloamCore-Setup-${version}-x64.exe`),
     blockmap: path.join(
       deliverables,
-      `Ninja-Lens-Setup-${version}-x64.exe.blockmap`,
+      `GloamCore-Setup-${version}-x64.exe.blockmap`,
     ),
-    portable: path.join(deliverables, `Ninja-Lens-Portable-${version}-x64.exe`),
+    portable: path.join(deliverables, `GloamCore-Portable-${version}-x64.exe`),
     appAsar: path.join(deliverables, "win-unpacked", "resources", "app.asar"),
     helper: path.join(
       deliverables,
       "win-unpacked",
       "resources",
       "native-input",
-      "NinjaLensInput.exe",
+      "GloamCoreInput.exe",
     ),
     pobHost: path.join(
       deliverables,
       "win-unpacked",
       "resources",
       "pob-engine",
-      "NinjaLensPobHost-x64.exe",
+      "GloamCorePobHost-x64.exe",
     ),
     updateConfig: path.join(
       deliverables,
@@ -1398,7 +1398,7 @@ function windowsArtifactPaths(root, version) {
       "resources",
       "update-config.json",
     ),
-    unpackedExe: path.join(deliverables, "win-unpacked", "Ninja Lens.exe"),
+    unpackedExe: path.join(deliverables, "win-unpacked", "GloamCore.exe"),
     latest: path.join(deliverables, "latest.yml"),
     manifest: path.join(deliverables, "windows-release-provenance.json"),
   };
@@ -1786,22 +1786,22 @@ function verifyWindows({ root, version }) {
   assertElectronBuilderResources(root, resources, packageJson);
   const asarPath = requireFile(path.join(resources, "app.asar"), "Packaged app.asar");
   const sourceHelper = requireFile(
-    path.join(root, "build", "native-input", "NinjaLensInput.exe"),
+    path.join(root, "build", "native-input", "GloamCoreInput.exe"),
     "Current native input helper",
   );
   const packagedHelper = requireFile(
-    path.join(resources, "native-input", "NinjaLensInput.exe"),
+    path.join(resources, "native-input", "GloamCoreInput.exe"),
     "Packaged native input helper",
   );
   if (sha256File(sourceHelper) !== sha256File(packagedHelper)) {
     fail("Packaged native input helper does not match the current final helper.");
   }
   const sourcePobHost = requireFile(
-    path.join(root, "build", "pob-engine", "NinjaLensPobHost-x64.exe"),
+    path.join(root, "build", "pob-engine", "GloamCorePobHost-x64.exe"),
     "Current Path of Building calculation host",
   );
   const packagedPobHost = requireFile(
-    path.join(resources, "pob-engine", "NinjaLensPobHost-x64.exe"),
+    path.join(resources, "pob-engine", "GloamCorePobHost-x64.exe"),
     "Packaged Path of Building calculation host",
   );
   if (sha256File(sourcePobHost) !== sha256File(packagedPobHost)) {
@@ -1826,7 +1826,7 @@ function verifyWindows({ root, version }) {
     fail("Packaged updater configuration does not match build/update-config.json.");
   }
   const nativeInputs = [
-    path.join(root, "native", "NinjaLensInput.cs"),
+    path.join(root, "native", "GloamCoreInput.cs"),
     path.join(root, "scripts", "build-native-input.mjs"),
   ].filter(existsSync);
   const newestNativeInput = Math.max(...nativeInputs.map((filePath) => statSync(filePath).mtimeMs));
@@ -1909,8 +1909,8 @@ function verifyWindows({ root, version }) {
       "app.asar",
       "default_app.asar",
       "elevate.exe",
-      "native-input/NinjaLensInput.exe",
-      "pob-engine/NinjaLensPobHost-x64.exe",
+      "native-input/GloamCoreInput.exe",
+      "pob-engine/GloamCorePobHost-x64.exe",
       "tray.ico",
       "tray.png",
       "update-config.json",

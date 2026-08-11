@@ -238,7 +238,7 @@ internal static class Program
     {
         if (arguments.Length != 5)
         {
-            Console.Error.WriteLine("Usage: NinjaLensPobHost <dll-dir> <pob-root> <runtime-lua-dir> <headless-wrapper> <worker>");
+            Console.Error.WriteLine("Usage: GloamCorePobHost <dll-dir> <pob-root> <runtime-lua-dir> <headless-wrapper> <worker>");
             return 64;
         }
 

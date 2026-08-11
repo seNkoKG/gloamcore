@@ -215,10 +215,10 @@ function findTreeFile(options = {}) {
     }
   }
   if (requested) {
-    throw new Error(`Path of Building tree ${requested.replace(/_/g, ".")} was not found. Update PoB Community before importing this build; Ninja Lens will not display its hashes on a different tree.`);
+    throw new Error(`Path of Building tree ${requested.replace(/_/g, ".")} was not found. Update PoB Community before importing this build; GloamCore will not display its hashes on a different tree.`);
   }
   throw new Error(game === "poe2"
-    ? "Path of Building Community (PoE2) tree data was not found. Install or update PoB2 Community first. Ninja Lens will never substitute the PoE1 tree."
+    ? "Path of Building Community (PoE2) tree data was not found. Install or update PoB2 Community first. GloamCore will never substitute the PoE1 tree."
     : "Path of Building Community tree data was not found. Install or update PoB Community first.");
 }
 

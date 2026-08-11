@@ -34,7 +34,7 @@ describe("PoE stash sync service", () => {
     const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
       expect(url).toBe("https://api.pathofexile.com/stash/Allflame");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token");
-      expect((init.headers as Record<string, string>)["User-Agent"]).toBe(`Ninja-Lens/${appVersion}`);
+      expect((init.headers as Record<string, string>)["User-Agent"]).toBe(`GloamCore/${appVersion}`);
       return json({
         stashes: [
           { id: "folder-1", name: "Folders", type: "Folder", index: 0, children: [

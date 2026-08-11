@@ -675,7 +675,7 @@ function createOfficialTradeListingService({
   fetchImpl = fetch,
   now = Date.now,
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
-  userAgent = "Ninja-Lens (personal desktop widget)",
+  userAgent = "GloamCore (Path of Exile companion)",
   timeoutMs = DEFAULT_TIMEOUT_MS,
   paceMs,
   searchPaceMs = paceMs,
@@ -833,7 +833,7 @@ function createOfficialTradeListingService({
           headers: {
             Accept: "application/json",
             ...(body ? { "Content-Type": "application/json" } : {}),
-            "User-Agent": safeText(userAgent, 200) || "Ninja-Lens",
+            "User-Agent": safeText(userAgent, 200) || "GloamCore",
           },
           redirect: "error",
           credentials: "omit",

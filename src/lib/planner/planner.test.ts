@@ -9,6 +9,7 @@ import {
   MAX_SAVED_PLANNER_LIBRARY_BYTES,
   parseSavedPlannerBuilds,
   recoverSavedPlannerLibrary,
+  RETIRED_PLANNER_FORMAT,
   SavedPlannerLibraryError,
   sanitizePlannerSnapshot,
   serializeSavedPlannerBuilds,
@@ -538,7 +539,7 @@ describe("planner saved builds and comparisons", () => {
     expect(savedLibraryErrorCode(() => parseSavedPlannerBuilds("{broken"))).toBe("INVALID_JSON");
     expect(savedLibraryErrorCode(() => parseSavedPlannerBuilds(JSON.stringify({ builds: [] })))).toBe("INVALID_LIBRARY");
     expect(savedLibraryErrorCode(() => parseSavedPlannerBuilds(JSON.stringify([{
-      format: "ninja-lens-build",
+      format: RETIRED_PLANNER_FORMAT,
       allocated: [],
     }, { unexpected: true }])))).toBe("INVALID_BUILD");
     expect(savedLibraryErrorCode(() => parseSavedPlannerBuilds("x".repeat(MAX_SAVED_PLANNER_LIBRARY_BYTES + 1)))).toBe("LIBRARY_TOO_LARGE");
@@ -563,7 +564,7 @@ describe("planner saved builds and comparisons", () => {
 
   it("exports the exact invalid payload before resetting its storage entry", async () => {
     const original = "{recoverable but invalid";
-    const entries = new Map([["ninja-lens:saved-planner-builds:v1", original]]);
+    const entries = new Map([["gloamcore:saved-planner-builds:v1", original]]);
     let exported = "";
     const result = await recoverSavedPlannerLibrary({
       storage: {
@@ -583,7 +584,7 @@ describe("planner saved builds and comparisons", () => {
 
   it("keeps the original library locked when recovery export is cancelled or reset fails", async () => {
     const original = "{still recoverable";
-    const entries = new Map([["ninja-lens:saved-planner-builds:v1", original]]);
+    const entries = new Map([["gloamcore:saved-planner-builds:v1", original]]);
     const storage = {
       getItem: (key: string) => entries.get(key) ?? null,
       removeItem: (_key: string) => undefined,
@@ -593,18 +594,18 @@ describe("planner saved builds and comparisons", () => {
       storage,
       saveRecoveryCopy: async () => null,
     })).resolves.toEqual({ status: "cancelled" });
-    expect(entries.get("ninja-lens:saved-planner-builds:v1")).toBe(original);
+    expect(entries.get("gloamcore:saved-planner-builds:v1")).toBe(original);
 
     await expect(recoverSavedPlannerLibrary({
       storage,
       saveRecoveryCopy: async () => ({ name: "planner-recovery.txt" }),
     })).rejects.toThrow("browser storage entry could not be removed");
-    expect(entries.get("ninja-lens:saved-planner-builds:v1")).toBe(original);
+    expect(entries.get("gloamcore:saved-planner-builds:v1")).toBe(original);
   });
 
   it("rejects malformed nested workspace state without truncating cluster node IDs", () => {
     const snapshot = sanitizePlannerSnapshot({
-      format: "ninja-lens-build",
+      format: RETIRED_PLANNER_FORMAT,
       allocated: [1, 131_072, "bad"],
       specs: [null, {
         id: "cluster",

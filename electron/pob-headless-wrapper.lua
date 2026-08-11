@@ -1,7 +1,7 @@
 #@
 -- Vendored from PathOfBuildingCommunity/PathOfBuilding v2.66.1:
 -- src/HeadlessWrapper.lua. Distributed under the MIT license in
--- pob-headless-wrapper.LICENSE.md. Ninja Lens overrides the incomplete file,
+-- pob-headless-wrapper.LICENSE.md. GloamCore overrides the incomplete file,
 -- path, and compression stubs in pob-engine-worker.lua before loading a build.
 -- This wrapper allows the program to run headless on any OS (in theory)
 -- It can be run using a standard lua interpreter, although LuaJIT is preferable

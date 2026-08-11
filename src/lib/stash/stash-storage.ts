@@ -7,9 +7,19 @@ import type {
   StashTabSummaryValue,
   StashTopItem,
 } from "./stash-types";
+import {
+  readMigratedStorage,
+  retiredProductStorageKey,
+} from "../storage-migration";
 
-const SNAPSHOTS_KEY = "ninja-lens:stash:snapshots:v1";
-const SESSION_KEY = "ninja-lens:stash:session:v1";
+const SNAPSHOTS_KEY = "gloamcore:stash:snapshots:v1";
+const SESSION_KEY = "gloamcore:stash:session:v1";
+const LEGACY_SNAPSHOTS_KEYS = [
+  retiredProductStorageKey("stash:snapshots:v1"),
+] as const;
+const LEGACY_SESSION_KEYS = [
+  retiredProductStorageKey("stash:session:v1"),
+] as const;
 const MAX_SNAPSHOTS = 400;
 const MAX_STORED_BYTES = 4 * 1024 * 1024;
 
@@ -79,9 +89,13 @@ function isStashSession(value: unknown): value is StashSession {
   );
 }
 
-function readStoredJson<T>(key: string, validate: (value: unknown) => value is T): T | null {
+function readStoredJson<T>(
+  key: string,
+  legacyKeys: readonly string[],
+  validate: (value: unknown) => value is T,
+): T | null {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = readMigratedStorage(localStorage, key, legacyKeys);
     if (!raw) return null;
     if (new TextEncoder().encode(raw).byteLength > MAX_STORED_BYTES) return null;
     const parsed = JSON.parse(raw);
@@ -103,7 +117,7 @@ function writeStoredJson<T>(key: string, value: T) {
 }
 
 export function loadStashSnapshotHistory(): StashSnapshotHistory {
-  const stored = readStoredJson(SNAPSHOTS_KEY, (value): value is StashSnapshotHistory => {
+  const stored = readStoredJson(SNAPSHOTS_KEY, LEGACY_SNAPSHOTS_KEYS, (value): value is StashSnapshotHistory => {
     if (value == null || typeof value !== "object") return false;
     const history = value as StashSnapshotHistory;
     return (
@@ -140,7 +154,7 @@ export function clearStashSnapshots() {
 }
 
 export function loadStashSession(): StashSession | null {
-  return readStoredJson(SESSION_KEY, isStashSession);
+  return readStoredJson(SESSION_KEY, LEGACY_SESSION_KEYS, isStashSession);
 }
 
 export function saveStashSession(session: StashSession) {

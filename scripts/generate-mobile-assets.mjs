@@ -41,7 +41,7 @@ for (const filename of ["ic_launcher.xml", "ic_launcher_round.xml"]) {
     ? source
     : source.replace(
         /\s*<\/adaptive-icon>\s*$/,
-        '\n    <monochrome android:drawable="@drawable/ic_stat_ninja_lens" />\n</adaptive-icon>\n',
+        '\n    <monochrome android:drawable="@drawable/ic_stat_gloamcore" />\n</adaptive-icon>\n',
       );
   writeFileSync(path, withMonochrome, "utf8");
 }

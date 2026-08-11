@@ -1,6 +1,15 @@
 import { normalizeImportedPassiveSpecs, normalizeImportedPobBuild, type ImportedPassiveSpec, type ImportedPobBuild, type ImportedPobStat, type PobStatCategory } from "./pob-build";
+import {
+  RETIRED_PLANNER_FORMAT,
+  retiredProductStorageKey,
+} from "../storage-migration";
 
-export const SAVED_PLANNER_BUILDS_KEY = "ninja-lens:saved-planner-builds:v1";
+export { RETIRED_PLANNER_FORMAT } from "../storage-migration";
+
+export const SAVED_PLANNER_BUILDS_KEY = "gloamcore:saved-planner-builds:v1";
+export const LEGACY_SAVED_PLANNER_BUILDS_KEYS = [
+  retiredProductStorageKey("saved-planner-builds:v1"),
+] as const;
 export const MAX_SAVED_PLANNER_BUILDS = 40;
 export const MAX_SAVED_PLANNER_LIBRARY_BYTES = 4 * 1024 * 1024;
 
@@ -21,7 +30,7 @@ export class SavedPlannerLibraryError extends Error {
 }
 
 export interface PlannerWorkspaceSnapshot {
-  format: "ninja-lens-build";
+  format: "gloamcore-build";
   version: 2;
   id: string;
   name: string;
@@ -99,7 +108,7 @@ export function createPlannerSnapshot(input: {
 }): PlannerWorkspaceSnapshot {
   const now = input.now ?? Date.now();
   return {
-    format: "ninja-lens-build",
+    format: "gloamcore-build",
     version: 2,
     id: input.id || crypto.randomUUID(),
     name: text(input.name, 120) || snapshotName(input.build, "Untitled build"),
@@ -121,7 +130,11 @@ export function createPlannerSnapshot(input: {
 export function sanitizePlannerSnapshot(value: unknown): PlannerWorkspaceSnapshot | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Partial<PlannerWorkspaceSnapshot> & { version?: number };
-  if (candidate.format !== "ninja-lens-build" || !Array.isArray(candidate.allocated)) return null;
+  if (
+    candidate.format !== "gloamcore-build" &&
+    candidate.format !== RETIRED_PLANNER_FORMAT
+  ) return null;
+  if (!Array.isArray(candidate.allocated)) return null;
   const now = Date.now();
   const build = normalizeImportedPobBuild(candidate.build || null);
   const specs = normalizeImportedPassiveSpecs(candidate.specs);
@@ -129,7 +142,7 @@ export function sanitizePlannerSnapshot(value: unknown): PlannerWorkspaceSnapsho
   const activeSpecId = specs.some((spec) => spec.id === requestedSpecId) ? requestedSpecId : specs[0]?.id || "";
   const activeSpec = specs.find((spec) => spec.id === activeSpecId);
   return {
-    format: "ninja-lens-build",
+    format: "gloamcore-build",
     version: 2,
     id: text(candidate.id, 160) || crypto.randomUUID(),
     name: text(candidate.name, 120) || snapshotName(build, "Imported workspace"),
@@ -188,7 +201,7 @@ export function parseSavedPlannerBuilds(raw: string | null) {
     if (!snapshot) {
       throw new SavedPlannerLibraryError(
         "INVALID_BUILD",
-        `Saved build ${index + 1} is not a supported Ninja Lens workspace.`,
+        `Saved build ${index + 1} is not a supported GloamCore workspace.`,
       );
     }
     return snapshot;

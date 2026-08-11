@@ -1,4 +1,4 @@
-# Ninja Lens price checker
+# GloamCore price checker
 
 ## Workflow
 
@@ -151,7 +151,7 @@ packs is an explicit release-time operation using
 The current unique profile pack is pinned to Awakened PoE Trade v3.29.104 commit
 `adb6c287bd978a70701e2b65d744dd677c52fb65`. Its `items.ndjson` snapshot
 declares which unique explicit stats are fixed or variants, but it does not
-ship per-unique numeric roll bounds. Ninja Lens therefore uses canonical
+ship per-unique numeric roll bounds. GloamCore therefore uses canonical
 bounds only when Path of Exile supplies them in Advanced Description copy
 text. Without those bounds it can safely expose declared variants, selectors,
 Timeless seeds and Foulborn replacements, but it will not auto-enable a small
@@ -178,7 +178,7 @@ Normal poe.ninja refreshes remain on their separate bounded cache schedule.
 ## Data and safety
 
 Each desktop `Ctrl+D` hovered-item capture generates one `Ctrl+C` item-copy
-action. Dashboard and mobile manual-paste checks generate none. Ninja Lens does
+action. Dashboard and mobile manual-paste checks generate none. GloamCore does
 not inspect game memory, automate gameplay, read account-session cookies, use
 `POESESSID`, or send whispers.
 

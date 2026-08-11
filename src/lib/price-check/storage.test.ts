@@ -27,7 +27,7 @@ afterEach(() => {
 
 describe("price-check history storage", () => {
   it("rejects malformed storage and round-trips valid entries", () => {
-    memory.set("ninja-lens:price-check-history:v1", "not json");
+    memory.set("gloamcore:price-check-history:v1", "not json");
     expect(loadPriceCheckHistory()).toEqual([]);
     const entry = {
       id: "one",
@@ -55,7 +55,7 @@ describe("price-check history storage", () => {
 
     schedulePriceCheckHistorySave([first]);
     schedulePriceCheckHistorySave([latest]);
-    expect(memory.has("ninja-lens:price-check-history:v1")).toBe(false);
+    expect(memory.has("gloamcore:price-check-history:v1")).toBe(false);
 
     vi.runAllTimers();
     expect(loadPriceCheckHistory()).toEqual([latest]);

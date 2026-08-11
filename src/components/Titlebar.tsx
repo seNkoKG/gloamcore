@@ -10,6 +10,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
+import gloamCoreLogoUrl from "../assets/gloamcore-logo.png";
 import { isDesktop } from "../lib/bridge";
 
 export function Titlebar({
@@ -34,10 +35,10 @@ export function Titlebar({
     <header className="titlebar">
       <div className="titlebar-brand">
         <div className="brand-mark" aria-hidden>
-          <span>P</span>
+          <img src={gloamCoreLogoUrl} alt="" />
         </div>
         <div className="brand-copy">
-          <span className="brand-title">NINJA LENS</span>
+          <span className="brand-title">GLOAMCORE</span>
           <span className="brand-kicker">POE 1 ECONOMY</span>
         </div>
       </div>

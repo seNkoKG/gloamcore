@@ -78,7 +78,7 @@ function flattenLeafTabs(stashes, folderPath = []) {
 
 function createPoeStashSyncService(options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const userAgent = options.userAgent || `Ninja-Lens/${APP_VERSION}`;
+  const userAgent = options.userAgent || `GloamCore/${APP_VERSION}`;
   const leaguesCache = new Map();
 
   async function requestJson(url, accessToken = "") {

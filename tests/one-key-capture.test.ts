@@ -250,6 +250,31 @@ describe("one-key item capture", () => {
     expect(clipboardText).toBe(COMPLETE_ITEM);
   });
 
+  it("allows a wider first-capture deadline without slowing warmed captures", async () => {
+    let clipboardText = COMPLETE_ITEM;
+    const deadlines: number[] = [];
+    const capture = createOneKeyItemCapture({
+      readClipboardText: () => clipboardText,
+      injectCopy: ({ deadline }: { deadline: number }) => {
+        deadlines.push(deadline);
+        return { clipboardChanged: true };
+      },
+      now: () => 1_000,
+      timeoutMs: (context: { cold: boolean }) => context.cold ? 1_200 : 600,
+    });
+
+    await expect(capture.capture({ cold: true })).resolves.toMatchObject({
+      text: COMPLETE_ITEM,
+      validPrefix: true,
+    });
+    clipboardText = COMPLETE_ITEM.replace("Gale Circle", "Storm Loop");
+    await expect(capture.capture({ cold: false })).resolves.toMatchObject({
+      text: clipboardText,
+      validPrefix: true,
+    });
+    expect(deadlines).toEqual([2_200, 1_600]);
+  });
+
   it("aborts a hung helper at the bounded capture deadline", async () => {
     let fireTimeout: (() => void) | undefined;
     let observedSignal: AbortSignal | undefined;

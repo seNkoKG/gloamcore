@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible Ninja Lens problem.
+description: Report a reproducible GloamCore problem.
 title: "[Bug]: "
 labels:
   - bug
@@ -7,11 +7,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Ninja Lens. Do not include OAuth tokens, account cookies, private character data, or other secrets. Security issues belong in the private process described in SECURITY.md.
+        Thanks for helping improve GloamCore. Do not include OAuth tokens, account cookies, private character data, or other secrets. Security issues belong in the private process described in SECURITY.md.
   - type: dropdown
     id: version
     attributes:
-      label: Ninja Lens version
+      label: GloamCore version
       options:
         - Latest stable release
         - Older release
@@ -39,7 +39,7 @@ body:
       label: Affected area
       options:
         - Ctrl+D price-check overlay
-        - Market Explorer, Ninja Intel, or watchlist
+        - Market Explorer, Item Intel, or watchlist
         - Build Lab
         - Player Toolkit
         - Installer, updates, tray, or shortcuts
@@ -59,7 +59,7 @@ body:
       label: Minimal reproduction
       description: List the smallest reliable sequence, including copied item text only when it contains no personal data.
       placeholder: |
-        1. Launch Ninja Lens...
+        1. Launch GloamCore...
         2. Open...
         3. Observe...
     validations:

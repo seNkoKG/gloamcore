@@ -1,27 +1,27 @@
 {
-  "name": "ninja-lens",
-  "version": "2.3.4",
+  "name": "gloamcore",
+  "version": "2.4.0",
   "packageManager": "pnpm@11.9.0",
   "private": true,
   "type": "module",
   "description": "A live Path of Exile 1 economy and game-intelligence app for Windows, Android, and iOS powered by poe.ninja and PoE Wiki Cargo.",
   "main": "electron/main.cjs",
-  "author": "Ninja Lens",
+  "author": "GloamCore",
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
-    "url": "https://github.com/seNkoKG/ninja-lens.git"
+    "url": "https://github.com/seNkoKG/gloamcore.git"
   },
-  "homepage": "https://senkokg.github.io/ninja-lens/",
+  "homepage": "https://senkokg.github.io/gloamcore/",
   "bugs": {
-    "url": "https://github.com/seNkoKG/ninja-lens/issues"
+    "url": "https://github.com/seNkoKG/gloamcore/issues"
   },
   "scripts": {
     "prebuild": "node scripts/build-native-input.mjs && node scripts/generate-third-party-notices.mjs",
     "dev": "vite",
     "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"release-final/**\" --exclude \".pnpm-store-local/**\"",
     "audit:market": "node scripts/audit-live-market.mjs",
     "notices:generate": "node scripts/generate-third-party-notices.mjs",
     "data:build-trade-stats": "node scripts/build-price-check-stat-pack.mjs",
@@ -80,8 +80,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.ninjalens.poe",
-    "productName": "Ninja Lens",
+    "appId": "io.github.senkokg.gloamcore",
+    "productName": "GloamCore",
     "asar": true,
     "npmRebuild": false,
     "asarUnpack": [
@@ -92,7 +92,7 @@
       {
         "provider": "github",
         "owner": "seNkoKG",
-        "repo": "ninja-lens"
+        "repo": "gloamcore"
       }
     ],
     "directories": {
@@ -125,14 +125,14 @@
         "from": "build/native-input",
         "to": "native-input",
         "filter": [
-          "NinjaLensInput.exe"
+          "GloamCoreInput.exe"
         ]
       },
       {
         "from": "build/pob-engine",
         "to": "pob-engine",
         "filter": [
-          "NinjaLensPobHost-x64.exe"
+          "GloamCorePobHost-x64.exe"
         ]
       }
     ],
@@ -144,14 +144,15 @@
       ]
     },
     "nsis": {
-      "artifactName": "Ninja-Lens-Setup-${version}-${arch}.${ext}",
+      "guid": "ccfec92b-bdac-5c8d-a690-34c6ce9ac4b0",
+      "artifactName": "GloamCore-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
     "portable": {
-      "artifactName": "Ninja-Lens-Portable-${version}-${arch}.${ext}"
+      "artifactName": "GloamCore-Portable-${version}-${arch}.${ext}"
     }
   }
 }

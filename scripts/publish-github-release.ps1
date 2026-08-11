@@ -9,9 +9,9 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$expectedRepository = "seNkoKG/ninja-lens"
+$expectedRepository = "seNkoKG/gloamcore"
 $expectedOwner = "seNkoKG"
-$stableSetupName = "Ninja-Lens-Setup-x64.exe"
+$stableSetupName = "GloamCore-Setup-x64.exe"
 $checksumName = "SHA256SUMS.txt"
 $projectRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $stagingDirectory = $null
@@ -222,7 +222,7 @@ function Remove-ReleaseStagingDirectory {
     -not $directory.PSIsContainer -or
     ($directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
     $directory.Parent.FullName -cne $expectedParent -or
-    $directory.Name -notmatch '^ninja-lens-release-[0-9a-f]{32}$'
+    $directory.Name -notmatch '^gloamcore-release-[0-9a-f]{32}$'
   ) {
     throw "Refusing to remove an unexpected release staging path: $Path"
   }
@@ -294,10 +294,10 @@ try {
     "-C", $projectRoot, "remote", "get-url", "origin"
   ) -Label "Git origin inspection").Text
   $allowedOrigins = @(
-    "https://github.com/seNkoKG/ninja-lens.git",
-    "https://github.com/seNkoKG/ninja-lens",
-    "git@github.com:seNkoKG/ninja-lens.git",
-    "ssh://git@github.com/seNkoKG/ninja-lens.git"
+    "https://github.com/seNkoKG/gloamcore.git",
+    "https://github.com/seNkoKG/gloamcore",
+    "git@github.com:seNkoKG/gloamcore.git",
+    "ssh://git@github.com/seNkoKG/gloamcore.git"
   )
   if ($origin -cnotin $allowedOrigins) {
     throw "Git origin must be the exact public repository $expectedRepository; found $origin."
@@ -376,9 +376,9 @@ try {
     throw "deliverables must be a real local directory."
   }
 
-  $setupName = "Ninja-Lens-Setup-$version-x64.exe"
+  $setupName = "GloamCore-Setup-$version-x64.exe"
   $blockmapName = "$setupName.blockmap"
-  $portableName = "Ninja-Lens-Portable-$version-x64.exe"
+  $portableName = "GloamCore-Portable-$version-x64.exe"
   $setupPath = Join-Path $deliverables $setupName
   $blockmapPath = Join-Path $deliverables $blockmapName
   $portablePath = Join-Path $deliverables $portableName
@@ -434,7 +434,7 @@ try {
   }
 
   $stagingDirectory = Join-Path $temporaryRoot (
-    "ninja-lens-release-{0}" -f [Guid]::NewGuid().ToString("N")
+    "gloamcore-release-{0}" -f [Guid]::NewGuid().ToString("N")
   )
   New-Item -ItemType Directory -Path $stagingDirectory -ErrorAction Stop | Out-Null
   $stableSetupPath = Join-Path $stagingDirectory $stableSetupName
@@ -522,7 +522,7 @@ try {
       "release", "create", $Tag,
       "--repo", $expectedRepository,
       "--target", $head,
-      "--title", "Ninja Lens $version",
+      "--title", "GloamCore $version",
       "--notes-file", $resolvedNotesFile,
       "--draft"
     ) -Label "GitHub draft release creation" | Out-Null

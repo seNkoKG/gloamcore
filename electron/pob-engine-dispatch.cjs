@@ -77,7 +77,7 @@ function createPobEngineDispatcher({
       ), true), Math.max(1_000, Math.min(300_000, Number(timeoutMilliseconds) || DEFAULT_DISPATCH_TIMEOUT_MS)));
 
       try {
-        worker = new WorkerClass(workerPath, { name: "ninja-lens-pob-engine" });
+        worker = new WorkerClass(workerPath, { name: "gloamcore-pob-engine" });
         worker.once("message", (message) => {
           const result = message?.result;
           if (!isDispatchResult(result)) {

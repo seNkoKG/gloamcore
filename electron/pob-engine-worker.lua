@@ -1,7 +1,7 @@
--- Ninja Lens authoritative Path of Building calculation worker.
+-- GloamCore authoritative Path of Building calculation worker.
 -- This file runs inside a fresh LuaJIT process for every request.
 
-local RESULT_PREFIX = "NINJA_POB_RESULT:"
+local RESULT_PREFIX = "GLOAMCORE_POB_RESULT:"
 local MAX_SCALAR_STATS = 4096
 local MAX_WARNINGS = 32
 local MAX_CHARACTER_BYTES = 8 * 1024 * 1024
@@ -37,7 +37,7 @@ if type(build) ~= "table" or type(loadBuildFromXML) ~= "function" then
 	return
 end
 
-local pobRoot = os.getenv("NINJA_POB_ROOT")
+local pobRoot = os.getenv("GLOAMCORE_POB_ROOT")
 if type(pobRoot) ~= "string" or pobRoot == "" then
 	fail("POB_ROOT_MISSING", "The headless worker did not receive a Path of Building root.")
 	return
@@ -50,15 +50,15 @@ local originalOpen = io.open
 io.open = function(fileName, mode)
 	mode = mode or "r"
 	if mode:find("[wa+]") then
-		return nil, "Ninja Lens opens the installed PoB engine read-only"
+		return nil, "GloamCore opens the installed PoB engine read-only"
 	end
 	return originalOpen(fileName, mode)
 end
 os.remove = function()
-	return nil, "Ninja Lens opens the installed PoB engine read-only"
+	return nil, "GloamCore opens the installed PoB engine read-only"
 end
 os.rename = function()
-	return nil, "Ninja Lens opens the installed PoB engine read-only"
+	return nil, "GloamCore opens the installed PoB engine read-only"
 end
 
 function GetScriptPath()
@@ -151,7 +151,7 @@ function Inflate(data)
 		return nil
 	end
 	local ffiLib, zlibLib = getZlib()
-	local maximum = tonumber(os.getenv("NINJA_POB_MAX_INFLATE_BYTES")) or (256 * 1024 * 1024)
+	local maximum = tonumber(os.getenv("GLOAMCORE_POB_MAX_INFLATE_BYTES")) or (256 * 1024 * 1024)
 	maximum = math.max(1024 * 1024, math.min(maximum, 512 * 1024 * 1024))
 	local size = math.max(1024 * 1024, #data * 3)
 	while size <= maximum do
@@ -236,7 +236,7 @@ local ok, result = xpcall(function()
 		-- Use PoB's own ImportTab implementation. This is the authoritative path for
 		-- slot names, jewel ordinals, item properties, linked sockets, transfigured
 		-- gems, Abyss jewels and main-skill selection; none of those are inferred by
-		-- Ninja Lens.
+		-- GloamCore.
 		loadBuildFromJSON(request.characterJson)
 		-- ImportTab marks the build dirty but does not synchronously refresh the
 		-- PlayerStat snapshot that SaveDB embeds. Rebuild it now so the editable UI
@@ -268,7 +268,7 @@ local ok, result = xpcall(function()
 		}
 	end
 
-	loadBuildFromXML(request.xml, request.name or "Ninja Lens calculation")
+	loadBuildFromXML(request.xml, request.name or "GloamCore calculation")
 	-- Required even in a fresh process: it preserves the same safe ordering if
 	-- PoB initialization populated a globally keyed trigger cache.
 	wipeGlobalCache()

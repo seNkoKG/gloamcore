@@ -29,7 +29,7 @@ export function StashWealthPanel({ league: _league }: { league: string }) {
           height: bounds.height,
         }).then((visible) => {
           if (disposed) return;
-          if (!visible) throw new Error("The Wealthy Exile view could not fit inside Ninja Lens.");
+          if (!visible) throw new Error("The Wealthy Exile view could not fit inside the app.");
           if (!opened) {
             opened = true;
             setOpening(null);
@@ -119,8 +119,8 @@ export function StashWealthPanel({ league: _league }: { league: string }) {
             <ShieldCheck size={30} />
             <h2>Use Wealthy Exile without sharing its OAuth access</h2>
             <p>
-              Ninja Lens embeds the real Wealthy Exile website in an isolated browser view.
-              Wealthy Exile owns the Path of Exile sign-in and stash connection. Ninja Lens
+              The app embeds the real Wealthy Exile website in an isolated browser view.
+              Wealthy Exile owns the Path of Exile sign-in and stash connection. The app
               does not read its cookies, OAuth tokens, or stash responses.
             </p>
             <div className="stash-provider-actions">
@@ -131,7 +131,7 @@ export function StashWealthPanel({ league: _league }: { league: string }) {
                 onClick={() => void openInApp()}
               >
                 {opening === "app" ? <Loader2 className="is-spinning" size={15} /> : <ExternalLink size={15} />}
-                {isDesktop ? "Retry inside Ninja Lens" : "Open Wealthy Exile"}
+                {isDesktop ? "Retry inside app" : "Open Wealthy Exile"}
               </button>
             </div>
             <small className="stash-provider-note">

@@ -80,7 +80,7 @@ export function SettingsDrawer({
     <aside className="settings-drawer" aria-label="Widget settings">
       <div className="settings-heading">
         <div>
-          <span>{isMobileApp ? "NINJA LENS" : "WIDGET CONTROL"}</span>
+          <span>{isMobileApp ? "GLOAMCORE" : "WIDGET CONTROL"}</span>
           <h2>Settings</h2>
         </div>
         <button type="button" onClick={onClose} aria-label="Close settings">
@@ -414,7 +414,7 @@ export function SettingsDrawer({
         <div>
           <strong>Cache-safe by design</strong>
           <p>
-            Ninja Lens respects ETags, CDN age and source cache windows. Market
+            The app respects ETags, CDN age and source cache windows. Market
             snapshots older than two hours are rejected instead of shown as current.
             It never reads game memory. A manual price-check shortcut sends one
             copy action, then the app reads only that copied item text.

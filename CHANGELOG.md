@@ -2,12 +2,26 @@
 
 ## Unreleased
 
+## 2.4.0
+
+- Completed the GloamCore identity across the app, Windows installer and
+  updater, native helpers, mobile projects, website, documentation, and GitHub
+  release channel.
+- Preserved the established Windows installer GUID and added first-launch
+  migration for desktop data, renderer storage, saved planner files, and the
+  isolated Wealthy Exile browser partition so existing installs upgrade without
+  duplicate apps or lost sessions.
+- Replaced the inherited icon family with one original GloamCore mark across
+  Windows, the website, README, Android, and iOS.
+- Renamed the knowledge workspace to Item Intel and removed redundant nearby
+  product labels from app and website layouts.
+
 ## 2.3.4
 
 - Replaced the unavailable native stash OAuth entry point with the real Wealthy
   Exile site in a sandboxed browser view that resumes automatically when Stash
   Wealth opens. Wealthy Exile keeps its own OAuth client, cookies, and stash
-  responses; Ninja Lens receives none of them and blocks navigation outside
+  responses; GloamCore receives none of them and blocks navigation outside
   the required sign-in hosts.
 - Added cached ads-only filtering to the Wealthy Exile session. Filtering turns
   off before Path of Exile or Steam sign-in pages load, and a filter update
@@ -36,15 +50,15 @@
 
 - Fixed the first-launch data migration for the rebrand: packaged applications
   store their profile under the npm package name (`%APPDATA%\poe-economy-widget`
-  before 2.3.1, `%APPDATA%\ninja-lens` from 2.3.1), so settings are now carried
+  before 2.3.1 and the previous app data directory), so settings are now carried
   over from both the old product-name directory and the old package-name
   directory without overwriting anything written by the new profile.
 
 ## 2.3.1
 
-- Completed the Ninja Lens rebrand across the desktop app: the installer,
+- Completed the earlier desktop identity migration: the installer,
   portable executable, installed product name, tray tooltip, user agent,
-  update metadata, and data directories now use the Ninja Lens identity
+  update metadata, and data directories now use one consistent identity
   instead of the legacy "PoE Economy Widget" name. Existing settings, local
   storage, and the PoB engine cache under the old data directory are
   migrated to the new location on first launch.
@@ -74,7 +88,7 @@
 
 ## 2.2.8
 
-- Connected packaged Windows builds to the public Ninja Lens GitHub Releases
+- Connected packaged Windows builds to the public GloamCore GitHub Releases
   channel with electron-updater's token-free GitHub provider. Automatic and
   manual checks now discover stable releases, download the verified NSIS
   installer, and keep installation behind the existing explicit install action.
@@ -459,7 +473,7 @@
 
 ## 1.6.1
 
-- Replaced Ninja Intel's generic item placeholders with each item's exact
+- Replaced Item Intel's generic item placeholders with each item's exact
   in-game inventory artwork resolved through MediaWiki image metadata.
 - Added a trusted, persistent artwork cache for Windows, browser preview,
   Android, and iOS so bot challenges or temporary image-host outages cannot
@@ -473,7 +487,7 @@
 
 ## 1.6.0
 
-- Added Ninja Intel, a dedicated live search across current PoE items, bases,
+- Added Item Intel, a dedicated live search across current PoE items, bases,
   and modifier records backed by the documented PoE Wiki Cargo API.
 - Added item acquisition, drop restrictions, patch origin, metadata IDs,
   modifier domains, affix types, tiers, requirements, groups, and tags.

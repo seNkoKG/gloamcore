@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const physicalFs = process.versions.electron ? require("original-fs") : fs;
 
-const CACHE_PREFIX = "ninja-lens-packaged-pob-";
+const CACHE_PREFIX = "gloamcore-packaged-pob-";
 const EXPECTED_ENGINE_VERSION = "2.66.1";
 
 function invariant(condition, message) {
@@ -43,7 +43,7 @@ function resolvePackagedLayout(executablePath, resourcesArgument, realpath = fs.
   return Object.freeze({
     resourcesPath,
     appAsar: path.join(resourcesPath, "app.asar"),
-    bundledHost: path.join(resourcesPath, "pob-engine", "NinjaLensPobHost-x64.exe"),
+    bundledHost: path.join(resourcesPath, "pob-engine", "GloamCorePobHost-x64.exe"),
   });
 }
 

@@ -154,7 +154,7 @@ function createPobPlannerDispatcher({
       };
 
       try {
-        worker = new WorkerClass(workerPath, { name: "ninja-lens-pob-tree" });
+        worker = new WorkerClass(workerPath, { name: "gloamcore-pob-tree" });
         active = { worker, finish };
         worker.once("message", (message) => {
           const result = message?.result;

@@ -106,7 +106,7 @@ export const KnowledgePanel = forwardRef<
         </div>
         <div>
           <span>LIVE GAME DATABASE</span>
-          <h1>Ninja Intel</h1>
+          <h1>Item Intel</h1>
           <p>
             Search items and modifiers without leaving your market workflow.
             Results update from PoE Wiki Cargo and remain available from cache.

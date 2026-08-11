@@ -5,7 +5,7 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 
 const CONTRACT_VERSION = 1;
-const RESULT_PREFIX = "NINJA_POB_RESULT:";
+const RESULT_PREFIX = "GLOAMCORE_POB_RESULT:";
 const MAX_BUILD_BYTES = 24 * 1024 * 1024;
 const MAX_CHARACTER_BYTES = 8 * 1024 * 1024;
 const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
@@ -208,8 +208,8 @@ function bundledResources() {
 
 function cacheRoot(options = {}) {
   if (options.cacheRoot) return path.resolve(options.cacheRoot);
-  const local = process.env.LOCALAPPDATA || path.join(os.tmpdir(), "NinjaLens");
-  return path.join(local, "Ninja Lens", "pob-engine");
+  const local = process.env.LOCALAPPDATA || path.join(os.tmpdir(), "GloamCore");
+  return path.join(local, "GloamCore", "pob-engine");
 }
 
 function writeImmutableFile(fileName, content) {
@@ -239,7 +239,7 @@ function materializeResources(options = {}) {
 function configuredPrebuiltHost(architecture, options = {}) {
   const resourceRoot = options.resourcesPath || (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
   if (!resourceRoot) return null;
-  const candidate = path.join(resourceRoot, "pob-engine", `NinjaLensPobHost-${architecture}.exe`);
+  const candidate = path.join(resourceRoot, "pob-engine", `GloamCorePobHost-${architecture}.exe`);
   return fs.existsSync(candidate) ? candidate : null;
 }
 
@@ -254,7 +254,7 @@ function ensureHost(architecture, resources, options = {}) {
       code: "POB_HOST_UNAVAILABLE",
     });
   }
-  const hostPath = path.join(resources.directory, `NinjaLensPobHost-${architecture}.exe`);
+  const hostPath = path.join(resources.directory, `GloamCorePobHost-${architecture}.exe`);
   if (!fs.existsSync(hostPath)) {
     const temporary = `${hostPath}.${process.pid}.${crypto.randomBytes(6).toString("hex")}.tmp.exe`;
     const compile = spawnSync(compiler, [
@@ -509,8 +509,8 @@ function runWorker(host, resources, installation, request, options = {}) {
     const stderr = [];
     const childEnvironment = { ...process.env };
     delete childEnvironment.CI;
-    childEnvironment.NINJA_POB_ROOT = installation.root;
-    childEnvironment.NINJA_POB_MAX_INFLATE_BYTES = String(inflateBytes);
+    childEnvironment.GLOAMCORE_POB_ROOT = installation.root;
+    childEnvironment.GLOAMCORE_POB_MAX_INFLATE_BYTES = String(inflateBytes);
 
     const spawnWorker = typeof options.spawnImpl === "function" ? options.spawnImpl : spawn;
     const child = spawnWorker(host.path, [
@@ -727,7 +727,7 @@ async function calculateInternal(input, options = {}) {
   const startedAt = Date.now();
   const run = await runWorker(host, resources, installation, {
     xml: input.xml,
-    name: typeof input.name === "string" ? input.name.slice(0, 512) : "Ninja Lens calculation",
+    name: typeof input.name === "string" ? input.name.slice(0, 512) : "GloamCore calculation",
   }, options);
   if (run && run.ok === false) return run;
   const validation = validateWorkerPayload(run.payload, installation);

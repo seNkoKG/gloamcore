@@ -1,6 +1,6 @@
 # Data provenance and attribution
 
-Ninja Lens combines live public responses with pinned, transformed reference
+GloamCore combines live public responses with pinned, transformed reference
 packs. This document records where those inputs come from, how they are used,
 and which license or ownership boundary applies.
 
@@ -18,7 +18,7 @@ generated pack is authoritative for its exact input hashes and retrieval time.
 - Live services may lag a game patch, change shape, reject anonymous traffic,
   or rate-limit requests. Last-good data is labelled stale when used.
 - An upstream license applies only to that upstream material; it does not
-  convert Ninja Lens itself into an open-source project.
+  convert GloamCore itself into an open-source project.
 
 ## Awakened PoE Trade reference packs
 
@@ -46,7 +46,7 @@ cross-family query suite pass against the new pack.
 
 Build Lab reads tree and build data from a separately installed
 [Path of Building Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding)
-installation. Ninja Lens does not redistribute the PoB runtime or its game
+installation. GloamCore does not redistribute the PoB runtime or its game
 databases.
 
 The bundled headless adapter is copied from Path of Building Community 2.66.1's
@@ -61,7 +61,7 @@ for its build.
 
 ## Path of Exile Wiki and Cargo
 
-Ninja Intel queries the public
+Item Intel queries the public
 [Path of Exile Wiki](https://www.poewiki.net/) MediaWiki and Cargo interfaces
 for item and modifier reference data. The regex pack also transforms selected
 Area-modifier records returned by Cargo.
@@ -85,14 +85,14 @@ check. These routes are an unofficial convenience rather than a guaranteed
 developer API. Requests omit account credentials and expose only bounded,
 sanitized listing fields to the renderer.
 
-No Ninja Lens project license is asserted over Grinding Gear Games names,
+No GloamCore project license is asserted over Grinding Gear Games names,
 artwork, APIs, or game data.
 
 ## Live poe.ninja data
 
 Market Explorer requests public league economy data from
 [poe.ninja](https://poe.ninja/). Source cache headers, ETags, observation
-quality, and last-good fallback state are preserved where available. Ninja Lens
+quality, and last-good fallback state are preserved where available. GloamCore
 does not claim ownership of poe.ninja data, and poe.ninja does not endorse this
 project.
 

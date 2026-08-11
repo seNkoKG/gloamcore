@@ -1,4 +1,4 @@
-package com.ninjalens.poe;
+package io.github.senkokg.gloamcore;
 
 import com.getcapacitor.BridgeActivity;
 

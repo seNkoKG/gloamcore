@@ -57,7 +57,7 @@ function readConfiguredUpdateSource({
 }) {
   if (allowEnvironment) {
     const environmentSource = normalizeUpdateSource(
-      environment.POE_WIDGET_UPDATE_URL,
+      environment.GLOAMCORE_UPDATE_URL,
     );
     if (environmentSource) return environmentSource;
   }

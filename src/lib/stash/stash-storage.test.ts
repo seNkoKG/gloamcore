@@ -61,10 +61,10 @@ function snapshot(createdAt: number, chaos: number): StashSnapshot {
 
 describe("stash snapshot storage", () => {
   it("rejects malformed storage, corrupt entries and out-of-order writes", () => {
-    memory.set("ninja-lens:stash:snapshots:v1", "not json");
+    memory.set("gloamcore:stash:snapshots:v1", "not json");
     expect(loadStashSnapshotHistory()).toEqual({ version: 1, snapshots: [] });
     memory.set(
-      "ninja-lens:stash:snapshots:v1",
+      "gloamcore:stash:snapshots:v1",
       JSON.stringify({ version: 1, snapshots: [{ bogus: true }] }),
     );
     expect(loadStashSnapshotHistory()).toEqual({ version: 1, snapshots: [] });
@@ -120,10 +120,10 @@ describe("stash session storage", () => {
   });
 
   it("rejects invalid session shapes", () => {
-    memory.set("ninja-lens:stash:session:v1", JSON.stringify({ version: 2 }));
+    memory.set("gloamcore:stash:session:v1", JSON.stringify({ version: 2 }));
     expect(loadStashSession()).toBeNull();
     memory.set(
-      "ninja-lens:stash:session:v1",
+      "gloamcore:stash:session:v1",
       JSON.stringify({ version: 1, realm: "pc", league: "Allflame", lastSyncAt: 1, autoSyncMinutes: 99, tabCount: 1 }),
     );
     expect(loadStashSession()).toBeNull();

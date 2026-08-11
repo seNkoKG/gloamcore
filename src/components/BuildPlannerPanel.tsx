@@ -42,6 +42,7 @@ import {
 import {
   comparePlannerBuilds,
   createPlannerSnapshot,
+  LEGACY_SAVED_PLANNER_BUILDS_KEYS,
   parseSavedPlannerBuilds,
   recoverSavedPlannerLibrary,
   SAVED_PLANNER_BUILDS_KEY,
@@ -50,6 +51,7 @@ import {
   upsertSavedPlannerBuild,
   type PlannerWorkspaceSnapshot,
 } from "../lib/planner/planner-workspace";
+import { readMigratedStorage } from "../lib/storage-migration";
 import { materializeImportedPassiveSpec, materializeImportedPassiveTree } from "../lib/planner/cluster-jewel-graph";
 import { PlannerAsyncRevisionGuard, type PlannerAsyncRequestToken } from "../lib/planner/planner-async-guard";
 import {
@@ -760,7 +762,11 @@ export function BuildPlannerPanel() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(SAVED_PLANNER_BUILDS_KEY);
+      const raw = readMigratedStorage(
+        localStorage,
+        SAVED_PLANNER_BUILDS_KEY,
+        LEGACY_SAVED_PLANNER_BUILDS_KEYS,
+      );
       setSavedBuilds(parseSavedPlannerBuilds(raw));
       setSavedLibraryError("");
     } catch (error) {
@@ -1271,7 +1277,7 @@ export function BuildPlannerPanel() {
       if (value.startsWith("{")) {
         const workspace = sanitizePlannerSnapshot(JSON.parse(value));
         if (!workspace) {
-          throw new Error("This JSON is not a Ninja Lens build workspace.");
+          throw new Error("This JSON is not a supported build workspace.");
         }
         const workspaceTree = tree.game === workspace.game && (!workspace.treeVersion || normalizedTreeVersion(tree.version) === normalizedTreeVersion(workspace.treeVersion))
           ? tree
@@ -1305,7 +1311,7 @@ export function BuildPlannerPanel() {
         setHistory([{ allocated: next, masteryEffects: { ...(workspaceSpec?.masteryEffects || {}) }, classId: Number(workspace.classId) || 0, ascendancyId: Number(workspace.ascendancyId) || 0, secondaryAscendancyId: workspaceSpec?.secondaryAscendClassId || 0, label: "Opened workspace", at: Date.now() }]);
         setHistoryIndex(0);
         setImportOpen(false);
-        setMessage("Ninja Lens build workspace opened.");
+        setMessage("Build workspace opened.");
         return;
       }
       const xml = await bridge.decodePobBuild(value);
@@ -1572,7 +1578,7 @@ export function BuildPlannerPanel() {
     const text = JSON.stringify(snapshot, null, 2);
     const saved = await bridge.saveToolkitText({
       text,
-      suggestedName: `${build?.className || currentClass?.name || "character"}-ninja-lens.json`,
+      suggestedName: `${build?.className || currentClass?.name || "character"}-gloamcore.json`,
       kind: "build",
     });
     if (saved) setMessage(`Saved ${saved.name}.`);
@@ -1708,7 +1714,7 @@ export function BuildPlannerPanel() {
         storage: localStorage,
         saveRecoveryCopy: (original) => bridge.saveToolkitText({
           text: original,
-          suggestedName: `Ninja-Lens-build-library-recovery-${timestamp}.txt`,
+          suggestedName: `GloamCore-build-library-recovery-${timestamp}.txt`,
           kind: "text",
         }),
       });
@@ -1840,7 +1846,7 @@ export function BuildPlannerPanel() {
     try {
       const result = await bridge.calculatePobBuild({
         xml,
-        name: `${effectiveBuild.ascendancyName || effectiveBuild.className || "Character"} · Ninja Lens`,
+        name: `${effectiveBuild.ascendancyName || effectiveBuild.className || "Character"} · Local plan`,
       });
       if (requestStatus() !== "current") return;
       if (!result.ok) {

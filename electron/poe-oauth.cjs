@@ -110,7 +110,7 @@ async function startLoopbackListener({ port, state }) {
     };
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     response.end(
-      '<!doctype html><meta charset="utf-8"><title>Ninja Lens</title><body style="font-family:system-ui;background:#0b1016;color:#e8f2f0;display:grid;place-items:center;height:100vh;margin:0"><p>Connected! You can close this window and return to Ninja Lens.</p></body>',
+      '<!doctype html><meta charset="utf-8"><title>GloamCore</title><body style="font-family:system-ui;background:#0b1016;color:#e8f2f0;display:grid;place-items:center;height:100vh;margin:0"><p>Connected! You can close this window and return to GloamCore.</p></body>',
     );
     if (!settled) {
       settled = true;
@@ -140,7 +140,7 @@ function createPoeOAuthService(options = {}) {
   const storagePath = options.storagePath;
   const startListener = options.startCallbackListener || startLoopbackListener;
   const createWindow = options.createAuthWindow;
-  const userAgent = options.userAgent || "Ninja-Lens";
+  const userAgent = options.userAgent || "GloamCore";
 
   function loadStoredSession() {
     const resolved = pathValue(storagePath);

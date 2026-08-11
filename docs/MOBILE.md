@@ -1,6 +1,6 @@
-# Ninja Lens mobile
+# GloamCore mobile
 
-Ninja Lens 2.2.8 includes Android and iOS source projects built from the same
+GloamCore includes Android and iOS source projects built from the same
 React economy engine as the Windows app. Mobile packages are a development
 preview and are **not** included in the public Windows GitHub Release. The
 mobile interface is designed for touch and keeps the economy catalogue,
@@ -10,10 +10,10 @@ mobile-supported filters, trackers, item descriptions, trends, and trade links.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/Ninja-Lens-Android-2.2.8.apk`
+`deliverables/mobile/GloamCore-Android-2.4.0.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
-open the file when Android asks. Ninja Lens supports Android 7.0 and newer. It
+open the file when Android asks. GloamCore supports Android 7.0 and newer. It
 does not need a Google Play account.
 
 Keep the APK's filename and SHA-256 text file together when sharing it. Friends
@@ -32,7 +32,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/Ninja-Lens-iOS-Source-2.2.8.zip`
+`deliverables/mobile/GloamCore-iOS-Source-2.4.0.zip`
 
 On a Mac:
 
@@ -52,7 +52,7 @@ There is intentionally no unsigned IPA: iOS will not install one.
 - The app refreshes while open, immediately on resume, and when connectivity
   returns.
 - Cached snapshots and item descriptions remain available offline.
-- Ninja Intel searches live PoE Wiki Cargo item and modifier records, then
+- Item Intel searches live PoE Wiki Cargo item and modifier records, then
   keeps the last good result available from cache.
 - The price-check tab parses manually pasted in-game item text locally and
   builds the same mapped modifier, special-jewel, item-state, Chronicle-room,
@@ -66,7 +66,7 @@ There is intentionally no unsigned IPA: iOS will not install one.
 - Target notifications are local and require notification permission.
 
 Mobile operating systems can suspend ordinary apps after they are closed.
-Therefore, target checks are guaranteed while Ninja Lens is open and whenever
+Therefore, target checks are guaranteed while GloamCore is open and whenever
 it resumes, but continuous closed-app polling is not promised. Guaranteed
 server-side alerts would require a hosted push-notification service.
 

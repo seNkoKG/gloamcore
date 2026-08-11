@@ -14,7 +14,7 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/poe-api/, ""),
         headers: {
-          "User-Agent": "Ninja-Lens (personal economy widget)",
+          "User-Agent": "GloamCore (Path of Exile companion)",
         },
       },
       "/wiki-api": {
@@ -23,7 +23,7 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/wiki-api/, ""),
         headers: {
-          "User-Agent": "Ninja-Lens (personal economy widget)",
+          "User-Agent": "GloamCore (Path of Exile companion)",
         },
       },
     },

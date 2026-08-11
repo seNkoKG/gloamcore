@@ -581,12 +581,12 @@ async function executeReference(sourceRoot, dependencyRenderer, fixtures) {
     if (!address || typeof address === "string") throw new Error("Unable to bind APT reference server.");
 
     const edgeCandidates = [
-      process.env.NINJA_APT_EDGE,
+      process.env.GLOAMCORE_APT_EDGE,
       "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
       "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
     ].filter(Boolean);
     const edge = edgeCandidates.find((candidate) => fs.existsSync(candidate));
-    if (!edge) throw new Error("Microsoft Edge was not found. Set NINJA_APT_EDGE.");
+    if (!edge) throw new Error("Microsoft Edge was not found. Set GLOAMCORE_APT_EDGE.");
     browser = spawn(edge, [
       "--headless=new",
       "--disable-background-networking",
@@ -629,9 +629,9 @@ async function executeReference(sourceRoot, dependencyRenderer, fixtures) {
 }
 
 async function main() {
-  const sourceRoot = path.resolve(readArg("--source") || process.env.NINJA_APT_SOURCE || "");
+  const sourceRoot = path.resolve(readArg("--source") || process.env.GLOAMCORE_APT_SOURCE || "");
   const dependencyRenderer = path.resolve(
-    readArg("--dependencies") || process.env.NINJA_APT_DEPENDENCIES || "",
+    readArg("--dependencies") || process.env.GLOAMCORE_APT_DEPENDENCIES || "",
   );
   const output = path.resolve(readArg("--output") || DEFAULT_OUTPUT);
   const probeFixturesPath = readArg("--probe-fixtures");

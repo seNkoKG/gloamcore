@@ -214,14 +214,13 @@ describe("price-check overlay focus policy", () => {
     })).toBe(false);
   });
 
-  it("accepts the focus created by one click on the native-shaped passive card", () => {
+  it("rejects focus even when a native-shaped passive card is clicked", () => {
     expect(shouldAcceptPriceCheckOverlayFocus({
       visible: true,
       mode: "passive",
       activationPending: false,
       interactive: false,
-      passivePanelHitTest: true,
-    })).toBe(true);
+    })).toBe(false);
   });
 
   it("accepts only an intentional locked or promoted activation", () => {

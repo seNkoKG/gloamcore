@@ -73,20 +73,20 @@ describe("update service", () => {
       normalizeUpdateSource({
         provider: "github",
         owner: "seNkoKG",
-        repo: "ninja-lens",
+        repo: "gloamcore",
         private: true,
         token: "must-not-be-used",
       }),
     ).toEqual({
       provider: "github",
       owner: "seNkoKG",
-      repo: "ninja-lens",
+      repo: "gloamcore",
     });
     expect(
       normalizeUpdateSource({
         provider: "github",
         owner: "seNkoKG/path",
-        repo: "ninja-lens",
+        repo: "gloamcore",
       }),
     ).toBeNull();
     expect(normalizeUpdateSource({ provider: "s3" })).toBeNull();
@@ -100,7 +100,7 @@ describe("update service", () => {
     expect(source).toEqual({
       provider: "github",
       owner: "seNkoKG",
-      repo: "ninja-lens",
+      repo: "gloamcore",
     });
     expect(source).not.toHaveProperty("token");
     expect(source).not.toHaveProperty("private");
@@ -112,7 +112,7 @@ describe("update service", () => {
         resourcesPath: "Z:/missing",
         appRoot: "Z:/missing",
         environment: {
-          POE_WIDGET_UPDATE_URL: "https://updates.example.test/widget/",
+          GLOAMCORE_UPDATE_URL: "https://updates.example.test/widget/",
         },
         allowEnvironment: true,
       }),
@@ -128,7 +128,7 @@ describe("update service", () => {
         resourcesPath: "Z:/missing",
         appRoot: "Z:/missing",
         environment: {
-          POE_WIDGET_UPDATE_URL: "https://updates.example.test/widget/",
+          GLOAMCORE_UPDATE_URL: "https://updates.example.test/widget/",
         },
       }),
     ).toBeNull();
@@ -142,7 +142,7 @@ describe("update service", () => {
       feedUrl: {
         provider: "github",
         owner: "seNkoKG",
-        repo: "ninja-lens",
+        repo: "gloamcore",
       },
       createUpdater,
       autoCheck: false,
@@ -151,7 +151,7 @@ describe("update service", () => {
     expect(createUpdater).toHaveBeenCalledWith({
       provider: "github",
       owner: "seNkoKG",
-      repo: "ninja-lens",
+      repo: "gloamcore",
     });
     expect(service.getState()).toMatchObject({
       status: "idle",
@@ -168,7 +168,7 @@ describe("update service", () => {
       feedUrl: {
         provider: "github",
         owner: "seNkoKG",
-        repo: "ninja-lens",
+        repo: "gloamcore",
       },
       portable: true,
       createUpdater,

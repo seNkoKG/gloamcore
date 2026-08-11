@@ -1,9 +1,9 @@
 (() => {
   "use strict";
 
-  const REPOSITORY = "seNkoKG/ninja-lens";
-  const INSTALLER_URL = `https://github.com/${REPOSITORY}/releases/latest/download/Ninja-Lens-Setup-x64.exe`;
-  const FALLBACK_VERSION = "2.3.4";
+  const REPOSITORY = "seNkoKG/gloamcore";
+  const INSTALLER_URL = `https://github.com/${REPOSITORY}/releases/latest/download/GloamCore-Setup-x64.exe`;
+  const FALLBACK_VERSION = "2.4.0";
 
   const header = document.querySelector("[data-header]");
   const nav = document.querySelector("[data-nav]");
@@ -87,7 +87,7 @@
       link.href = releaseUrl;
     });
     document.querySelectorAll("[data-download-portable]").forEach((link) => {
-      link.href = `https://github.com/${REPOSITORY}/releases/download/v${version}/Ninja-Lens-Portable-${version}-x64.exe`;
+      link.href = `https://github.com/${REPOSITORY}/releases/download/v${version}/GloamCore-Portable-${version}-x64.exe`;
     });
   };
 

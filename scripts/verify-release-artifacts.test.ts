@@ -72,12 +72,12 @@ describe("desktop release Trade endpoint policy", () => {
 
 describe("desktop release GitHub update policy", () => {
   const packageMetadata = {
-    name: "ninja-lens",
+    name: "gloamcore",
     build: {
       publish: [{
         provider: "github",
         owner: "seNkoKG",
-        repo: "ninja-lens",
+        repo: "gloamcore",
       }],
     },
   };
@@ -86,28 +86,28 @@ describe("desktop release GitHub update policy", () => {
     expect(githubUpdateConfiguration(packageMetadata)).toEqual({
       provider: "github",
       owner: "seNkoKG",
-      repo: "ninja-lens",
+      repo: "gloamcore",
     });
     expect(expectedAppUpdateYaml(packageMetadata)).toBe([
       "owner: seNkoKG",
-      "repo: ninja-lens",
+      "repo: gloamcore",
       "provider: github",
-      "updaterCacheDirName: ninja-lens-updater",
+      "updaterCacheDirName: gloamcore-updater",
     ].join("\n"));
     expect(() => assertPublicUpdateConfig({
       enabled: true,
       provider: "github",
       owner: "seNkoKG",
-      repo: "ninja-lens",
+      repo: "gloamcore",
     }, packageMetadata)).not.toThrow();
   });
 
   it("rejects generic, private, authenticated, disabled, and mismatched channels", () => {
     for (const publish of [
       { provider: "generic", url: "https://example.test" },
-      { provider: "github", owner: "someone-else", repo: "ninja-lens" },
-      { provider: "github", owner: "seNkoKG", repo: "ninja-lens", private: true },
-      { provider: "github", owner: "seNkoKG", repo: "ninja-lens", token: "secret" },
+      { provider: "github", owner: "someone-else", repo: "gloamcore" },
+      { provider: "github", owner: "seNkoKG", repo: "gloamcore", private: true },
+      { provider: "github", owner: "seNkoKG", repo: "gloamcore", token: "secret" },
     ]) {
       expect(() => githubUpdateConfiguration({
         ...packageMetadata,
@@ -116,9 +116,9 @@ describe("desktop release GitHub update policy", () => {
     }
 
     for (const updateConfig of [
-      { enabled: false, provider: "github", owner: "seNkoKG", repo: "ninja-lens" },
+      { enabled: false, provider: "github", owner: "seNkoKG", repo: "gloamcore" },
       { enabled: true, provider: "github", owner: "seNkoKG", repo: "elsewhere" },
-      { enabled: true, provider: "github", owner: "seNkoKG", repo: "ninja-lens", token: "secret" },
+      { enabled: true, provider: "github", owner: "seNkoKG", repo: "gloamcore", token: "secret" },
     ]) {
       expect(() => assertPublicUpdateConfig(updateConfig, packageMetadata))
         .toThrow(/token-free public GitHub release channel/i);
@@ -130,7 +130,7 @@ describe("desktop release ASAR header validation", () => {
   it("accepts a current Electron string pickle with zero alignment padding", () => {
     let header = JSON.stringify({ files: {} });
     while (Buffer.byteLength(header, "utf8") % 4 !== 0) header += " ";
-    const directory = mkdtempSync(join(tmpdir(), "ninja-lens-asar-"));
+    const directory = mkdtempSync(join(tmpdir(), "gloamcore-asar-"));
     const archivePath = join(directory, "app.asar");
     writeFileSync(archivePath, minimalAsar(header));
     try {
@@ -143,7 +143,7 @@ describe("desktop release ASAR header validation", () => {
   });
 
   it("rejects payload bytes beyond the pickle's maximum alignment padding", () => {
-    const directory = mkdtempSync(join(tmpdir(), "ninja-lens-asar-invalid-"));
+    const directory = mkdtempSync(join(tmpdir(), "gloamcore-asar-invalid-"));
     const archivePath = join(directory, "app.asar");
     writeFileSync(
       archivePath,

@@ -1453,7 +1453,7 @@ export default function App() {
             type="button"
             className={mode === "knowledge" ? "is-active" : undefined}
             onClick={() => switchMode("knowledge")}
-            title="Open Ninja Intel"
+            title="Open Item Intel"
           >
             <Database size={14} />
             Intel

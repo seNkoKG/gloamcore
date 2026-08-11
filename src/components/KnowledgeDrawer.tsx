@@ -53,7 +53,7 @@ export function KnowledgeDrawer({
     >
       <div className="details-topline">
         <div>
-          <span>NINJA INTEL</span>
+          <span>ITEM INTEL</span>
           <i>•</i>
           <span>{entry.kind === "item" ? "Item database" : "Modifier database"}</span>
         </div>
@@ -189,7 +189,7 @@ export function KnowledgeDrawer({
       </div>
 
       <p className="knowledge-attribution">
-        Live reference data from PoE Wiki Cargo. Crafting calculations stay with Craft of Exile; Ninja Lens does not copy its engine.
+        Live reference data from PoE Wiki Cargo. Crafting calculations stay with Craft of Exile; this app does not copy its engine.
       </p>
     </aside>
   );

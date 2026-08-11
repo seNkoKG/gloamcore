@@ -35,7 +35,7 @@ describe("PoB planner desktop service", () => {
   });
 
   it("selects requested Ruthless/alternate trees exactly and never substitutes latest", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-lens-pob-tree-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-pob-tree-"));
     try {
       for (const version of ["3_28", "3_29", "3_29_ruthless", "3_29_alternate", "3_29_ruthless_alternate"]) {
         const directory = path.join(root, "TreeData", version);
@@ -54,7 +54,7 @@ describe("PoB planner desktop service", () => {
   });
 
   it("versions passive-tree snapshots by exact source file identity", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-lens-pob-identity-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-pob-identity-"));
     try {
       const directory = path.join(root, "TreeData", "3_29");
       fs.mkdirSync(directory, { recursive: true });

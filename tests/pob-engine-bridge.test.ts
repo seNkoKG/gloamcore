@@ -34,7 +34,7 @@ function minimalBuild(level: number) {
 
 describe("authoritative local Path of Building bridge", () => {
   it("reports a missing installation without inventing calculations", async () => {
-    const missing = path.join(os.tmpdir(), `ninja-lens-missing-pob-${process.pid}-${Date.now()}`);
+    const missing = path.join(os.tmpdir(), `gloamcore-missing-pob-${process.pid}-${Date.now()}`);
     const diagnostic = diagnosePobEngine({ pobRoot: missing });
     expect(diagnostic).toMatchObject({
       ok: false,
@@ -50,7 +50,7 @@ describe("authoritative local Path of Building bridge", () => {
   });
 
   it("fails closed for a Path of Building version this app has not proven", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-lens-pob-version-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-pob-version-"));
     try {
       fs.writeFileSync(path.join(root, "manifest.xml"), '<PoBVersion><Version branch="master" number="99.99.99" platform="win32" /></PoBVersion>', "utf8");
       expect(inspectInstallation({ pobRoot: root })).toMatchObject({
@@ -65,7 +65,7 @@ describe("authoritative local Path of Building bridge", () => {
   });
 
   it("fails closed when a claimed supported release does not match official source/runtime", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-lens-pob-source-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-pob-source-"));
     try {
       fs.writeFileSync(path.join(root, "manifest.xml"), '<PoBVersion><Version branch="master" number="2.66.1" platform="win32" /></PoBVersion>', "utf8");
       const result = inspectInstallation({ pobRoot: root });
@@ -166,7 +166,7 @@ describe("authoritative local Path of Building bridge", () => {
   it.runIf(capability.available)("imports official characters through PoB's exact item, socket, gem, and jewel logic", async () => {
     const imported = await importPobCharacter({
       character: {
-        name: "Ninja Lens parity fixture",
+        name: "GloamCore parity fixture",
         class: "Scion",
         level: 90,
         league: "Standard",

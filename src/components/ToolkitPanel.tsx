@@ -139,7 +139,7 @@ export function ToolkitPanel({ league }: { league: string }) {
       <header className="toolkit-header">
         <div>
           <span>PLAYER TOOLKIT</span>
-          <h1>PoE utilities, Ninja Lens workflow</h1>
+          <h1>PoE utilities, one workflow</h1>
           <p>Edits are explicit, reversible, and kept out of the game process.</p>
         </div>
         <div className="toolkit-safety"><ShieldCheck size={15} /> File-safe</div>
@@ -311,7 +311,7 @@ function FilterEditor() {
       const saved = await bridge.saveToolkitText({
         path: file?.path,
         text: serializeItemFilter(document),
-        suggestedName: file?.name || "Ninja-Lens.filter",
+        suggestedName: file?.name || "GloamCore.filter",
         kind: "filter",
       });
       if (!saved) return;
@@ -1072,7 +1072,7 @@ export function Whiteboard({
   );
 }
 
-const PLUGIN_PROTOCOL = "ninja-lens-plugin/v1";
+const PLUGIN_PROTOCOL = "gloamcore-plugin/v1";
 
 function pluginMessage(value: unknown): { id: string; type: string; key?: string; value?: string; url?: string } | null {
   if (!value || typeof value !== "object") return null;
@@ -1113,7 +1113,7 @@ function SandboxedPluginHost({
         try {
           if (request.type === "hello" || request.type === "get-context") {
             reply(request.id, true, {
-              host: "Ninja Lens",
+              host: "GloamCore",
               apiVersion: 1,
               pluginId: plugin.id,
               game: plugin.game,
@@ -1355,7 +1355,7 @@ function OverlayWorkspace({ league }: { league: string }) {
 
       {tab === "whiteboard" && <div className="whiteboard-tab"><div className="whiteboard-open-row"><span>The overlay opens without taking focus from Path of Exile.</span><button type="button" onClick={() => { void openOverlay("whiteboard"); }}>Open live overlay</button></div><Whiteboard canImportImage onError={setMessage} strokes={workspace.whiteboard.strokes} snapshots={workspace.whiteboard.snapshots} onChange={(strokes) => setWorkspace((current) => ({ ...current, whiteboard: { ...current.whiteboard, strokes } }))} onSnapshotsChange={(snapshots) => setWorkspace((current) => ({ ...current, whiteboard: { ...current.whiteboard, snapshots } }))} /></div>}
 
-      {tab === "themes" && <div className="theme-workspace"><section><h2>Theme palette</h2><p>Changes apply immediately and persist only after Save & enable.</p><label>Accent<input type="color" value={workspace.theme.accent} onChange={(event) => setWorkspace((current) => ({ ...current, theme: { ...current.theme, accent: event.target.value } }))} /></label><label>Base background<input type="color" value={workspace.theme.background} onChange={(event) => setWorkspace((current) => ({ ...current, theme: { ...current.theme, background: event.target.value } }))} /></label><label>Density<select value={workspace.theme.density} onChange={(event) => setWorkspace((current) => ({ ...current, theme: { ...current.theme, density: event.target.value as "compact" | "comfortable" } }))}><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label></section><div className="theme-preview" style={{ background: workspace.theme.background, borderColor: workspace.theme.accent }}><small style={{ color: workspace.theme.accent }}>NINJA LENS THEME</small><h3>Readable in the middle of a map</h3><p>High contrast panels, restrained colour, and your chosen accent.</p><button type="button" style={{ background: workspace.theme.accent }}>Primary action</button></div></div>}
+      {tab === "themes" && <div className="theme-workspace"><section><h2>Theme palette</h2><p>Changes apply immediately and persist only after Save & enable.</p><label>Accent<input type="color" value={workspace.theme.accent} onChange={(event) => setWorkspace((current) => ({ ...current, theme: { ...current.theme, accent: event.target.value } }))} /></label><label>Base background<input type="color" value={workspace.theme.background} onChange={(event) => setWorkspace((current) => ({ ...current, theme: { ...current.theme, background: event.target.value } }))} /></label><label>Density<select value={workspace.theme.density} onChange={(event) => setWorkspace((current) => ({ ...current, theme: { ...current.theme, density: event.target.value as "compact" | "comfortable" } }))}><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label></section><div className="theme-preview" style={{ background: workspace.theme.background, borderColor: workspace.theme.accent }}><small style={{ color: workspace.theme.accent }}>ACTIVE THEME</small><h3>Readable in the middle of a map</h3><p>High contrast panels, restrained colour, and your chosen accent.</p><button type="button" style={{ background: workspace.theme.accent }}>Primary action</button></div></div>}
 
       {tab === "plugins" && (
         <div className="workspace-panel">
