@@ -17,12 +17,13 @@ tray-first desktop app.
 [![Download Ninja Lens for Windows](https://img.shields.io/badge/DOWNLOAD_FOR_WINDOWS-LATEST_STABLE-2ee6c2?style=for-the-badge&logo=windows&logoColor=081116)](https://github.com/seNkoKG/ninja-lens/releases/latest/download/Ninja-Lens-Setup-x64.exe)
 
 [All releases](https://github.com/seNkoKG/ninja-lens/releases) |
+[Product website](https://senkokg.github.io/ninja-lens/) |
 [Report a bug](https://github.com/seNkoKG/ninja-lens/issues/new?template=bug_report.yml) |
 [Read the changelog](CHANGELOG.md)
 
 </div>
 
-## One companion, four focused workflows
+## One companion, five focused workflows
 
 ### Price check with one shortcut
 
@@ -68,11 +69,12 @@ fingerprint; it does not invent calculated DPS.
 
 ### Track stash wealth
 
-The Stash Wealth workspace connects through the official Path of Exile desktop
-OAuth flow, syncs the tabs the account authorizes, values supported item
-families with poe.ninja, and keeps local wealth snapshots, deltas, history,
-and top-item views. Only the application owner registers the public OAuth
-client; each user authorizes their own account from inside Ninja Lens.
+The Stash Wealth workspace embeds Wealthy Exile in a dedicated, sandboxed
+browser view. Wealthy Exile owns its Path of Exile OAuth connection and
+renders the stash dashboard unchanged. Ninja Lens does not receive its cookies,
+OAuth tokens, or private stash responses. A locally cached ads-only filter list
+is applied on Wealthy Exile itself and is disabled on Path of Exile and Steam
+sign-in pages. If the filter cannot load, the site opens without filtering.
 
 ### Bring practical tools together
 
@@ -121,8 +123,8 @@ checksum before choosing to run it.
 
 ## Updates
 
-Version **2.3.3** is the current stable build connected to the GitHub update
-channel. Users of an earlier build must install 2.3.3 manually once.
+Version **2.3.4** is the current stable build connected to the GitHub update
+channel. Users of an earlier build must install 2.3.4 manually once.
 
 With automatic checks enabled, installed builds check shortly after launch and
 then periodically. A newer stable release is downloaded in the background, but
@@ -158,7 +160,9 @@ global key combinations are rejected without replacing the working binding.
 - Optional private-character import accepts an official OAuth token with the
   `account:characters` scope. The token is held in memory only, is cleared after
   import, and is never persisted; authenticated character responses are not
-  cached.
+  cached. Stash wealth embeds the independent Wealthy Exile service in an
+  isolated browser profile; Ninja Lens cannot access that profile from its app
+  renderer.
 - Compact seller listings use anonymous public Trade website routes without
   credentials. This is an unofficial convenience, not a guaranteed developer
   API; GGG can change, reject, or rate-limit it.

@@ -30,6 +30,8 @@ internal static class NinjaLensInput
     private const int MaxAllowedProcesses = 8;
     private const int MaxChatTextLength = 512;
     private const int WhMouseLowLevel = 14;
+    private const uint WmStartupFeedbackComplete = 0x8000;
+    private const uint PeekMessageNoRemove = 0x0000;
     private const int WmMouseWheel = 0x020A;
     private const int PanelNoAction = 0;
     private const int PanelPromoteTracked = 10;
@@ -183,6 +185,28 @@ internal static class NinjaLensInput
     [DllImport("user32.dll")]
     private static extern int GetMessage(out NativeMessage message, IntPtr window, uint minimum, uint maximum);
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PeekMessage(
+        out NativeMessage message,
+        IntPtr window,
+        uint minimum,
+        uint maximum,
+        uint removeMessage
+    );
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostThreadMessage(
+        uint threadId,
+        uint message,
+        UIntPtr wParam,
+        IntPtr lParam
+    );
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeMessage
     {
@@ -192,6 +216,38 @@ internal static class NinjaLensInput
         public IntPtr LParam;
         public uint Time;
         public NativePoint Point;
+    }
+
+    private static void CompleteStartupFeedback()
+    {
+        // This executable is compiled as a GUI process. Windows keeps the
+        // working-in-background cursor active until that process retrieves its
+        // first message, even though most helper commands do not run a message
+        // loop. Post and retrieve one private thread message immediately so a
+        // short copy or long-lived panel watcher never leaks that cursor into
+        // Path of Exile or the overlay.
+        NativeMessage message;
+        PeekMessage(
+            out message,
+            IntPtr.Zero,
+            WmStartupFeedbackComplete,
+            WmStartupFeedbackComplete,
+            PeekMessageNoRemove
+        );
+        if (PostThreadMessage(
+            GetCurrentThreadId(),
+            WmStartupFeedbackComplete,
+            UIntPtr.Zero,
+            IntPtr.Zero
+        ))
+        {
+            GetMessage(
+                out message,
+                IntPtr.Zero,
+                WmStartupFeedbackComplete,
+                WmStartupFeedbackComplete
+            );
+        }
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -871,6 +927,7 @@ internal static class NinjaLensInput
 
     public static int Main(string[] arguments)
     {
+        CompleteStartupFeedback();
         if (arguments.Length == 1 &&
             string.Equals(arguments[0], "self-test", StringComparison.OrdinalIgnoreCase))
         {

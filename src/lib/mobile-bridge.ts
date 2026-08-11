@@ -630,6 +630,16 @@ export const mobileBridge: PoeWidgetBridge = {
     }
     await Browser.open({ url: parsed.toString(), presentationStyle: "popover" });
   },
+  async openWealthyExile() {
+    await mobileBridge.openExternal("https://wealthyexile.com/stash");
+    return true;
+  },
+  async hideWealthyExile() {
+    return false;
+  },
+  async controlWealthyExile() {
+    return false;
+  },
   async openToolkitText() {
     return null;
   },

@@ -102,6 +102,8 @@ describe("mobile network helpers", () => {
     expect(trustedExternalUrl("https://craftofexile.com.evil.example/en/"))
       .toBeNull();
     expect(trustedExternalUrl("https://poedb.tw/us/Divine_Orb")).not.toBeNull();
+    expect(trustedExternalUrl("https://wealthyexile.com/stash")).not.toBeNull();
+    expect(trustedExternalUrl("https://wealthyexile.com.evil.example/stash")).toBeNull();
     expect(trustedExternalUrl("not a URL")).toBeNull();
   });
 

@@ -421,6 +421,16 @@ const browserBridge: PoeWidgetBridge = {
     if (!parsed) throw new Error("Blocked an untrusted external link.");
     window.open(parsed.toString(), "_blank", "noopener,noreferrer");
   },
+  async openWealthyExile() {
+    await browserBridge.openExternal("https://wealthyexile.com/stash");
+    return true;
+  },
+  async hideWealthyExile() {
+    return false;
+  },
+  async controlWealthyExile() {
+    return false;
+  },
   async openToolkitText() {
     return null;
   },

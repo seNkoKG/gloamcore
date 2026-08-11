@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld("poeWidget", {
   getOfficialTradeListings: (request) =>
     ipcRenderer.invoke("price-check:get-official-listings", request),
   openExternal: (url) => ipcRenderer.invoke("app:open-external", url),
+  openWealthyExile: (bounds) => ipcRenderer.invoke("app:open-wealthy-exile", bounds),
+  hideWealthyExile: () => ipcRenderer.invoke("app:hide-wealthy-exile"),
+  controlWealthyExile: (action) =>
+    ipcRenderer.invoke("app:control-wealthy-exile", action),
   openToolkitText: (kind) => ipcRenderer.invoke("toolkit:open-text", kind),
   openToolkitImage: () => ipcRenderer.invoke("toolkit:open-image"),
   saveToolkitText: (request) => ipcRenderer.invoke("toolkit:save-text", request),

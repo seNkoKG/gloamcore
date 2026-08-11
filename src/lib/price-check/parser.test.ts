@@ -13,6 +13,7 @@ import {
   chronicleFixture,
   currencyFixture,
   divinationCardFixture,
+  doubleCorruptedFledglingFixture,
   expeditionLogbookFixture,
   foulbornWatcherEyeFixture,
   gemFixture,
@@ -663,6 +664,31 @@ Foil Unique`);
         source: undefined,
         tags: [],
         text: "Count as having maximum number of Power Charges",
+      },
+    ]);
+  });
+
+  it("keeps both corruption implicits on a double-corrupted unique", () => {
+    const item = parsePoeItem(doubleCorruptedFledglingFixture);
+
+    expect(item).toMatchObject({
+      valid: true,
+      itemClass: "Helmets",
+      rarity: "unique",
+      name: "The Fledgling",
+      baseType: "Lacquered Helmet",
+      corrupted: true,
+    });
+    expect(item.modifiers.slice(0, 2)).toMatchObject([
+      {
+        kind: "implicit",
+        generation: "corrupted",
+        normalizedText: "# to maximum power charges",
+      },
+      {
+        kind: "implicit",
+        generation: "corrupted",
+        normalizedText: "#% increased effect of shock",
       },
     ]);
   });

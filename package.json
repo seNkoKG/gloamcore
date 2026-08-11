@@ -1,6 +1,6 @@
 {
   "name": "ninja-lens",
-  "version": "2.3.3",
+  "version": "2.3.4",
   "packageManager": "pnpm@11.9.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/seNkoKG/ninja-lens.git"
   },
-  "homepage": "https://github.com/seNkoKG/ninja-lens#readme",
+  "homepage": "https://senkokg.github.io/ninja-lens/",
   "bugs": {
     "url": "https://github.com/seNkoKG/ninja-lens/issues"
   },
@@ -44,6 +44,7 @@
     "mobile:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-mobile.ps1"
   },
   "dependencies": {
+    "@ghostery/adblocker-electron": "2.18.2",
     "clsx": "^2.1.1",
     "electron-overlay-window": "4.1.0",
     "electron-updater": "^6.8.9",

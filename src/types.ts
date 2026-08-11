@@ -982,6 +982,13 @@ export interface PoeOAuthConnection {
   expiresAt: number | null;
 }
 
+export interface EmbeddedViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface PoeWidgetBridge {
   getLeagues(options?: { force?: boolean }): Promise<CacheEnvelope<EconomyLeague[]>>;
   getOverview(
@@ -1005,6 +1012,9 @@ export interface PoeWidgetBridge {
     request: import("./lib/price-check/types").OfficialTradeListingsRequest,
   ): Promise<import("./lib/price-check/types").OfficialTradeListingsResult>;
   openExternal(url: string): Promise<void>;
+  openWealthyExile(bounds?: EmbeddedViewBounds): Promise<boolean>;
+  hideWealthyExile(): Promise<boolean>;
+  controlWealthyExile(action: "reload"): Promise<boolean>;
   openToolkitText(kind: "filter" | "build" | "text"): Promise<ToolkitTextFile | null>;
   openToolkitImage(): Promise<{ name: string; dataUrl: string } | null>;
   saveToolkitText(request: {

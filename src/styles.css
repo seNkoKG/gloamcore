@@ -7041,6 +7041,79 @@ html[data-surface="quick"] #root {
   border-bottom: 1px solid var(--line-soft);
 }
 
+.stash-provider-card {
+  min-height: 320px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+
+.stash-embedded-browser {
+  display: flex;
+  flex-direction: column;
+  height: clamp(420px, calc(100vh - 150px), 900px);
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+
+.stash-embedded-toolbar {
+  display: flex;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px 0 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-1);
+}
+
+.stash-embedded-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stash-embedded-identity svg {
+  color: var(--teal);
+}
+
+.stash-embedded-identity strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.stash-embedded-identity span {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.stash-embedded-viewport {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  background: #080b10;
+  color: var(--teal);
+}
+
+.stash-provider-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.stash-provider-note {
+  max-width: 420px;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .stash-connect-row {
   display: flex;
   gap: 10px;
@@ -7162,6 +7235,12 @@ html[data-surface="quick"] #root {
   border-color: rgba(46, 230, 184, 0.65);
   background: rgba(46, 230, 184, 0.14);
   color: var(--teal);
+}
+
+.stash-button--icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
 }
 
 .stash-connected-label {

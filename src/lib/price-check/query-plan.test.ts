@@ -18,6 +18,7 @@ import type {
 import actualCatalog from "../../../public/data/price-check/stats-v1.json";
 import {
   chronicleFixture,
+  doubleCorruptedFledglingFixture,
   influencedStatusFixture,
   mapFixture,
 } from "./fixtures/parser-fixtures";
@@ -493,6 +494,43 @@ describe("modifier filter planner", () => {
       { enabled: false },
       { enabled: true, importance: "key" },
     ]);
+  });
+
+  it("selects both generation-tagged implicits on a double-corrupted unique", () => {
+    const fledgling = applyTradeStatCatalog(
+      parsePoeItem(doubleCorruptedFledglingFixture),
+      actualCatalog as TradeStatCatalogPack,
+    );
+    const plan = buildPriceCheckQueryPlan(fledgling, "Allflame", {
+      mode: "similar",
+      rollTolerance: 10,
+    });
+    const corruptionImplicits = plan.filters.filter((filter) =>
+      fledgling.modifiers.some((modifier) =>
+        modifier.id === filter.modifierId &&
+        modifier.generation === "corrupted"
+      )
+    );
+
+    expect(corruptionImplicits).toHaveLength(2);
+    expect(corruptionImplicits).toMatchObject([
+      {
+        enabled: true,
+        mode: "range",
+        min: 1,
+        importance: "key",
+      },
+      {
+        enabled: true,
+        mode: "range",
+        min: 26,
+        importance: "key",
+      },
+    ]);
+    expect(corruptionImplicits.every((filter) => !filter.advancedOnly)).toBe(true);
+    const activeStats = decodedQuery(plan).query.query.stats[0].filters
+      .filter((filter: { disabled?: boolean }) => !filter.disabled);
+    expect(activeStats).toHaveLength(2);
   });
 
   it("disables fixed Watcher's Eye boilerplate but enables its variable aura effects", () => {

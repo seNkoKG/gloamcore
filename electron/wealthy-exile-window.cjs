@@ -1,0 +1,196 @@
+"use strict";
+
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
+const WEALTHY_EXILE_URL = "https://wealthyexile.com/stash";
+const WEALTHY_EXILE_PARTITION = "persist:ninja-lens-wealthy-exile";
+const AD_BLOCK_CACHE_FILE = "ads-only.bin";
+const AD_BLOCK_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const AD_BLOCK_LOAD_TIMEOUT_MS = 10_000;
+const configuredSessions = new WeakSet();
+const sessionAdBlockers = new WeakMap();
+
+function allowedNavigationUrl(value) {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      (url.port !== "" && url.port !== "443") ||
+      url.username ||
+      url.password
+    ) return null;
+    if (url.hostname === "wealthyexile.com") return url;
+    if (url.hostname === "pathofexile.com" || url.hostname === "www.pathofexile.com") return url;
+    if (url.hostname === "steamcommunity.com") return url;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function fitViewBounds(value, container) {
+  if (!value || typeof value !== "object" || !container) return null;
+  const numbers = [value.x, value.y, value.width, value.height, container.width, container.height];
+  if (!numbers.every(Number.isFinite)) return null;
+  const left = Math.max(0, Math.round(value.x));
+  const top = Math.max(0, Math.round(value.y));
+  const right = Math.min(Math.round(container.width), Math.round(value.x + value.width));
+  const bottom = Math.min(Math.round(container.height), Math.round(value.y + value.height));
+  if (right <= left || bottom <= top) return null;
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function shouldBlockAds(value) {
+  return allowedNavigationUrl(value)?.hostname === "wealthyexile.com";
+}
+
+async function loadWealthyExileAdBlocker(session, dependencies = {}) {
+  const ElectronBlocker = dependencies.ElectronBlocker
+    || require("@ghostery/adblocker-electron").ElectronBlocker;
+  const readFile = dependencies.readFile || fs.readFile;
+  const writeFile = dependencies.writeFile || fs.writeFile;
+  const stat = dependencies.stat || fs.stat;
+  const mkdir = dependencies.mkdir || fs.mkdir;
+  const now = dependencies.now || Date.now;
+  const cachePath = session.storagePath
+    ? path.join(session.storagePath, AD_BLOCK_CACHE_FILE)
+    : null;
+  let cached = null;
+  let cacheFresh = false;
+
+  if (cachePath) {
+    try {
+      const [serialized, cacheStat] = await Promise.all([readFile(cachePath), stat(cachePath)]);
+      cached = ElectronBlocker.deserialize(serialized);
+      cacheFresh = now() - cacheStat.mtimeMs < AD_BLOCK_CACHE_MAX_AGE_MS;
+    } catch {
+      cached = null;
+    }
+  }
+  if (cached && cacheFresh) return cached;
+
+  try {
+    const blocker = await ElectronBlocker.fromPrebuiltAdsOnly(dependencies.fetchImpl);
+    if (cachePath) {
+      try {
+        await mkdir(path.dirname(cachePath), { recursive: true });
+        await writeFile(cachePath, blocker.serialize());
+      } catch (cause) {
+        console.warn("Unable to cache Wealthy Exile ad filters:", cause);
+      }
+    }
+    return blocker;
+  } catch (cause) {
+    if (cached) return cached;
+    throw cause;
+  }
+}
+
+function syncAdBlocking(blocker, session, value) {
+  const shouldEnable = shouldBlockAds(value);
+  if (blocker.isBlockingEnabled(session) === shouldEnable) return;
+  if (shouldEnable) blocker.enableBlockingInSession(session);
+  else blocker.disableBlockingInSession(session);
+}
+
+function getSessionAdBlocker(session, loadAdBlocker, timeoutMs = AD_BLOCK_LOAD_TIMEOUT_MS) {
+  const existing = sessionAdBlockers.get(session);
+  if (existing) return existing;
+  let timeout;
+  const pending = Promise.race([
+    Promise.resolve().then(() => loadAdBlocker(session)),
+    new Promise((_resolve, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error("ad filter loading timed out")),
+        timeoutMs,
+      );
+    }),
+  ]).finally(() => clearTimeout(timeout));
+  sessionAdBlockers.set(session, pending);
+  void pending.catch(() => {
+    if (sessionAdBlockers.get(session) === pending) sessionAdBlockers.delete(session);
+  });
+  return pending;
+}
+
+function createWealthyExileView({
+  WebContentsView,
+  loadAdBlocker = loadWealthyExileAdBlocker,
+  adBlockTimeoutMs = AD_BLOCK_LOAD_TIMEOUT_MS,
+}) {
+  const view = new WebContentsView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      partition: WEALTHY_EXILE_PARTITION,
+    },
+  });
+
+  view.setBackgroundColor("#080b10");
+  view.setBorderRadius(8);
+  view.setVisible(false);
+  const contents = view.webContents;
+  const session = contents.session;
+  let adBlocker = null;
+  const navigate = (value) => {
+    const url = allowedNavigationUrl(value);
+    if (!url) return false;
+    if (adBlocker) syncAdBlocking(adBlocker, session, url);
+    void contents.loadURL(url.toString()).catch(() => undefined);
+    return true;
+  };
+  const guardNavigation = (event, value) => {
+    const url = allowedNavigationUrl(value);
+    if (!url) {
+      event.preventDefault();
+      return;
+    }
+    if (adBlocker) syncAdBlocking(adBlocker, session, url);
+  };
+
+  contents.on("will-navigate", guardNavigation);
+  contents.on("will-redirect", guardNavigation);
+  contents.on("will-attach-webview", (event) => event.preventDefault());
+  contents.setWindowOpenHandler(({ url }) => {
+    navigate(url);
+    return { action: "deny" };
+  });
+  session.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => callback(false),
+  );
+  if (!configuredSessions.has(session)) {
+    configuredSessions.add(session);
+    session.on("will-download", (event) => event.preventDefault());
+    session.cookies.on("changed", () => {
+      void session.cookies.flushStore().catch(() => undefined);
+    });
+  }
+  getSessionAdBlocker(session, loadAdBlocker, adBlockTimeoutMs)
+    .then((blocker) => {
+      if (contents.isDestroyed()) return;
+      adBlocker = blocker;
+      navigate(WEALTHY_EXILE_URL);
+    })
+    .catch((cause) => {
+      console.warn("Wealthy Exile ad blocking unavailable:", cause);
+      if (!contents.isDestroyed()) navigate(WEALTHY_EXILE_URL);
+    });
+  return view;
+}
+
+module.exports = {
+  AD_BLOCK_CACHE_MAX_AGE_MS,
+  AD_BLOCK_LOAD_TIMEOUT_MS,
+  WEALTHY_EXILE_PARTITION,
+  WEALTHY_EXILE_URL,
+  allowedNavigationUrl,
+  createWealthyExileView,
+  fitViewBounds,
+  loadWealthyExileAdBlocker,
+  shouldBlockAds,
+  syncAdBlocking,
+};

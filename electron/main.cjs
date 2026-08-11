@@ -11,6 +11,7 @@ const {
   screen,
   shell,
   Tray,
+  WebContentsView,
 } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -62,6 +63,10 @@ const { createPobEngineDispatcher } = require("./pob-engine-dispatch.cjs");
 const { createPobPlannerDispatcher } = require("./pob-planner-dispatch.cjs");
 const { createPoeCharacterService } = require("./poe-character-import.cjs");
 const { createToolkitRuntimeStore } = require("./toolkit-runtime.cjs");
+const {
+  createWealthyExileView,
+  fitViewBounds,
+} = require("./wealthy-exile-window.cjs");
 const {
   isLeaguePayload,
   isOverviewPayload,
@@ -216,6 +221,7 @@ if (QA_USER_DATA_PATH) {
 }
 const ALLOWED_EXTERNAL_HOSTS = new Set([
   "poe.ninja",
+  "wealthyexile.com",
   "www.pathofexile.com",
   "www.poewiki.net",
   "www.craftofexile.com",
@@ -230,6 +236,7 @@ let mainWindow;
 let trayWindow;
 let quickWindow;
 let priceCheckWindow;
+let wealthyExileView;
 const toolkitOverlayWindows = new Map();
 const toolkitOverlayGeometryTimers = new Map();
 let tray;
@@ -4289,6 +4296,34 @@ function createAuxiliaryWindow(surface) {
   return window;
 }
 
+function showWealthyExile(bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const fitted = fitViewBounds(bounds, mainWindow.getContentBounds());
+  if (!fitted) return false;
+  if (!wealthyExileView || wealthyExileView.webContents.isDestroyed()) {
+    wealthyExileView = createWealthyExileView({ WebContentsView });
+    mainWindow.contentView.addChildView(wealthyExileView);
+  }
+  wealthyExileView.setBounds(fitted);
+  wealthyExileView.setVisible(true);
+  return true;
+}
+
+function hideWealthyExile() {
+  wealthyExileView?.setVisible(false);
+  return true;
+}
+
+function controlWealthyExile(action) {
+  const contents = wealthyExileView?.webContents;
+  if (!contents || contents.isDestroyed()) return false;
+  if (action === "reload") {
+    contents.reload();
+    return true;
+  }
+  return false;
+}
+
 function visibleToolkitOverlayBounds(savedBounds, drawing) {
   const primary = screen.getPrimaryDisplay().workArea;
   const minimumWidth = drawing ? 600 : 380;
@@ -4750,10 +4785,15 @@ app.on("before-quit", () => {
   toolkitOverlayGeometryTimers.clear();
   trayWindow?.destroy();
   quickWindow?.destroy();
+  if (wealthyExileView) {
+    mainWindow?.contentView.removeChildView(wealthyExileView);
+    if (!wealthyExileView.webContents.isDestroyed()) wealthyExileView.webContents.close();
+  }
   for (const window of toolkitOverlayWindows.values()) window.destroy();
   toolkitOverlayWindows.clear();
   trayWindow = null;
   quickWindow = null;
+  wealthyExileView = null;
   tray?.destroy();
   tray = null;
 });
@@ -5116,6 +5156,21 @@ ipcMain.handle("renderer:ready", (event) => {
 ipcMain.handle("app:open-external", (event, url) => {
   assertTrustedSender(event);
   return openExternalUrl(url);
+});
+
+ipcMain.handle("app:open-wealthy-exile", (event, bounds) => {
+  assertDashboardSender(event);
+  return showWealthyExile(bounds);
+});
+
+ipcMain.handle("app:hide-wealthy-exile", (event) => {
+  assertDashboardSender(event);
+  return hideWealthyExile();
+});
+
+ipcMain.handle("app:control-wealthy-exile", (event, action) => {
+  assertDashboardSender(event);
+  return controlWealthyExile(action);
 });
 
 ipcMain.handle("toolkit:open-text", (event, kind) => {

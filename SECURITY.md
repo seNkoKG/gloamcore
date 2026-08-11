@@ -1,9 +1,9 @@
 # Security policy
 
 Ninja Lens is a desktop companion that handles global shortcuts, copied item
-text, local files, remote data, native overlay windows, and an optional official
-OAuth token. Reports that cross one of those trust boundaries are taken
-seriously.
+text, local files, remote data, native overlay windows, an isolated Wealthy
+Exile browser profile, and an optional official OAuth token. Reports that cross
+one of those trust boundaries are taken seriously.
 
 ## Supported versions
 
@@ -48,6 +48,11 @@ details should wait until users have had a reasonable opportunity to update.
 - Remote plugin pages must remain isolated from Node, Electron, the filesystem,
   direct clipboard access, and game memory. Sensitive capabilities require an
   explicit per-plugin permission.
+- The embedded Wealthy Exile view must remain on its dedicated session partition
+  with no preload, Node, Electron, filesystem, download, or permission access.
+  Ninja Lens must not read or reuse Wealthy Exile cookies, OAuth tokens, or
+  responses. Ads-only filtering is scoped to Wealthy Exile, disabled on sign-in
+  hosts, and fails open if no filter engine is available.
 - External URLs and remote responses must stay allowlisted, bounded, and
   validated before crossing the preload bridge.
 - Update metadata and binaries must come from the public

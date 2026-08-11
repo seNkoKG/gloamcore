@@ -25,6 +25,7 @@ export interface MobileStoredResponse<T> {
 
 const TRUSTED_EXTERNAL_HOSTS = new Set([
   "poe.ninja",
+  "wealthyexile.com",
   "www.poewiki.net",
   "poewiki.net",
   "www.pathofexile.com",

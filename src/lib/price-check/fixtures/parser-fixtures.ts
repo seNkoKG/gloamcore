@@ -1069,6 +1069,42 @@ Incandescent Invitation
 --------
 Item Level: 83`;
 
+/** Equipped double-corrupted unique that must keep both corruption implicits. */
+export const doubleCorruptedFledglingFixture = `Item Class: Helmets
+Rarity: Unique
+The Fledgling
+Lacquered Helmet
+--------
+Quality: +20% (augmented)
+Armour: 501 (augmented)
+Evasion Rating: 501 (augmented)
+--------
+Requirements:
+Level: 72 (gem)
+Str: 85 (gem)
+Dex: 159
+Int: 61 (gem)
+--------
+Sockets: G-G-R
+--------
+Item Level: 83
+--------
+{ Corruption Implicit Modifier }
++1 to Maximum Power Charges
+{ Corruption Implicit Modifier — Elemental, Lightning, Ailment }
+27(25-30)% increased Effect of Shock
+--------
+{ Unique Modifier — Defences }
+192(120-200)% increased Armour and Evasion
+{ Unique Modifier — Speed }
+50% increased Projectile Speed
+{ Unique Modifier — Damage }
+36(30-40)% increased Projectile Damage
+Projectiles cannot collide with Enemies in Close Range
+Far Shot
+--------
+Corrupted`;
+
 export const malformedFixture = `Rarity: Rare
 Nameless Thing
 --------

@@ -172,7 +172,7 @@ function isThreadOfHopeResistance(
 
 function isPriceDefiningUniqueImplicit(modifier: ParsedPoeModifier) {
   if (modifier.kind !== "implicit") return false;
-  const provenance = `${modifier.source || ""} ${modifier.tags.join(" ")}`;
+  const provenance = `${modifier.generation || ""} ${modifier.source || ""} ${modifier.tags.join(" ")}`;
   // Item-level state only says that at least one special implicit may exist.
   // A corrupted item can still retain an ordinary base implicit, so select a
   // price-defining implicit only when its own parsed provenance proves it.

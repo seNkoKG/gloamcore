@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+## 2.3.4
+
+- Replaced the unavailable native stash OAuth entry point with the real Wealthy
+  Exile site in a sandboxed browser view that resumes automatically when Stash
+  Wealth opens. Wealthy Exile keeps its own OAuth client, cookies, and stash
+  responses; Ninja Lens receives none of them and blocks navigation outside
+  the required sign-in hosts.
+- Added cached ads-only filtering to the Wealthy Exile session. Filtering turns
+  off before Path of Exile or Steam sign-in pages load, and a filter update
+  failure falls back to the last working cache without blocking the site.
+- Completed the native input helper's Windows startup feedback before any
+  capture or watcher command begins, removing the blue working-in-background
+  cursor from Ctrl+D checks and overlay interaction.
+- Preserved each modifier's generation metadata when identifying
+  price-defining unique implicits, so both implicits on a double-corrupted item
+  remain enabled in the official Trade query.
+- Rebuilt the public product page around real application captures, current
+  privacy boundaries, direct verified downloads, and the 2.3.4 workflow.
+
 ## 2.3.3
 
 - Added desktop Path of Exile OAuth plumbing for stash and character access,
