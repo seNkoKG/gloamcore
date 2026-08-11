@@ -2,9 +2,9 @@
 
 <img src="docs/assets/readme/gloamcore-logo.png" alt="GloamCore" width="168">
 
-# GloamCore
+<h1>GloamCore</h1>
 
-### Read the market. Price the item. Plan the build.
+<p><strong>Read the market. Price the item. Plan the build.</strong></p>
 
 A polished Path of Exile 1 companion for Windows—one-key price checks, live
 economy intelligence, build planning, stash wealth, and practical player tools
@@ -12,6 +12,7 @@ in one tray-first app.
 
 [![Latest release](https://img.shields.io/github/v/release/seNkoKG/gloamcore?display_name=tag&sort=semver&style=for-the-badge&color=2ee6c2)](https://github.com/seNkoKG/gloamcore/releases/latest)
 [![Windows x64](https://img.shields.io/badge/Windows-x64-17232d?style=for-the-badge&logo=windows&logoColor=2ee6c2)](https://github.com/seNkoKG/gloamcore/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/seNkoKG/gloamcore/total?style=for-the-badge&color=d6a84a)](https://github.com/seNkoKG/gloamcore/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/seNkoKG/gloamcore/ci.yml?branch=main&style=for-the-badge&label=build&color=d6a84a)](https://github.com/seNkoKG/gloamcore/actions/workflows/ci.yml)
 
 [![Download GloamCore](https://img.shields.io/badge/DOWNLOAD_GLOAMCORE-LATEST_STABLE-2ee6c2?style=for-the-badge&logo=windows&logoColor=081116)](https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe)
