@@ -494,7 +494,7 @@ async function executeReference(sourceRoot, dependencyRenderer, fixtures) {
   if (!fs.statSync(dependencyModules).isDirectory()) {
     throw new Error(`APT dependency node_modules not found: ${dependencyModules}`);
   }
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-apt-family-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-apt-family-"));
   const nodeModulesLink = path.join(tempRoot, "node_modules");
   let server;
   let browser;
@@ -621,7 +621,7 @@ async function executeReference(sourceRoot, dependencyRenderer, fixtures) {
     if (fs.existsSync(nodeModulesLink)) fs.unlinkSync(nodeModulesLink);
     const tempParent = fs.realpathSync(path.dirname(tempRoot));
     const expectedParent = fs.realpathSync(os.tmpdir());
-    if (tempParent !== expectedParent || !path.basename(tempRoot).startsWith("ninja-apt-family-")) {
+    if (tempParent !== expectedParent || !path.basename(tempRoot).startsWith("gloamcore-apt-family-")) {
       throw new Error(`Refusing to remove unexpected temporary path: ${tempRoot}`);
     }
     fs.rmSync(tempRoot, { recursive: true });

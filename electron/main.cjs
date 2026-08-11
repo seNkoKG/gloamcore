@@ -68,6 +68,9 @@ const {
   fitViewBounds,
 } = require("./wealthy-exile-window.cjs");
 const {
+  migrateLegacyDataDirectories,
+} = require("./legacy-data-migration.cjs");
+const {
   isLeaguePayload,
   isOverviewPayload,
   isWikiCargoPayload,
@@ -4639,65 +4642,14 @@ const LEGACY_WEALTHY_EXILE_PARTITIONS = Object.freeze([
   `${RETIRED_PRODUCT_SLUG}-wealthy-exile`,
 ]);
 
-function migrateLegacyBrowserPartitions(currentUserData) {
-  const partitionsDirectory = path.join(currentUserData, "Partitions");
-  const currentPartition = path.join(partitionsDirectory, "gloamcore-wealthy-exile");
-  if (fs.existsSync(currentPartition)) return;
-  for (const legacyName of LEGACY_WEALTHY_EXILE_PARTITIONS) {
-    const legacyPartition = path.join(partitionsDirectory, legacyName);
-    if (!fs.existsSync(legacyPartition)) continue;
-    fs.renameSync(legacyPartition, currentPartition);
-    return;
-  }
-}
-
-function copyMissingUserDataEntries(legacyUserData, currentUserData) {
-  fs.mkdirSync(currentUserData, { recursive: true });
-  for (const entry of fs.readdirSync(legacyUserData, { withFileTypes: true })) {
-    if (entry.name === "Update Cache" || entry.name.toLowerCase() === "crashpad") {
-      continue;
-    }
-    const target = path.join(currentUserData, entry.name);
-    if (!fs.existsSync(target)) {
-      fs.cpSync(path.join(legacyUserData, entry.name), target, {
-        recursive: true,
-        force: false,
-      });
-    }
-  }
-}
-
-function migrateLegacyDataDirectories() {
-  try {
-    const currentUserData = app.getPath("userData");
-    const currentSettings = path.join(currentUserData, "settings.json");
-    if (!fs.existsSync(currentSettings)) {
-      for (const legacyName of LEGACY_USER_DATA_DIRS) {
-        const legacyUserData = path.join(app.getPath("appData"), legacyName);
-        if (legacyUserData === currentUserData || !fs.existsSync(legacyUserData)) {
-          continue;
-        }
-        try {
-          if (
-            fs.existsSync(path.join(legacyUserData, "settings.json")) ||
-            fs.existsSync(path.join(legacyUserData, "Local Storage"))
-          ) {
-            copyMissingUserDataEntries(legacyUserData, currentUserData);
-            break;
-          }
-        } catch {
-          // A specific legacy directory may be concurrently locked; try the next one.
-        }
-      }
-    }
-    migrateLegacyBrowserPartitions(currentUserData);
-  } catch {
-    // Legacy data remains untouched if migration is not possible.
-  }
-}
-
 app.whenReady().then(() => {
-  migrateLegacyDataDirectories();
+  migrateLegacyDataDirectories({
+    currentUserData: app.getPath("userData"),
+    appDataDirectory: app.getPath("appData"),
+    legacyUserDataDirectoryNames: LEGACY_USER_DATA_DIRS,
+    legacyPartitionNames: LEGACY_WEALTHY_EXILE_PARTITIONS,
+    currentPartitionName: "gloamcore-wealthy-exile",
+  });
   void cleanupRetiredCacheFiles();
   loadSettings();
   setImmediate(() => {

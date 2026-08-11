@@ -1,183 +1,169 @@
 <div align="center">
 
-<img src="docs/assets/readme/gloamcore-logo.png" alt="GloamCore logo" width="180">
+<img src="docs/assets/readme/gloamcore-logo.png" alt="GloamCore" width="168">
 
 # GloamCore
 
 ### Read the market. Price the item. Plan the build.
 
-A focused Path of Exile 1 companion for Windows, bringing one-key item checks,
-live economy signals, player utilities, and a local Build Lab into one polished,
-tray-first desktop app.
+A polished Path of Exile 1 companion for Windows—one-key price checks, live
+economy intelligence, build planning, stash wealth, and practical player tools
+in one tray-first app.
 
 [![Latest release](https://img.shields.io/github/v/release/seNkoKG/gloamcore?display_name=tag&sort=semver&style=for-the-badge&color=2ee6c2)](https://github.com/seNkoKG/gloamcore/releases/latest)
 [![Windows x64](https://img.shields.io/badge/Windows-x64-17232d?style=for-the-badge&logo=windows&logoColor=2ee6c2)](https://github.com/seNkoKG/gloamcore/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/seNkoKG/gloamcore/total?style=for-the-badge&color=d6a84a)](https://github.com/seNkoKG/gloamcore/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/seNkoKG/gloamcore/ci.yml?branch=main&style=for-the-badge&label=build&color=d6a84a)](https://github.com/seNkoKG/gloamcore/actions/workflows/ci.yml)
 
-[![Download GloamCore for Windows](https://img.shields.io/badge/DOWNLOAD_FOR_WINDOWS-LATEST_STABLE-2ee6c2?style=for-the-badge&logo=windows&logoColor=081116)](https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe)
+[![Download GloamCore](https://img.shields.io/badge/DOWNLOAD_GLOAMCORE-LATEST_STABLE-2ee6c2?style=for-the-badge&logo=windows&logoColor=081116)](https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe)
 
-[All releases](https://github.com/seNkoKG/gloamcore/releases) |
-[Product website](https://senkokg.github.io/gloamcore/) |
-[Report a bug](https://github.com/seNkoKG/gloamcore/issues/new?template=bug_report.yml) |
-[Read the changelog](CHANGELOG.md)
+[Website](https://senkokg.github.io/gloamcore/) ·
+[Releases](https://github.com/seNkoKG/gloamcore/releases) ·
+[Changelog](CHANGELOG.md) ·
+[Report a bug](https://github.com/seNkoKG/gloamcore/issues/new?template=bug_report.yml)
 
 </div>
 
-## One companion, five focused workflows
+![GloamCore Market Explorer with current prices, trends, liquidity, and league controls](docs/assets/readme/market-dashboard.jpg)
 
-### Price check with one shortcut
+## Everything important, one shortcut away
 
-Hover an item in Path of Exile and press `Ctrl+D`. GloamCore performs one item
-copy, parses the copied text, and opens a compact overlay over the game. It can
-combine a poe.ninja identity estimate with an anonymous snapshot of current
-official Trade listings, then hand the complete query to the Trade website.
+| Workspace | What it gives you |
+| --- | --- |
+| **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware Trade check over the game. |
+| **Market Explorer** | Current league prices, trends, liquidity, filters, local watchlists, and target alerts. |
+| **Item Intel** | Searchable PoE Wiki reference data, artwork, requirements, modifiers, and trusted handoffs. |
+| **Build Lab** | Import, edit, compare, save, and export PoB-compatible builds on the passive tree. |
+| **Stash Wealth** | Wealthy Exile inside an isolated browser profile that remembers its own sign-in. |
+| **Player Toolkit** | Regex, item filters, socket colours, economy audits, references, and opt-in overlays. |
 
-<p align="center"><img src="docs/assets/readme/price-check-malachai.png" alt="GloamCore Ctrl+D price-check overlay showing Malachai's Loop modifiers and anonymized seller listings" width="460"><br><em>A current modifier plan and anonymized live listings in the compact Ctrl+D surface.</em></p>
+## Ctrl+D that stays out of your way
 
-Roll-sensitive uniques, rares, magic items, maps, gems, jewels, and other item
-families receive contextual state and modifier controls. The local planner is
-matched to pinned Awakened PoE Trade data so query-relevant modifiers remain
-visible and editable instead of being guessed or reduced to a base-item price.
+Hover an item in Path of Exile and press `Ctrl+D`. GloamCore performs one
+ordinary item-copy action, parses the clipboard locally, and paints a compact
+overlay without taking keyboard focus away from the game. Passive card clicks
+and dismissal keep Path of Exile active; a separate deliberate locked mode is
+available when you want full editor interaction.
 
-> Run Path of Exile in **Borderless** or **Windowed Fullscreen** for the native
-> overlay. Seller rows are asking prices, not completed sales; always inspect
-> the full Trade page before pricing a valuable item.
+<p align="center">
+  <img src="docs/assets/readme/price-check-malachai.png" alt="GloamCore compact price check with modifier controls and anonymous Trade listings" width="460"><br>
+  <em>Roll-aware modifiers and anonymous live listings in the compact overlay.</em>
+</p>
+
+The checker understands contextual state for uniques, rares, magic items,
+maps, gems, jewels, weapons, armour, and other item families. Price-defining
+corruption implicits stay separate—including double corruptions—and the full
+query can open directly on the official Trade website.
+
+> Use **Borderless** or **Windowed Fullscreen** for the native overlay. Seller
+> rows are asking prices, not completed sales; inspect the full Trade page
+> before pricing a valuable item.
+
+## Five connected workflows
 
 ### Follow the live economy
 
-Explore current poe.ninja markets with league selection, search, filters,
-sorting, trend history, liquidity context, and low-confidence handling. Star
-items for a local watchlist, set price targets, and receive a Windows
-notification when a target is reached.
+Search current poe.ninja markets by league and category, sort and filter rows,
+inspect seven-day movement and liquidity, and keep a local watchlist with
+Windows target notifications. Last-good data is clearly marked when an
+upstream source is temporarily unavailable.
 
-Item Intel adds searchable PoE Wiki Cargo reference data, item artwork,
-requirements, modifiers, and safe handoffs to specialist sources. Last-good
-market and reference responses remain available when an upstream service has a
-temporary outage.
+### Plan without inventing numbers
 
-### Work in Build Lab
+Build Lab imports PoB XML, codes, and supported build links into an interactive
+passive-tree workspace with mastery choices, multiple specs, skills, items,
+configuration, notes, comparison, undo/redo, and PoB export. Explicit
+recalculation uses a separately installed, fingerprint-verified Path of
+Building Community engine and fails closed when that engine is unavailable.
 
-Import PoB XML, codes, and supported build links into an interactive passive
-tree workspace. Build Lab supports tree editing, mastery choices, multiple
-specs, items, skills, configuration, notes, saved builds, comparisons,
-undo/redo, and PoB export.
+### Keep stash wealth signed in
 
-For supported PoE 1 character imports and explicit recalculation, GloamCore
-uses a separately installed, verified Path of Building Community engine. It
-fails closed when that engine is missing or does not match the supported
-fingerprint; it does not invent calculated DPS.
+Stash Wealth embeds the real Wealthy Exile website in a dedicated browser
+profile. Wealthy Exile owns its Path of Exile connection, cookies, OAuth
+tokens, and stash responses; the GloamCore renderer cannot read them. The
+profile persists across workspace changes and app restarts. A cached ads-only
+filter applies only on Wealthy Exile and turns off on Path of Exile and Steam
+sign-in pages.
 
-### Track stash wealth
+### Put reference data beside the market
 
-The Stash Wealth workspace embeds Wealthy Exile in a dedicated, sandboxed
-browser view. Wealthy Exile owns its Path of Exile OAuth connection and
-renders the stash dashboard unchanged. GloamCore does not receive its cookies,
-OAuth tokens, or private stash responses. A locally cached ads-only filter list
-is applied on Wealthy Exile itself and is disabled on Path of Exile and Steam
-sign-in pages. If the filter cannot load, the site opens without filtering.
+Item Intel combines searchable PoE Wiki Cargo data with current market context
+and safe links to specialist sources. The Player Toolkit adds source-tracked
+regex, item-filter editing, socket-colour comparison, economy audits, pinned
+reference sheets, and isolated opt-in overlay tools.
 
-### Bring practical tools together
+## Product tour
 
-The Player Toolkit includes an item-filter editor, a source-tracked regex
-workbench, socket-colour comparison, economy audits, pinned reference sheets,
-and an opt-in overlay workspace. Macros and plugin permissions start disabled,
-and remote plugin pages stay isolated from Node, Electron, the filesystem, and
-game memory.
-
-## See GloamCore in action
-
-### Market Explorer
-
-![GloamCore Market Explorer showing current currency values, trends, liquidity, and exchange context](docs/assets/readme/market-dashboard.jpg)
-
-*Live market rows, trend signals, exchange context, league controls, and the
-watchlist are available from one dark, readable dashboard.*
-
-### Build Lab
-
-![GloamCore Build Lab showing the Path of Exile passive tree workspace](docs/assets/readme/build-lab.jpg)
-
-*Import a build, inspect the matching installed passive tree, edit allocations,
-and return the result to Path of Building.*
-
-### Regex Workbench
-
-![GloamCore Player Toolkit showing the regex workbench and its source provenance](docs/assets/readme/regex-workbench.jpg)
-
-*Compose stash and map-search expressions with explicit AVOID/WANT logic,
-length-aware output, saved profiles, and visible source freshness.*
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/build-lab.jpg" alt="GloamCore Build Lab passive tree"></td>
+    <td width="50%"><img src="docs/assets/readme/regex-workbench.jpg" alt="GloamCore regex workbench"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Build Lab</strong><br>Import, inspect, edit, compare, and export.</td>
+    <td align="center"><strong>Regex Workbench</strong><br>Compose explicit WANT/AVOID rules with visible provenance.</td>
+  </tr>
+</table>
 
 ## Install on Windows
 
 1. Download [GloamCore Setup for Windows x64](https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe).
 2. Open the installer and choose the install location.
-3. Launch GloamCore, then keep it available from the system tray.
-4. In Path of Exile, use Borderless or Windowed Fullscreen and press `Ctrl+D`
-   over an item.
+3. Launch GloamCore and leave it available from the system tray.
+4. Run Path of Exile in Borderless or Windowed Fullscreen, hover an item, and
+   press `Ctrl+D`.
 
-A portable build and release checksums are available on the
-[latest release page](https://github.com/seNkoKG/gloamcore/releases/latest).
-Current Windows binaries are not Authenticode-signed, so SmartScreen may show
-a warning. Verify that the file came from this repository and compare its
-checksum before choosing to run it.
+The [latest release](https://github.com/seNkoKG/gloamcore/releases/latest)
+also includes a portable build, updater metadata, and SHA-256 checksums.
+Windows binaries are not currently Authenticode-signed, so SmartScreen may
+show a warning. Verify the repository and checksum before running a download.
 
-## Updates
-
-Version **2.3.4** is the current stable build connected to the GitHub update
-channel. Users of an earlier build must install 2.3.4 manually once.
-
-With automatic checks enabled, installed builds check shortly after launch and
-then periodically. A newer stable release is downloaded in the background, but
-it is never installed silently: Settings shows the status and requires
-**Restart & install**. Automatic checks can be disabled, and **Check now** is
-always available. Portable users should replace their executable from the
-release page.
-
-Maintainer details and the required release assets are documented in
-[Update hosting](docs/UPDATE-HOSTING.md).
+Installed builds check the stable GitHub channel when automatic updates are
+enabled. Downloads happen in the background, but installation always requires
+an explicit **Restart & install** action. Portable users replace the executable
+manually. See [Update hosting](docs/UPDATE-HOSTING.md) for the exact release
+contract.
 
 ## Shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| `Ctrl+D` | Copy and price-check the item under the cursor in PoE |
+| `Ctrl+D` | Price-check the item under the cursor in PoE |
+| `Ctrl+Alt+D` | Open the price checker in deliberate locked interaction mode |
 | `Ctrl+Shift+E` | Show or hide GloamCore globally |
 | `Ctrl+Shift+L` | Toggle click-through mode |
 | `Ctrl+Shift+Space` | Open instant market search |
 | `/` | Focus item search while GloamCore is active |
 | `Ctrl+K` | Open Item Intel and focus its search |
 
-Desktop shortcuts are rebindable in Settings. Conflicting or unavailable
-global key combinations are rejected without replacing the working binding.
+Desktop shortcuts are rebindable in Settings. Conflicting combinations are
+rejected without replacing the last working binding.
 
-## Privacy, safety, and upstream limits
+## Privacy and boundaries
 
-- One desktop `Ctrl+D` check generates one ordinary item-copy action. Ninja
-  Lens does not inspect game memory, inject into the game, automate gameplay,
-  send whispers, or request `POESESSID` and account-session cookies.
-- Preferences, watchlists, saved workspaces, and ordinary caches stay on the
+- A desktop `Ctrl+D` check issues one ordinary copy action. GloamCore does not
+  inspect game memory, inject into the game, automate gameplay, send whispers,
+  or request `POESESSID` account-session cookies.
+- Preferences, watchlists, saved workspaces, and normal caches stay on the
   local computer.
-- Optional private-character import accepts an official OAuth token with the
-  `account:characters` scope. The token is held in memory only, is cleared after
-  import, and is never persisted; authenticated character responses are not
-  cached. Stash wealth embeds the independent Wealthy Exile service in an
-  isolated browser profile; GloamCore cannot access that profile from its app
-  renderer.
-- Compact seller listings use anonymous public Trade website routes without
-  credentials. This is an unofficial convenience, not a guaranteed developer
-  API; GGG can change, reject, or rate-limit it.
-- poe.ninja, PoE Wiki, official Trade, and external handoff services can be
-  delayed or unavailable. The app labels stale fallback data where applicable.
+- Optional private-character import keeps its narrowly scoped official OAuth
+  token in memory for the import only and does not cache authenticated
+  character responses.
+- Wealthy Exile runs in a separate persistent browser profile. Its session and
+  private responses are not exposed to the application renderer.
+- Compact seller listings use anonymous public Trade website routes. GGG may
+  change, reject, or rate-limit them at any time.
+- poe.ninja, PoE Wiki, official Trade, and other upstream services can be
+  delayed or unavailable; stale fallback data is labelled where applicable.
 
 Read [Price checker behavior](docs/PRICE_CHECKER.md),
 [Toolkit and Build Lab boundaries](docs/TOOLKIT_AND_PLANNER.md), and
-[Data provenance](docs/DATA_PROVENANCE.md) for the exact trust boundaries.
+[Data provenance](docs/DATA_PROVENANCE.md) for the complete trust model.
 
 ## Development
 
 GloamCore uses Electron, React, TypeScript, and Vite. The Electron main process
 owns global shortcuts, bounded remote requests, disk caching, updates, native
-overlay windows, and a narrow isolated preload bridge.
+overlay windows, and a narrow context-isolated preload bridge.
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -186,18 +172,17 @@ pnpm build
 pnpm electron:dev
 ```
 
-Create Windows release artifacts with `pnpm dist` from a configured Windows
-release environment. See [Contributing](CONTRIBUTING.md) before proposing a
-change and [Security](SECURITY.md) before reporting a vulnerability.
+Create Windows release artifacts with `pnpm dist` from the pinned release
+toolchain. Read [Contributing](CONTRIBUTING.md) before proposing changes and
+[Security](SECURITY.md) before reporting a vulnerability.
 
-## Source and third-party work
+## Source and attribution
 
-This repository is **source-available**, not open-source. The project declares
-`UNLICENSED`; no general license to copy, modify, or redistribute its source is
-granted. Official release binaries are provided for end-user installation. Ask
-the maintainer before reusing project code.
+This repository is **source-available**, not open-source. It declares
+`UNLICENSED`; no general permission to copy, modify, or redistribute the source
+is granted. Official binaries are provided for end-user installation.
 
-Third-party packages and transformed reference data retain their own licenses
+Third-party packages and transformed reference data keep their own licenses
 and attribution. See [Third-party notices](THIRD_PARTY_NOTICES.md) and
 [Data provenance](docs/DATA_PROVENANCE.md).
 
@@ -206,5 +191,5 @@ and attribution. See [Third-party notices](THIRD_PARTY_NOTICES.md) and
 > **This product isn't affiliated with or endorsed by Grinding Gear Games in any way.**
 
 Path of Exile names, artwork, and game data belong to their respective owners.
-poe.ninja, Awakened PoE Trade, Path of Building Community, and PoE Wiki are
-independent projects and do not endorse GloamCore.
+poe.ninja, Awakened PoE Trade, Path of Building Community, Wealthy Exile, and
+PoE Wiki are independent projects and do not endorse GloamCore.

@@ -105,7 +105,7 @@ describe("toolkit runtime settings", () => {
   });
 
   it("preserves a corrupt workspace until the user explicitly recovers it", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-toolkit-runtime-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-runtime-"));
     const file = path.join(root, "toolkit-workspace.json");
     fs.writeFileSync(file, "{broken", "utf8");
     const store = createToolkitRuntimeStore(root);
@@ -122,7 +122,7 @@ describe("toolkit runtime settings", () => {
   });
 
   it("latches an oversized workspace without reading it as active or overwriting it", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-toolkit-oversized-load-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-oversized-load-"));
     const file = path.join(root, "toolkit-workspace.json");
     fs.writeFileSync(file, `{"padding":"${"x".repeat(MAX_WORKSPACE_BYTES)}"}`, "utf8");
     const before = fs.statSync(file).size;
@@ -134,7 +134,7 @@ describe("toolkit runtime settings", () => {
   });
 
   it("rejects oversized and cumulative images without replacing the last good workspace", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-toolkit-budget-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-budget-"));
     const store = createToolkitRuntimeStore(root);
     store.load();
     store.save({ macros: [{ id: "safe", hotkey: "F5", text: "/hideout" }] });

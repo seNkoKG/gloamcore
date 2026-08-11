@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2.4.1
+
+- Kept Path of Exile focused through passive price-card clicks and dismissal,
+  hardened the first native item copy, and verified body armour, helmet, and
+  wand captures against the live game client.
+- Migrated the isolated Wealthy Exile browser session even when a GloamCore
+  profile was already initialized, without overwriting newer profile data or
+  deleting the retired session before a successful copy.
+- Rebuilt the GitHub README around the current product, real screenshots,
+  direct verified downloads, clear trust boundaries, and the complete
+  GloamCore workflow.
+
 ## 2.4.0
 
 - Completed the GloamCore identity across the app, Windows installer and

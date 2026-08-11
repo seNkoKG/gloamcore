@@ -8,7 +8,7 @@ const { MAX_IMAGE_BYTES, MAX_TEXT_BYTES, createToolkitFileService } = toolkitFil
 
 describe("toolkit file service", () => {
   it("requires a user-authorised path and restores through a safety checkpoint", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-toolkit-files-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-files-"));
     const file = path.join(root, "test.filter");
     fs.writeFileSync(file, "Show\n", "utf8");
     const service = createToolkitFileService({
@@ -25,7 +25,7 @@ describe("toolkit file service", () => {
   });
 
   it("rejects symlink targets", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-toolkit-link-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-link-"));
     const real = path.join(root, "real.filter");
     const linked = path.join(root, "linked.filter");
     fs.writeFileSync(real, "Show\n", "utf8");
@@ -40,7 +40,7 @@ describe("toolkit file service", () => {
   });
 
   it("rejects an imported image before base64 can exceed the workspace budget", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ninja-toolkit-image-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-image-"));
     const image = path.join(root, "large.png");
     fs.writeFileSync(image, Buffer.alloc(MAX_IMAGE_BYTES + 1));
     const service = createToolkitFileService({
