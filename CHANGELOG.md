@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2.4.2
+
+- Kept the normal Ctrl+D shortcut and native card watcher armed after clicks
+  inside a passive price card, including checkbox controls and X dismissal,
+  even when Electron reports a stale overlay-focus event while Path of Exile
+  remains the real Windows foreground window.
+- Made passive presentation authoritative for capture ownership, so a stale
+  Electron focus bit cannot turn the following item check into a silent miss.
+- Verified the installed interaction flow with real game input across body
+  armour, double-corrupted helmet, and wand checks without a wait cursor or
+  foreground-window change.
+
 ## 2.4.1
 
 - Kept Path of Exile focused through passive price-card clicks and dismissal,

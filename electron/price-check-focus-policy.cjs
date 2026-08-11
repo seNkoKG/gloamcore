@@ -33,6 +33,50 @@ function shouldAcceptPriceCheckOverlayFocus({
   return Boolean(activationPending || interactive);
 }
 
+function shouldRecoverRejectedPassiveFocus({
+  accepted,
+  visible,
+  mode,
+  attached,
+} = {}) {
+  return Boolean(!accepted && visible && mode === "passive" && attached);
+}
+
+function priceCheckOverlayOwnsCaptureContext({
+  visible,
+  mode,
+  focused,
+  interactive,
+} = {}) {
+  // Passive cards are native non-activating surfaces. Electron can still emit
+  // a transient focus event when a shaped region receives a mouse click, but
+  // that stale bit must not block the following Ctrl+D capture.
+  return Boolean(
+    visible &&
+    mode !== "passive" &&
+    focused &&
+    interactive,
+  );
+}
+
+function priceCheckTargetCanCapture({
+  configured,
+  attached,
+  hasAccess,
+  targetFocused,
+  visible,
+  mode,
+  overlayFocused,
+} = {}) {
+  return Boolean(
+    configured &&
+    attached &&
+    hasAccess &&
+    targetFocused &&
+    (!visible || mode === "passive" || !overlayFocused),
+  );
+}
+
 function priceCheckPointerExitDisposition({
   visible,
   mode,
@@ -136,8 +180,11 @@ module.exports = {
   priceCheckPassiveInteractionArea,
   priceCheckPassivePanelArea,
   priceCheckPointerExitDisposition,
+  priceCheckOverlayOwnsCaptureContext,
+  priceCheckTargetCanCapture,
   shouldAcceptPriceCheckOverlayFocus,
   shouldArmPriceCheckPassiveWatch,
+  shouldRecoverRejectedPassiveFocus,
   shouldRestartPriceCheckPanelWatch,
   shouldRestorePriceCheckTargetFocus,
 };

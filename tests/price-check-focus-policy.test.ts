@@ -7,8 +7,11 @@ const {
   priceCheckPassiveInteractionArea,
   priceCheckPassivePanelArea,
   priceCheckPointerExitDisposition,
+  priceCheckOverlayOwnsCaptureContext,
+  priceCheckTargetCanCapture,
   shouldAcceptPriceCheckOverlayFocus,
   shouldArmPriceCheckPassiveWatch,
+  shouldRecoverRejectedPassiveFocus,
   shouldRestartPriceCheckPanelWatch,
   shouldRestorePriceCheckTargetFocus,
 } = require("../electron/price-check-focus-policy.cjs") as {
@@ -41,6 +44,27 @@ const {
     activationPending: boolean;
     interactive: boolean;
     passivePanelHitTest?: boolean;
+  }): boolean;
+  shouldRecoverRejectedPassiveFocus(input: {
+    accepted: boolean;
+    visible: boolean;
+    mode: string;
+    attached: boolean;
+  }): boolean;
+  priceCheckOverlayOwnsCaptureContext(input: {
+    visible: boolean;
+    mode: string;
+    focused: boolean;
+    interactive: boolean;
+  }): boolean;
+  priceCheckTargetCanCapture(input: {
+    configured: string;
+    attached: boolean;
+    hasAccess: boolean;
+    targetFocused: boolean;
+    visible: boolean;
+    mode: string;
+    overlayFocused: boolean;
   }): boolean;
   shouldArmPriceCheckPassiveWatch(input: {
     win32: boolean;
@@ -242,6 +266,49 @@ describe("price-check overlay focus policy", () => {
       activationPending: false,
       interactive: false,
     })).toBe(false);
+  });
+
+  it("recovers only a rejected focus event from an attached passive card", () => {
+    const passive = {
+      accepted: false,
+      visible: true,
+      mode: "passive",
+      attached: true,
+    };
+    expect(shouldRecoverRejectedPassiveFocus(passive)).toBe(true);
+    expect(shouldRecoverRejectedPassiveFocus({ ...passive, accepted: true })).toBe(false);
+    expect(shouldRecoverRejectedPassiveFocus({ ...passive, mode: "locked" })).toBe(false);
+    expect(shouldRecoverRejectedPassiveFocus({ ...passive, attached: false })).toBe(false);
+  });
+
+  it("never treats a passive card's stale Electron focus as capture ownership", () => {
+    expect(priceCheckOverlayOwnsCaptureContext({
+      visible: true,
+      mode: "passive",
+      focused: true,
+      interactive: false,
+    })).toBe(false);
+    expect(priceCheckOverlayOwnsCaptureContext({
+      visible: true,
+      mode: "locked",
+      focused: true,
+      interactive: true,
+    })).toBe(true);
+  });
+
+  it("keeps target shortcuts live through stale focus on a passive card", () => {
+    const passive = {
+      configured: "CommandOrControl+D",
+      attached: true,
+      hasAccess: true,
+      targetFocused: true,
+      visible: true,
+      mode: "passive",
+      overlayFocused: true,
+    };
+    expect(priceCheckTargetCanCapture(passive)).toBe(true);
+    expect(priceCheckTargetCanCapture({ ...passive, mode: "locked" })).toBe(false);
+    expect(priceCheckTargetCanCapture({ ...passive, targetFocused: false })).toBe(false);
   });
 });
 

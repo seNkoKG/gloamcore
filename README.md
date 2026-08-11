@@ -41,8 +41,9 @@ in one tray-first app.
 Hover an item in Path of Exile and press `Ctrl+D`. GloamCore performs one
 ordinary item-copy action, parses the clipboard locally, and paints a compact
 overlay without taking keyboard focus away from the game. Passive card clicks
-and dismissal keep Path of Exile active; a separate deliberate locked mode is
-available when you want full editor interaction.
+and dismissal keep Path of Exile active, and the next Ctrl+D remains armed
+after any checkbox, filter, or X click. A separate deliberate locked mode
+is available when you want full editor interaction.
 
 <p align="center">
   <img src="docs/assets/readme/price-check-malachai.png" alt="GloamCore compact price check with modifier controls and anonymous Trade listings" width="460"><br>

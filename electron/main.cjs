@@ -37,8 +37,11 @@ const {
   priceCheckPassiveInteractionArea,
   priceCheckPassivePanelArea,
   priceCheckPointerExitDisposition,
+  priceCheckOverlayOwnsCaptureContext: shouldTreatPriceCheckOverlayAsCaptureOwner,
+  priceCheckTargetCanCapture: canPriceCheckTargetCapture,
   shouldAcceptPriceCheckOverlayFocus,
   shouldArmPriceCheckPassiveWatch,
+  shouldRecoverRejectedPassiveFocus,
   shouldRestartPriceCheckPanelWatch,
   shouldRestorePriceCheckTargetFocus,
 } = require("./price-check-focus-policy.cjs");
@@ -3743,22 +3746,28 @@ function publishPriceCheckShortcutWarning(value) {
 }
 
 function priceCheckOverlayOwnsCaptureContext() {
-  return Boolean(
-    priceCheckOverlayVisible &&
-    priceCheckWindow &&
-    !priceCheckWindow.isDestroyed() &&
-    priceCheckWindow.isFocused(),
-  );
+  return shouldTreatPriceCheckOverlayAsCaptureOwner({
+    visible: priceCheckOverlayVisible,
+    mode: priceCheckPresentationMode,
+    focused: Boolean(
+      priceCheckWindow &&
+      !priceCheckWindow.isDestroyed() &&
+      priceCheckWindow.isFocused()
+    ),
+    interactive: priceCheckOverlayInteractive,
+  });
 }
 
 function priceCheckTargetCanCapture() {
-  return Boolean(
-    configuredPriceCheckHotkey &&
-    priceCheckOverlayAttached &&
-    priceCheckOverlayHasAccess &&
-    OverlayController.targetHasFocus &&
-    (!priceCheckOverlayVisible || !priceCheckWindow?.isFocused())
-  );
+  return canPriceCheckTargetCapture({
+    configured: configuredPriceCheckHotkey,
+    attached: priceCheckOverlayAttached,
+    hasAccess: priceCheckOverlayHasAccess,
+    targetFocused: Boolean(OverlayController.targetHasFocus),
+    visible: priceCheckOverlayVisible,
+    mode: priceCheckPresentationMode,
+    overlayFocused: Boolean(priceCheckWindow?.isFocused()),
+  });
 }
 
 function syncPriceCheckShortcutRegistration() {
@@ -4011,32 +4020,47 @@ function createPriceCheckWindow() {
   });
   window.on("focus", () => {
     auditPriceCheckLifecycle("overlay-focus");
-    if (priceCheckPanelWatchAbort) priceCheckPanelWatchAbort.abort();
-    priceCheckPanelWatchAbort = null;
-    unregisterActivePriceCheckShortcut();
     const acceptFocus = shouldAcceptPriceCheckOverlayFocus({
       visible: priceCheckOverlayVisible,
       mode: priceCheckPresentationMode,
       activationPending: priceCheckActivationPending,
       interactive: priceCheckOverlayInteractive,
     });
+    if (shouldRecoverRejectedPassiveFocus({
+      accepted: acceptFocus,
+      visible: priceCheckOverlayVisible,
+      mode: priceCheckPresentationMode,
+      attached: priceCheckOverlayAttached,
+    })) {
+      // A shaped passive card can produce an Electron focus event even though
+      // Windows kept Path of Exile in the foreground. Preserve the live
+      // shortcut/tracker, clear Electron's stale focus bit, and keep the card
+      // clickable. The passive mode itself is authoritative: it never owns
+      // capture focus.
+      window.setFocusable(false);
+      window.blur();
+      window.setIgnoreMouseEvents(false);
+      try {
+        OverlayController.focusTarget();
+      } catch {
+        deactivatePriceCheck({
+          focusTarget: false,
+          reason: "passive-focus-rejected",
+        });
+        return;
+      }
+      if (!priceCheckPanelWatchAbort) {
+        startPriceCheckPanelTracker(priceCheckActivationGeneration);
+      }
+      syncPriceCheckShortcutRegistration();
+      sendPriceCheckOverlayState();
+      return;
+    }
+    stopPriceCheckPanelTracker();
+    unregisterActivePriceCheckShortcut();
     if (!acceptFocus) {
       window.setFocusable(false);
       window.setIgnoreMouseEvents(true);
-      if (
-        priceCheckOverlayVisible &&
-        priceCheckPresentationMode === "passive" &&
-        priceCheckOverlayAttached
-      ) {
-        try {
-          OverlayController.focusTarget();
-        } catch {
-          deactivatePriceCheck({
-            focusTarget: false,
-            reason: "passive-focus-rejected",
-          });
-        }
-      }
       return;
     }
     if (priceCheckPresentationMode === "passive") return;
