@@ -379,11 +379,20 @@ try {
     $forbiddenText = @(
       @{ Label = "uiohook"; Pattern = 'uiohook(?:-napi)?' },
       @{ Label = "automated Trade service"; Pattern = 'trade-service' },
-      @{ Label = "undocumented Trade search"; Pattern = '/api/trade/search' },
-      @{ Label = "undocumented Trade fetch"; Pattern = '/api/trade/fetch' },
-      @{ Label = "undocumented Trade exchange"; Pattern = '/api/trade/exchange' },
+      @{ Label = "undocumented Trade search"; Pattern = ('/api/trade/' + 'search') },
+      @{ Label = "undocumented Trade fetch"; Pattern = ('/api/trade/' + 'fetch') },
+      @{ Label = "undocumented Trade exchange"; Pattern = ('/api/trade/' + 'exchange') },
+      @{ Label = "undocumented Trade data"; Pattern = '/api/trade/data(?:/|\b)' },
       @{ Label = "legacy Faustus proxy"; Pattern = '/faustus-api' },
-      @{ Label = "legacy Trade IPC"; Pattern = 'price-check:search-trade' }
+      @{ Label = "legacy Trade IPC"; Pattern = 'price-check:search-trade' },
+      @{ Label = "direct end-user poe.ninja API"; Pattern = 'https://(?:www\.)?poe\.ninja/poe1/api/economy' },
+      @{ Label = "rejected PoE account OAuth IPC"; Pattern = 'oauth:(?:connect|status|disconnect)' },
+      @{ Label = "rejected PoE stash IPC"; Pattern = 'stash:(?:get-leagues|list-tabs|get-tab|sync|progress)' },
+      @{ Label = "rejected PoE character IPC"; Pattern = 'planner:(?:list-characters|get-character|import-character-pob)' },
+      @{ Label = "rejected PoE account service"; Pattern = 'poe-(?:oauth|stash-sync|character-import)\.cjs' },
+      @{ Label = "rejected PoE account import worker"; Pattern = '["'']import-character["'']' },
+      @{ Label = "rejected PoE character OAuth scope"; Pattern = 'account:characters' },
+      @{ Label = "unsupported second-game"; Pattern = 'path\s+of\s+exile\s*(?:2(?![.\d])|ii|two)\b|pathofexile(?:2(?![.\d])|ii|two)\b|\bpoe\s*(?:2(?![.\d])|ii|two)\b|\bpob\s*(?:2(?![.\d])|ii|two)\b' }
     )
     foreach ($entry in $apkArchive.Entries) {
       $isTextAsset =

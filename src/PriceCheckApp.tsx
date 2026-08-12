@@ -41,14 +41,8 @@ import {
 import { isOfficialPriceCheckFilter } from "./lib/price-check/equipment-properties";
 import type { PriceCheckAvailability } from "./lib/price-check/availability";
 import {
-  shouldAutoSearchOfficialTrade,
-  shouldAutoSearchOfficialTradeItemFilter,
-} from "./lib/price-check/official-trade-policy";
-import { buildOfficialTradeBrowserUrl } from "./lib/price-check/official-trade-route";
-import {
   defaultOfficialTradeStatusForItem,
   defaultPriceCheckModeForItem,
-  officialTradeFailureResult,
   priceCheckItemForMode,
   priceCheckModesForItem,
 } from "./lib/price-check/official-trade-workflow";
@@ -262,14 +256,11 @@ export default function PriceCheckApp({
   const [overlayState, setOverlayState] = useState<PriceCheckOverlayState>(
     INACTIVE_OVERLAY_STATE,
   );
-  const [officialTradeSubmitRevision, setOfficialTradeSubmitRevision] =
-    useState(0);
   const overlayRevision = useRef(0);
   const overlayClosing = useRef(false);
   const overlayPanelDrag = useRef<OverlayPanelDrag | null>(null);
   const overlayDialog = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
-  const officialTradeRequestId = useRef(0);
   const sessionRef = useRef(session);
   const leagueRef = useRef(session.league);
   const settingsRef = useRef(settings);
@@ -317,82 +308,6 @@ export default function PriceCheckApp({
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
-  const officialTradeQueryKey =
-    session.status === "ready" && session.query
-      ? JSON.stringify(session.query.tradeQuery)
-      : "";
-  useEffect(() => {
-    const getListings = bridge.getOfficialTradeListings;
-    if (
-      !getListings ||
-      !officialTradeQueryKey ||
-      !session.item ||
-      !session.query ||
-      (desktopOverlay && !overlayState.active)
-    ) return;
-
-    const targetSessionId = session.id;
-    const targetLeague = session.league;
-    const tradeQuery = session.query.tradeQuery;
-    const tradeApi = session.query.tradeApi;
-    const needsSearch = session.officialTradeNeedsSearch ??
-      !shouldAutoSearchOfficialTrade(session.item);
-    if (needsSearch) return;
-    const generation = ++officialTradeRequestId.current;
-    let active = true;
-
-    setSession((current) =>
-      current.id === targetSessionId
-        ? { ...current, officialTradeLoading: true }
-        : current,
-    );
-    void getListings({ league: targetLeague, tradeQuery, api: tradeApi })
-      .then((result) => {
-        if (!active || generation !== officialTradeRequestId.current) return;
-        setSession((current) =>
-          current.id === targetSessionId &&
-          JSON.stringify(current.query?.tradeQuery) === officialTradeQueryKey
-            ? {
-                ...current,
-                officialTrade: result,
-                officialTradeLoading: false,
-                officialTradeNeedsSearch: false,
-              }
-            : current,
-        );
-      })
-      .catch((reason) => {
-        if (!active || generation !== officialTradeRequestId.current) return;
-        setSession((current) =>
-          current.id === targetSessionId &&
-          JSON.stringify(current.query?.tradeQuery) === officialTradeQueryKey
-            ? {
-                ...current,
-                officialTrade: officialTradeFailureResult(
-                  reason,
-                  current.officialTrade,
-                ),
-                officialTradeLoading: false,
-                officialTradeNeedsSearch: false,
-              }
-            : current,
-        );
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    desktopOverlay,
-    officialTradeQueryKey,
-    officialTradeSubmitRevision,
-    overlayState.active,
-    session.id,
-    session.league,
-    session.officialTradeNeedsSearch,
-    session.query?.tradeApi,
-    session.status,
-  ]);
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
@@ -822,7 +737,6 @@ export default function PriceCheckApp({
           estimate: null,
           query,
           sourceStale: false,
-          officialTradeNeedsSearch: !shouldAutoSearchOfficialTrade(item),
         };
         const rememberResult = (
           estimate: PriceCheckHistoryEntry["estimate"],
@@ -1074,7 +988,6 @@ export default function PriceCheckApp({
         filters?: PriceCheckModifierFilter[];
         resetFilters?: boolean;
         itemFilters?: Record<string, string | number | boolean>;
-        autoSearch?: boolean;
       } = {},
     ) => {
       setSession((current) => {
@@ -1118,9 +1031,6 @@ export default function PriceCheckApp({
         return {
           ...current,
           query,
-          officialTrade: undefined,
-          officialTradeLoading: false,
-          officialTradeNeedsSearch: !options.autoSearch,
         };
       });
     },
@@ -1268,23 +1178,6 @@ export default function PriceCheckApp({
     await checkText(capture, force);
   };
 
-  const submitOfficialTradeSearch = useCallback(() => {
-    const target = sessionRef.current;
-    if (target.status !== "ready" || !target.item || !target.query) return false;
-    setSession((current) =>
-      current.id === target.id
-        ? {
-            ...current,
-            officialTrade: undefined,
-            officialTradeLoading: false,
-            officialTradeNeedsSearch: false,
-          }
-        : current,
-    );
-    setOfficialTradeSubmitRevision((revision) => revision + 1);
-    return true;
-  }, []);
-
   const updateSettings = (patch: Partial<PriceCheckSettings>) => {
     const next = { ...settingsRef.current, ...patch };
     const keyError = validatePriceCheckHotkey(
@@ -1299,7 +1192,6 @@ export default function PriceCheckApp({
       onlineOnlyRef.current = next.defaultOnlineOnly;
       rebuildQuery(modeRef.current, {
         online: next.defaultOnlineOnly,
-        autoSearch: true,
       });
     }
     if ("rollTolerance" in patch) {
@@ -1376,7 +1268,6 @@ export default function PriceCheckApp({
           setOnlineOnly(reconciled.defaultOnlineOnly);
           rebuildQuery(modeRef.current, {
             online: reconciled.defaultOnlineOnly,
-            autoSearch: true,
           });
         }
         if (rolledBack.has("rollTolerance")) {
@@ -1455,7 +1346,6 @@ export default function PriceCheckApp({
       sourceFetchedAt: entry.checkedAt,
       sourceStale:
         !Number.isFinite(savedAge) || savedAge < 0 || savedAge > 15 * 60 * 1000,
-      officialTradeNeedsSearch: !shouldAutoSearchOfficialTrade(entry.item),
       message: "Saved result. Refresh the check before making a high-value trade.",
     });
     setView("check");
@@ -1544,9 +1434,6 @@ export default function PriceCheckApp({
         return {
           ...current,
           query,
-          officialTrade: undefined,
-          officialTradeLoading: false,
-          officialTradeNeedsSearch: true,
         };
       });
     },
@@ -1555,7 +1442,6 @@ export default function PriceCheckApp({
 
   const changeItemFilter = useCallback(
     (key: string, value: string | number | boolean | undefined) => {
-      const autoSearch = shouldAutoSearchOfficialTradeItemFilter(key);
       setSession((current) => {
         if (!current.item || !current.query) return current;
         const itemFilters = { ...current.query.itemFilters };
@@ -1579,9 +1465,6 @@ export default function PriceCheckApp({
         return {
           ...current,
           query,
-          officialTrade: undefined,
-          officialTradeLoading: false,
-          officialTradeNeedsSearch: !autoSearch,
         };
       });
     },
@@ -1625,9 +1508,6 @@ export default function PriceCheckApp({
         selectedMatchKey: undefined,
         estimate: null,
         query,
-        officialTrade: undefined,
-        officialTradeLoading: false,
-        officialTradeNeedsSearch: false,
       };
     });
   }, []);
@@ -1663,9 +1543,6 @@ export default function PriceCheckApp({
       return {
         ...current,
         query,
-        officialTrade: undefined,
-        officialTradeLoading: false,
-        officialTradeNeedsSearch: true,
       };
     });
     modeRef.current = nextMode;
@@ -1730,7 +1607,6 @@ export default function PriceCheckApp({
         });
       }}
       onRetry={() => {
-        if (session.status === "ready" && submitOfficialTradeSearch()) return;
         if (session.status === "invalid") void readClipboard(true);
         else if (lastCapture.current) {
           void checkText(
@@ -1757,23 +1633,10 @@ export default function PriceCheckApp({
         const nextOnlineOnly = value !== "any";
         onlineOnlyRef.current = nextOnlineOnly;
         setOnlineOnly(nextOnlineOnly);
-        rebuildQuery(modeRef.current, { status: value, autoSearch: true });
+        rebuildQuery(modeRef.current, { status: value });
       }}
       onOpenTrade={() => {
-        const query = session.query;
-        const url = query
-          ? buildOfficialTradeBrowserUrl({
-              league: session.league,
-              tradeQuery: query.tradeQuery,
-              api: query.tradeApi,
-              searchId: session.officialTrade?.searchId,
-              selectedExchangeHave: session.officialTrade?.api === "exchange"
-                ? session.officialTrade.listings.find(
-                    (listing) => listing.exchange?.haveCurrency,
-                  )?.exchange?.haveCurrency
-                : undefined,
-            })
-          : undefined;
+        const url = session.query?.tradeUrl;
         if (url) void bridge.openExternal(url);
       }}
       onCopySummary={() => {

@@ -1,11 +1,8 @@
-import { shouldAutoSearchOfficialTrade } from "./official-trade-policy";
 import { defaultOfficialTradeStatusFromPinnedItem } from "./official-trade-route";
 import { isCraftableBaseType } from "./magic-base-type";
 import type {
-  OfficialTradeListingsResult,
   ParsedPoeItem,
   PriceCheckDashboardMode,
-  PriceCheckSession,
 } from "./types";
 
 export const LOGBOOK_PRICE_CHECK_MODES = ["I", "II", "III", "IV", "V"] as const;
@@ -186,44 +183,4 @@ export function defaultOfficialTradeStatusForItem(
   onlineOnly = true,
 ): "securable" | "available" | "any" {
   return defaultOfficialTradeStatusFromPinnedItem(item, onlineOnly);
-}
-
-/**
- * True while the current query is deliberately waiting for Search. The
- * fallback keeps restored/older sessions compatible with smart initial search.
- */
-export function officialTradeNeedsExplicitSearch(session: PriceCheckSession) {
-  if (session.status !== "ready" || !session.item || !session.query) return false;
-  if (session.officialTradeNeedsSearch != null) {
-    return session.officialTradeNeedsSearch;
-  }
-  return (
-    !shouldAutoSearchOfficialTrade(session.item) &&
-    !session.officialTradeLoading &&
-    !session.officialTrade
-  );
-}
-
-/**
- * Keeps verified cached evidence visible after a failed refresh. A first
- * request failure has no stale evidence and must remain ERROR, while a prior
- * valid zero-result search is still correctly marked STALE.
- */
-export function officialTradeFailureResult(
-  reason: unknown,
-  previous?: OfficialTradeListingsResult,
-): OfficialTradeListingsResult {
-  const error = reason instanceof Error ? reason.message : String(reason);
-  const hasCachedEvidence = Boolean(
-    previous && (previous.stale || !previous.error),
-  );
-  return {
-    api: previous?.api,
-    listings: previous?.listings || [],
-    total: previous?.total || 0,
-    searchId: previous?.searchId || "",
-    fetchedAt: previous?.fetchedAt || Date.now(),
-    stale: hasCachedEvidence,
-    error: error.replace(/^Error invoking remote method '[^']+':\s*/, "").slice(0, 240),
-  };
 }

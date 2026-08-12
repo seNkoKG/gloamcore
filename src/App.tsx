@@ -841,20 +841,24 @@ export default function App() {
       .map((row) => toQuickRow(row, league));
     const alerts = (watchInitialRefreshComplete ? preferences.watchlist : [])
       .filter((entry) => entry.league === league && isWatchTargetHit(entry))
-      .map((entry) => ({
-        key: entry.key,
-        name: entry.row.name,
-        icon: entry.row.icon,
-        current:
+      .flatMap((entry) => {
+        const current =
           entry.targetUnit === "divine"
             ? entry.row.divineValue
-            : entry.row.chaosValue,
-        target: entry.targetPrice!,
-        unit: entry.targetUnit!,
-        categoryId: entry.row.categoryId,
-        source: entry.row.source,
-        league: entry.league,
-      }));
+            : entry.row.chaosValue;
+        if (current == null || !Number.isFinite(current)) return [];
+        return [{
+          key: entry.key,
+          name: entry.row.name,
+          icon: entry.row.icon,
+          current,
+          target: entry.targetPrice!,
+          unit: entry.targetUnit!,
+          categoryId: entry.row.categoryId,
+          source: entry.row.source,
+          league: entry.league,
+        }];
+      });
     void bridge
       .publishSurfaceState({
         league,
@@ -1180,6 +1184,7 @@ export default function App() {
           entry.targetUnit === "chaos"
             ? entry.row.chaosValue
             : entry.row.divineValue;
+        if (current == null || !Number.isFinite(current)) continue;
         const notificationId =
           [...identity].reduce(
             (value, character) =>
@@ -1388,7 +1393,14 @@ export default function App() {
               setSelectedRow(row);
             }}
             onWatch={toggleWatch}
-            onTrade={(row) => bridge.openExternal(tradeUrl(row, league))}
+            onTrade={(row) => {
+              const url = tradeUrl(row, league);
+              if (!url) {
+                setError("Exact Official Trade identity is unavailable for this market row.");
+                return;
+              }
+              void bridge.openExternal(url);
+            }}
             onShowMore={() => setVisibleCount((count) => count + 80)}
           />
         ) : (
@@ -1405,7 +1417,14 @@ export default function App() {
             onSort={onSort}
             onSelect={setSelectedRow}
             onWatch={toggleWatch}
-            onTrade={(row) => bridge.openExternal(tradeUrl(row, league))}
+            onTrade={(row) => {
+              const url = tradeUrl(row, league);
+              if (!url) {
+                setError("Exact Official Trade identity is unavailable for this market row.");
+                return;
+              }
+              void bridge.openExternal(url);
+            }}
             onShowMore={() => setVisibleCount((count) => count + 80)}
           />
         )

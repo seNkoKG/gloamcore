@@ -72,10 +72,24 @@ function detectPoeLogPath() {
   }) || "";
 }
 
+function normalizeClientLogPath(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  const resolved = path.resolve(value.trim());
+  return path.basename(resolved).toLowerCase() === "client.txt" ? resolved : "";
+}
+
+function assertSelectableClientLogPath(value) {
+  const resolved = normalizeClientLogPath(value);
+  if (!resolved) throw new Error("Choose Path of Exile's logs\\Client.txt file.");
+  const stat = fs.lstatSync(resolved);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error("Selected Client.txt must be a regular file, not a link.");
+  }
+  return resolved;
+}
+
 function sanitizeSettings(value, fallbackPath = "") {
-  const logPath = typeof value?.logPath === "string" && value.logPath.trim()
-    ? path.resolve(value.logPath.trim())
-    : fallbackPath;
+  const logPath = normalizeClientLogPath(value?.logPath) || normalizeClientLogPath(fallbackPath);
   return { version: 1, logPath };
 }
 
@@ -123,6 +137,11 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
       fs.renameSync(temporary, settingsPath);
     }
     return { ...settings };
+  }
+
+  function authorizePath(logPath) {
+    const authorized = assertSelectableClientLogPath(logPath);
+    return saveSettings({ logPath: authorized });
   }
 
   function appendText(text, historical = false) {
@@ -206,9 +225,9 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
     timer = null;
   }
 
-  function start(logPath = settings.logPath) {
+  function start(...requestedPaths) {
     stopTimer();
-    if (logPath) saveSettings({ logPath });
+    if (requestedPaths.length) throw new Error("Client.txt paths must be authorized through the file picker.");
     error = "";
     if (!settings.logPath) {
       status = "missing";
@@ -232,11 +251,12 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
   function dispose() { stopTimer(); listeners.clear(); }
 
   loadSettings();
-  return { clear, detectPoeLogPath, dispose, getState: snapshot, saveSettings, start, stop, subscribe, _poll: poll };
+  return { authorizePath, clear, detectPoeLogPath, dispose, getState: snapshot, saveSettings, start, stop, subscribe, _poll: poll };
 }
 
 module.exports = {
   MAX_EVENTS,
+  assertSelectableClientLogPath,
   createPoeEventLogService,
   defaultLogCandidates,
   detectPoeLogPath,

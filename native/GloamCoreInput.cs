@@ -450,6 +450,17 @@ internal static class GloamCoreInput
         return false;
     }
 
+    private static bool IsAllowedIdentity(WindowIdentity actual, ICollection<WindowIdentity> allowed)
+    {
+        if (actual == null) return false;
+        foreach (var expected in allowed)
+        {
+            if (string.Equals(actual.ProcessName, expected.ProcessName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(actual.Title, expected.Title, StringComparison.Ordinal)) return true;
+        }
+        return false;
+    }
+
     private static int Inspect(string[] arguments)
     {
         // inspect <deadline-ms> <expected-title-b64> <allowed-process.exe> [...]
@@ -802,35 +813,34 @@ internal static class GloamCoreInput
 
     private static int SendText(string[] arguments)
     {
-        // send-text <deadline-ms> <expected-title-b64> <process-count>
-        //           <process.exe> [...] <single-line-text-b64>
+        // send-text <deadline-ms> <identity-count>
+        //           <process.exe> <exact-title-b64> [...] <single-line-text-b64>
         if (arguments.Length < 6) return 64;
         long deadline;
-        string expectedTitle;
-        int processCount;
+        int identityCount;
         if (!TryPositiveLong(arguments[1], out deadline) ||
-            !TryDecode(arguments[2], MaxTitleLength, out expectedTitle) ||
-            !int.TryParse(arguments[3], NumberStyles.None, CultureInfo.InvariantCulture, out processCount) ||
-            processCount < 1 || processCount > MaxAllowedProcesses ||
-            arguments.Length != 5 + processCount) return 64;
+            !int.TryParse(arguments[2], NumberStyles.None, CultureInfo.InvariantCulture, out identityCount) ||
+            identityCount < 1 || identityCount > MaxAllowedProcesses ||
+            arguments.Length != 4 + (identityCount * 2)) return 64;
 
-        var allowedProcesses = new List<string>();
-        for (var index = 0; index < processCount; index += 1)
+        var allowedIdentities = new List<WindowIdentity>();
+        for (var index = 0; index < identityCount; index += 1)
         {
-            var processName = arguments[4 + index];
-            if (!IsSafeProcessName(processName)) return 64;
-            allowedProcesses.Add(processName);
+            var processName = arguments[3 + (index * 2)];
+            string expectedTitle;
+            if (!IsSafeProcessName(processName) ||
+                !TryDecode(arguments[4 + (index * 2)], MaxTitleLength, out expectedTitle)) return 64;
+            allowedIdentities.Add(new WindowIdentity { ProcessName = processName, Title = expectedTitle });
         }
         string text;
-        if (!TryDecode(arguments[4 + processCount], MaxChatTextLength, out text) ||
+        if (!TryDecode(arguments[3 + (identityCount * 2)], MaxChatTextLength, out text) ||
             text.Length == 0 || text.IndexOf('\r') >= 0 || text.IndexOf('\n') >= 0 ||
             text.IndexOf('\0') >= 0) return 64;
 
         WindowIdentity foreground;
         if (UtcNowMilliseconds() >= deadline ||
             !TryReadForegroundIdentity(out foreground) ||
-            !string.Equals(foreground.Title, expectedTitle, StringComparison.Ordinal) ||
-            !IsAllowedProcess(foreground.ProcessName, allowedProcesses)) return 65;
+            !IsAllowedIdentity(foreground, allowedIdentities)) return 65;
 
         var inputs = new List<Input>();
         // Global accelerator modifiers may still be physically down. Releasing
@@ -848,7 +858,16 @@ internal static class GloamCoreInput
         inputs.Add(Key(VirtualKeyEnter, false));
         inputs.Add(Key(VirtualKeyEnter, true));
 
-        if (UtcNowMilliseconds() >= deadline || GetForegroundWindow() != foreground.Handle) return 66;
+        WindowIdentity finalForeground;
+        if (UtcNowMilliseconds() >= deadline ||
+            !TryReadForegroundIdentity(out finalForeground) ||
+            !IdentityMatches(
+                finalForeground,
+                foreground.Handle,
+                foreground.ProcessId,
+                foreground.ProcessName,
+                foreground.Title
+            )) return 66;
         var payload = inputs.ToArray();
         var sent = SendInput((uint)payload.Length, payload, Marshal.SizeOf(typeof(Input)));
         return sent == payload.Length ? 0 : 1;
@@ -857,15 +876,14 @@ internal static class GloamCoreInput
     private static bool IsPoeWindow(WindowIdentity identity)
     {
         if (identity == null) return false;
-        var titleOk = string.Equals(identity.Title, "Path of Exile", StringComparison.Ordinal) ||
-            string.Equals(identity.Title, "Path of Exile 2", StringComparison.Ordinal);
-        if (!titleOk) return false;
         var process = identity.ProcessName;
+        if (!string.Equals(identity.Title, "Path of Exile", StringComparison.Ordinal)) return false;
         return string.Equals(process, "PathOfExile_x64.exe", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(process, "PathOfExile_x64Steam.exe", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(process, "PathOfExile_x64EGS.exe", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(process, "PathOfExileSteam.exe", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(process, "PathOfExile.exe", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(process, "PathOfExile2.exe", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(process, "PathOfExile2Steam.exe", StringComparison.OrdinalIgnoreCase);
+            string.Equals(process, "PathOfExileEGS.exe", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(process, "PathOfExile.exe", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IntPtr StashMouseHook(int code, IntPtr message, IntPtr data)
@@ -894,7 +912,18 @@ internal static class GloamCoreInput
                     {
                         var virtualKey = delta > 0 ? VirtualKeyRight : VirtualKeyLeft;
                         var inputs = new[] { Key(virtualKey, false), Key(virtualKey, true) };
-                        SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Input)));
+                        WindowIdentity finalForeground;
+                        if (TryReadForegroundIdentity(out finalForeground) &&
+                            IdentityMatches(
+                                finalForeground,
+                                foreground.Handle,
+                                foreground.ProcessId,
+                                foreground.ProcessName,
+                                foreground.Title
+                            ))
+                        {
+                            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Input)));
+                        }
                     }
                 }
             }
@@ -950,6 +979,17 @@ internal static class GloamCoreInput
             if (ShouldReturnToTarget(true, true, false)) return 9;
             if (ShouldReturnToTarget(true, false, true)) return 10;
             if (!ShouldReturnToTarget(true, false, false)) return 11;
+            var poeOne = new WindowIdentity { ProcessName = "PathOfExile.exe", Title = "Path of Exile" };
+            var identities = new List<WindowIdentity> { poeOne };
+            if (!IsAllowedIdentity(poeOne, identities)) return 18;
+            if (IsAllowedIdentity(new WindowIdentity { ProcessName = "PathOfExile.exe", Title = "Unexpected title" }, identities)) return 19;
+            var captured = new WindowIdentity { Handle = new IntPtr(7), ProcessId = 9, ProcessName = "PathOfExile.exe", Title = "Path of Exile" };
+            if (!IdentityMatches(captured, captured.Handle, captured.ProcessId, captured.ProcessName, captured.Title)) return 21;
+            if (IdentityMatches(new WindowIdentity { Handle = new IntPtr(8), ProcessId = 9, ProcessName = "PathOfExile.exe", Title = "Path of Exile" }, captured.Handle, captured.ProcessId, captured.ProcessName, captured.Title)) return 22;
+            if (IdentityMatches(new WindowIdentity { Handle = captured.Handle, ProcessId = 10, ProcessName = "PathOfExile.exe", Title = "Path of Exile" }, captured.Handle, captured.ProcessId, captured.ProcessName, captured.Title)) return 23;
+            if (IdentityMatches(new WindowIdentity { Handle = captured.Handle, ProcessId = captured.ProcessId, ProcessName = "PathOfExile.exe", Title = "Unexpected title" }, captured.Handle, captured.ProcessId, captured.ProcessName, captured.Title)) return 24;
+            if (IsPoeWindow(new WindowIdentity { ProcessName = "notepad.exe", Title = "Path of Exile" })) return 25;
+            if (IsPoeWindow(new WindowIdentity { ProcessName = "PathOfExile.exe", Title = "Unexpected title" })) return 26;
             return 0;
         }
         if (arguments.Length == 0) return 64;

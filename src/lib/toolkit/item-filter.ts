@@ -1,4 +1,31 @@
 export type FilterVisibility = "Show" | "Hide" | "Minimal";
+export type ItemFilterMode = "normal" | "ruthless";
+
+export const ITEM_FILTER_EXTENSIONS: Readonly<Record<ItemFilterMode, string>> = {
+  normal: ".filter",
+  ruthless: ".ruthlessfilter",
+};
+
+export const ITEM_FILTER_VISIBILITY_MATRIX: Readonly<Record<ItemFilterMode, readonly FilterVisibility[]>> = {
+  normal: ["Show", "Hide"],
+  ruthless: ["Show", "Minimal"],
+};
+
+export function itemFilterModeFromFileName(fileName: string): ItemFilterMode {
+  return fileName.trim().toLowerCase().endsWith(ITEM_FILTER_EXTENSIONS.ruthless)
+    ? "ruthless"
+    : "normal";
+}
+
+export function itemFilterFileName(fileName: string, mode: ItemFilterMode) {
+  const clean = fileName.trim() || "GloamCore.filter";
+  const stem = clean.replace(/\.(?:ruthlessfilter|filter|txt)$/i, "");
+  return `${stem || "GloamCore"}${ITEM_FILTER_EXTENSIONS[mode]}`;
+}
+
+export function itemFilterFileMatchesMode(fileName: string, mode: ItemFilterMode) {
+  return fileName.trim().toLowerCase().endsWith(ITEM_FILTER_EXTENSIONS[mode]);
+}
 
 export interface FilterStatement {
   key: string;
@@ -28,6 +55,7 @@ export interface ItemFilterBlock {
 }
 
 export interface ItemFilterDocument {
+  mode: ItemFilterMode;
   eol: "\n" | "\r\n";
   preamble: string[];
   blocks: ItemFilterBlock[];
@@ -113,23 +141,104 @@ const TIER_TAGS = [
   /(?:^|\s)#\s*(t\d+(?:\s+[a-z][a-z0-9 -]*)?)\s*$/i,
 ];
 
-const ACTION_KEYS = new Set([
-  "SetTextColor",
-  "SetBorderColor",
-  "SetBackgroundColor",
-  "SetFontSize",
-  "PlayAlertSound",
-  "PlayAlertSoundPositional",
-  "CustomAlertSound",
-  "CustomAlertSoundOptional",
-  "MinimapIcon",
-  "PlayEffect",
-  "DisableDropSound",
-  "EnableDropSound",
-  "DisableDropSoundIfAlertSound",
-  "EnableDropSoundIfAlertSound",
-  "Continue",
+interface FilterActionNumberRange {
+  index: number;
+  min: number;
+  max: number;
+}
+
+export interface FilterActionDefinition {
+  minValues: number;
+  maxValues: number;
+  numberRanges?: readonly FilterActionNumberRange[];
+  allowedValues?: Readonly<Record<number, readonly string[]>>;
+  disabledValues?: readonly string[];
+  ruthlessAlphaMinimum?: number;
+}
+
+const FILTER_COLOURS = [
+  "Red", "Green", "Blue", "Brown", "White", "Yellow", "Cyan", "Grey",
+  "Orange", "Pink", "Purple",
+] as const;
+const MINIMAP_SHAPES = [
+  "Circle", "Diamond", "Hexagon", "Square", "Star", "Triangle", "Cross",
+  "Moon", "Raindrop", "Kite", "Pentagon", "UpsideDownHouse",
+] as const;
+const COLOUR_RANGES = [0, 1, 2, 3].map((index) => ({ index, min: 0, max: 255 }));
+
+/** Canonical PoE action schema used by editing, replay, validation, and UI bounds. */
+export const ITEM_FILTER_ACTION_SCHEMA = {
+  SetTextColor: { minValues: 3, maxValues: 4, numberRanges: COLOUR_RANGES, ruthlessAlphaMinimum: 80 },
+  SetBorderColor: { minValues: 3, maxValues: 4, numberRanges: COLOUR_RANGES },
+  SetBackgroundColor: { minValues: 3, maxValues: 4, numberRanges: COLOUR_RANGES },
+  SetFontSize: { minValues: 1, maxValues: 1, numberRanges: [{ index: 0, min: 1, max: 45 }] },
+  PlayAlertSound: { minValues: 1, maxValues: 2, numberRanges: [{ index: 0, min: 1, max: 16 }, { index: 1, min: 0, max: 300 }], disabledValues: ["None"] },
+  PlayAlertSoundPositional: { minValues: 1, maxValues: 2, numberRanges: [{ index: 0, min: 1, max: 16 }, { index: 1, min: 0, max: 300 }], disabledValues: ["None"] },
+  CustomAlertSound: { minValues: 1, maxValues: 2, numberRanges: [{ index: 1, min: 0, max: 300 }], disabledValues: ["None"] },
+  CustomAlertSoundOptional: { minValues: 1, maxValues: 2, numberRanges: [{ index: 1, min: 0, max: 300 }] },
+  MinimapIcon: { minValues: 3, maxValues: 3, numberRanges: [{ index: 0, min: 0, max: 2 }], allowedValues: { 1: FILTER_COLOURS, 2: MINIMAP_SHAPES }, disabledValues: ["-1"] },
+  PlayEffect: { minValues: 1, maxValues: 2, allowedValues: { 0: FILTER_COLOURS, 1: ["Temp"] }, disabledValues: ["None"] },
+  DisableDropSound: { minValues: 0, maxValues: 0 },
+  EnableDropSound: { minValues: 0, maxValues: 0 },
+  DisableDropSoundIfAlertSound: { minValues: 0, maxValues: 0 },
+  EnableDropSoundIfAlertSound: { minValues: 0, maxValues: 0 },
+  Continue: { minValues: 0, maxValues: 0 },
+} as const satisfies Record<string, FilterActionDefinition>;
+
+export type FilterActionKey = keyof typeof ITEM_FILTER_ACTION_SCHEMA;
+const ACTION_KEYS = new Set<string>(Object.keys(ITEM_FILTER_ACTION_SCHEMA));
+const EDITOR_KNOWN_CONDITION_KEYS = new Set([
+  "Class", "BaseType", "Rarity", "Sockets", "SocketGroup", "HasInfluence",
+  "ItemLevel", "Quality", "LinkedSockets", "StackSize", "GemLevel", "MapTier",
+  "MemoryStrands", "Width", "Height", "Corrupted", "Identified", "FracturedItem",
+  "SynthesisedItem", "Mirrored", "Replica", "Foulborn", "Vestigial", "Scourged",
+  "BlightedMap", "UberBlightedMap", "HasImplicitMod", "HasExplicitMod", "AnyEnchantment",
 ]);
+
+function integerValue(value: string) {
+  return /^-?\d+$/.test(value) ? Number(value) : Number.NaN;
+}
+
+export function filterActionProblem(
+  action: string,
+  values: readonly string[],
+  mode: ItemFilterMode,
+) {
+  const definition = ITEM_FILTER_ACTION_SCHEMA[action as FilterActionKey] as FilterActionDefinition | undefined;
+  if (!definition) return `Unsupported filter action: ${action}`;
+  const disabled = values.length === 1 && definition.disabledValues?.some((value) =>
+    value.toLowerCase() === values[0].toLowerCase()
+  );
+  if (disabled) return null;
+  if (values.length < definition.minValues || values.length > definition.maxValues) {
+    return `${action} expects ${definition.minValues === definition.maxValues ? definition.minValues : `${definition.minValues}-${definition.maxValues}`} value(s), received ${values.length}.`;
+  }
+  for (const range of definition.numberRanges || []) {
+    if (values[range.index] == null) continue;
+    const value = integerValue(values[range.index]);
+    if (!Number.isInteger(value) || value < range.min || value > range.max) {
+      return `${action} value ${range.index + 1} must be an integer from ${range.min} to ${range.max}.`;
+    }
+  }
+  for (const [rawIndex, allowed] of Object.entries(definition.allowedValues || {})) {
+    const index = Number(rawIndex);
+    if (values[index] != null && !allowed.some((value) =>
+      value.toLowerCase() === values[index].toLowerCase()
+    )) {
+      return `${action} value ${index + 1} must be one of: ${allowed.join(", ")}.`;
+    }
+  }
+  if (action.startsWith("CustomAlertSound") && !values[0]?.trim()) {
+    return `${action} requires a file name or path.`;
+  }
+  if (mode === "ruthless" && definition.ruthlessAlphaMinimum != null) {
+    const alpha = values[3] == null ? 255 : integerValue(values[3]);
+    if (!Number.isInteger(alpha) || alpha < definition.ruthlessAlphaMinimum) {
+      return `${action} alpha must be ${definition.ruthlessAlphaMinimum} or above in Ruthless filters.`;
+    }
+  }
+  return null;
+}
 
 function splitComment(value: string): { value: string; comment: string } {
   let quoted = false;
@@ -226,8 +335,19 @@ function parseStatement(line: string, lineIndex: number): FilterStatement | null
   };
 }
 
+export function filterVisibilityProblem(mode: ItemFilterMode, value: FilterVisibility) {
+  return ITEM_FILTER_VISIBILITY_MATRIX[mode].includes(value)
+    ? null
+    : `${value} blocks are not valid in ${mode === "ruthless" ? "Ruthless" : "Normal"} filters.`;
+}
+
+/** Change validation/save mode only; authored blocks and actions remain byte-identical. */
+export function setItemFilterMode(document: ItemFilterDocument, mode: ItemFilterMode) {
+  return document.mode === mode ? document : { ...document, mode };
+}
+
 /** Parse the official item-filter block format while retaining untouched lines. */
-export function parseItemFilter(text: string): ItemFilterDocument {
+export function parseItemFilter(text: string, mode: ItemFilterMode = "normal"): ItemFilterDocument {
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const starts: number[] = [];
@@ -235,7 +355,7 @@ export function parseItemFilter(text: string): ItemFilterDocument {
     if (VISIBILITY.test(line.trim())) starts.push(index);
   });
   if (starts.length === 0) {
-    return { eol, preamble: lines, blocks: [], trailing: [] };
+    return { mode, eol, preamble: lines, blocks: [], trailing: [] };
   }
 
   const bodyEnds = starts.map((startLine, index) => {
@@ -294,7 +414,7 @@ export function parseItemFilter(text: string): ItemFilterDocument {
     });
   }
   trailing = lines.slice(bodyEnds.at(-1) || lines.length);
-  return { eol, preamble, blocks, trailing };
+  return { mode, eol, preamble, blocks, trailing };
 }
 
 function quoteValue(value: string) {
@@ -394,11 +514,23 @@ function hasTierAnnotation(line: string) {
   return TIER_TAGS.some((expression) => expression.test(line));
 }
 
+function blockHasOpaqueSyntax(block: ItemFilterBlock) {
+  const parsedLineIndexes = new Set(block.statements.map((statement) => statement.lineIndex));
+  return block.statements.some((statement) =>
+    !ACTION_KEYS.has(statement.key) && !EDITOR_KNOWN_CONDITION_KEYS.has(statement.key)
+  ) || block.bodyLines.some((line, lineIndex) => {
+    const authored = splitComment(line).value.trim();
+    return Boolean(authored) && !parsedLineIndexes.has(lineIndex);
+  });
+}
+
 export function setBlockVisibility(
   document: ItemFilterDocument,
   blockId: string,
   value: FilterVisibility,
 ) {
+  const problem = filterVisibilityProblem(document.mode, value);
+  if (problem) throw new Error(problem);
   return replaceBlock(document, blockId, (block) => ({
     ...block,
     visibility: value,
@@ -412,7 +544,8 @@ export function setBlockAction(
   action: string,
   values: string[],
 ) {
-  if (!ACTION_KEYS.has(action)) throw new Error(`Unsupported filter action: ${action}`);
+  const problem = filterActionProblem(action, values, document.mode);
+  if (problem) throw new Error(problem);
   return replaceBlock(document, blockId, (block) => {
     const existing = block.statements.findIndex((entry) => entry.key === action);
     const next: FilterStatement = {
@@ -475,6 +608,11 @@ export function moveBaseType(
     !baseExists ||
     !targetCanMatchBaseType(target, baseType)
   ) return document;
+  const removesSourceBlock = source.statements.some((entry) =>
+    entry.key === "BaseType" && positiveTextOperator(entry.operator) &&
+    entry.values.length === 1 && entry.values[0] === baseType
+  );
+  if (removesSourceBlock && blockHasOpaqueSyntax(source)) return document;
   let emptiedBaseCondition = false;
   let next = replaceBlock(document, source.id, (block) => {
     const removedLineIndexes = [...block.removedLineIndexes];
@@ -580,8 +718,20 @@ export function replayFilterIntents(
       continue;
     }
     if (intent.kind === "visibility") {
+      const problem = filterVisibilityProblem(next.mode, intent.value);
+      if (problem) {
+        skipped.push({ intent, reason: problem });
+        continue;
+      }
       next = setBlockVisibility(next, block.id, intent.value);
     } else if (intent.kind === "action") {
+      const problem = intent.values == null
+        ? (ACTION_KEYS.has(intent.action) ? null : `Unsupported filter action: ${intent.action}`)
+        : filterActionProblem(intent.action, intent.values, next.mode);
+      if (problem) {
+        skipped.push({ intent, reason: problem });
+        continue;
+      }
       next = intent.values == null
         ? removeBlockAction(next, block.id, intent.action)
         : setBlockAction(next, block.id, intent.action, intent.values);
@@ -617,7 +767,16 @@ export function replayFilterIntents(
 export function validateItemFilter(document: ItemFilterDocument) {
   const problems: string[] = [];
   document.blocks.forEach((block, index) => {
+    const visibilityProblem = filterVisibilityProblem(document.mode, block.visibility);
+    if (visibilityProblem) problems.push(`Block ${index + 1}: ${visibilityProblem}`);
     block.statements.forEach((statement) => {
+      if (ACTION_KEYS.has(statement.key)) {
+        if (statement.operator) {
+          problems.push(`Block ${index + 1}: ${statement.key} cannot use operator ${statement.operator}.`);
+        }
+        const actionProblem = filterActionProblem(statement.key, statement.values, document.mode);
+        if (actionProblem) problems.push(`Block ${index + 1}: ${actionProblem}`);
+      }
       if (
         ["BaseType", "Class", "Rarity", "HasExplicitMod", "HasImplicitMod"].includes(
           statement.key,

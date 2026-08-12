@@ -268,8 +268,8 @@ async function buildSizeData(itemType, expectedBases) {
       tag,
       name: skill.name,
       enchant: skill.enchant,
-      // The suffix is the official trade API's discriminator for multi-line
-      // cluster enchants. Removing it silently searches the wrong base.
+      // The suffix is the pinned Trade selector discriminator for multi-line
+      // cluster enchants. Removing it silently builds the wrong browser query.
       enchantTradeId: enchant.id,
     };
   });

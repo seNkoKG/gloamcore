@@ -12,16 +12,18 @@ const LEGACY_STORAGE_KEYS = [
   retiredProductStorageKey("preferences:v1"),
   "poe-economy-widget:preferences:v1",
 ] as const;
-const STORAGE_SCHEMA = 2;
+const STORAGE_SCHEMA = 3;
+const PREVIOUS_STORAGE_SCHEMA = 2;
 
 interface StoredPreferencesRecord {
-  schema: typeof STORAGE_SCHEMA;
+  schema: typeof PREVIOUS_STORAGE_SCHEMA | typeof STORAGE_SCHEMA;
   revision: number;
   updatedAt: number;
   preferences: unknown;
 }
 
 export interface DecodedPreferencesRecord {
+  schema: 0 | typeof PREVIOUS_STORAGE_SCHEMA | typeof STORAGE_SCHEMA;
   revision: number;
   updatedAt: number;
   preferences: unknown;
@@ -57,18 +59,21 @@ export function decodePreferencesRecord(
     if (
       value &&
       typeof value === "object" &&
-      value.schema === STORAGE_SCHEMA &&
+      (value.schema === STORAGE_SCHEMA ||
+        value.schema === PREVIOUS_STORAGE_SCHEMA) &&
       "preferences" in value
     ) {
       return {
+        schema: value.schema,
         revision: validRevision(value.revision),
         updatedAt: Math.max(0, Number(value.updatedAt) || 0),
         preferences: value.preferences,
         serialized,
-        legacy: false,
+        legacy: value.schema !== STORAGE_SCHEMA,
       };
     }
     return {
+      schema: 0,
       revision: 0,
       updatedAt: 0,
       preferences: value,
@@ -148,11 +153,16 @@ function compactPreferences(preferences: AppPreferences): AppPreferences {
   };
 }
 
-export function normalizeStoredPreferences(value: unknown): {
+export function normalizeStoredPreferences(
+  value: unknown,
+  invalidateLegacyDivineValues = false,
+): {
   preferences: AppPreferences;
   migrated: boolean;
 } {
-  const migration = migrateStoredPreferences(value);
+  const migration = migrateStoredPreferences(value, {
+    invalidateLegacyDivineValues,
+  });
 
   return {
     preferences: {
@@ -180,13 +190,17 @@ export async function hydratePreferences() {
     const winner = selectNewestPreferencesRecord(local, native);
     if (!winner) return;
 
-    const needsUpgrade = winner.legacy;
+    const normalized = normalizeStoredPreferences(
+      winner.preferences,
+      winner.schema !== STORAGE_SCHEMA,
+    );
+    const needsUpgrade = winner.legacy || normalized.migrated;
     const revision = needsUpgrade
       ? Math.max(Date.now(), currentPreferenceRevision + 1)
       : winner.revision;
     const updatedAt = needsUpgrade ? Date.now() : winner.updatedAt;
     const serialized = needsUpgrade
-      ? encodePreferencesRecord(winner.preferences, revision, updatedAt)
+      ? encodePreferencesRecord(normalized.preferences, revision, updatedAt)
       : winner.serialized;
     currentPreferenceRevision = Math.max(currentPreferenceRevision, revision);
     localStorage.setItem(STORAGE_KEY, serialized);
@@ -203,7 +217,10 @@ export function loadPreferences(): AppPreferences {
     const record = decodePreferencesRecord(
       readMigratedStorage(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEYS),
     );
-    const normalized = normalizeStoredPreferences(record?.preferences || {});
+    const normalized = normalizeStoredPreferences(
+      record?.preferences || {},
+      record != null && record.schema !== STORAGE_SCHEMA,
+    );
     if (normalized.migrated || record?.legacy) savePreferences(normalized.preferences);
     return normalized.preferences;
   } catch {

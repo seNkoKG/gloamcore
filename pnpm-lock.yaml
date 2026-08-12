@@ -20,13 +20,13 @@ importers:
     dependencies:
       '@ghostery/adblocker-electron':
         specifier: 2.18.2
-        version: 2.18.2(electron@43.2.0(supports-color@8.1.1))
+        version: 2.18.2(electron@43.3.0(supports-color@8.1.1))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
       electron-overlay-window:
         specifier: 4.1.0
-        version: 4.1.0(electron@43.2.0(supports-color@8.1.1))
+        version: 4.1.0(electron@43.3.0(supports-color@8.1.1))
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9(supports-color@8.1.1)
@@ -41,44 +41,44 @@ importers:
         version: 18.3.1(react@18.3.1)
     devDependencies:
       '@capacitor/android':
-        specifier: 8.4.2
-        version: 8.4.2(@capacitor/core@8.4.2)
+        specifier: 8.5.0
+        version: 8.5.0(@capacitor/core@8.5.0)
       '@capacitor/app':
         specifier: 8.1.1
-        version: 8.1.1(@capacitor/core@8.4.2)
+        version: 8.1.1(@capacitor/core@8.5.0)
       '@capacitor/assets':
         specifier: 3.0.5
         version: 3.0.5(@types/node@22.20.1)(supports-color@8.1.1)(typescript@5.7.3)
       '@capacitor/browser':
         specifier: 8.0.4
-        version: 8.0.4(@capacitor/core@8.4.2)
+        version: 8.0.4(@capacitor/core@8.5.0)
       '@capacitor/cli':
-        specifier: 8.4.2
-        version: 8.4.2(supports-color@8.1.1)
+        specifier: 8.5.0
+        version: 8.5.0(supports-color@8.1.1)
       '@capacitor/core':
-        specifier: 8.4.2
-        version: 8.4.2
+        specifier: 8.5.0
+        version: 8.5.0
       '@capacitor/haptics':
         specifier: 8.0.2
-        version: 8.0.2(@capacitor/core@8.4.2)
+        version: 8.0.2(@capacitor/core@8.5.0)
       '@capacitor/ios':
-        specifier: 8.4.2
-        version: 8.4.2(@capacitor/core@8.4.2)
+        specifier: 8.5.0
+        version: 8.5.0(@capacitor/core@8.5.0)
       '@capacitor/local-notifications':
         specifier: 8.2.1
-        version: 8.2.1(@capacitor/core@8.4.2)
+        version: 8.2.1(@capacitor/core@8.5.0)
       '@capacitor/network':
         specifier: 8.0.1
-        version: 8.0.1(@capacitor/core@8.4.2)
+        version: 8.0.1(@capacitor/core@8.5.0)
       '@capacitor/preferences':
         specifier: 8.0.1
-        version: 8.0.1(@capacitor/core@8.4.2)
+        version: 8.0.1(@capacitor/core@8.5.0)
       '@capacitor/splash-screen':
         specifier: 8.0.2
-        version: 8.0.2(@capacitor/core@8.4.2)
+        version: 8.0.2(@capacitor/core@8.5.0)
       '@capacitor/status-bar':
         specifier: 8.0.3
-        version: 8.0.3(@capacitor/core@8.4.2)
+        version: 8.0.3(@capacitor/core@8.5.0)
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
@@ -90,7 +90,7 @@ importers:
         version: 18.3.7(@types/react@18.3.31)
       '@vitejs/plugin-react':
         specifier: ^6.0.5
-        version: 6.0.5(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0))
+        version: 6.0.5(vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0))
       concurrently:
         specifier: ^9.1.2
         version: 9.2.4
@@ -98,8 +98,8 @@ importers:
         specifier: ^7.0.3
         version: 7.0.3
       electron:
-        specifier: ^43.2.0
-        version: 43.2.0(supports-color@8.1.1)
+        specifier: ^43.3.0
+        version: 43.3.0(supports-color@8.1.1)
       electron-builder:
         specifier: ^26.15.3
         version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@8.1.1)
@@ -107,11 +107,11 @@ importers:
         specifier: ~5.7.2
         version: 5.7.3
       vite:
-        specifier: ^8.2.0
-        version: 8.2.0(@types/node@22.20.1)(jiti@2.7.0)
+        specifier: ^8.2.1
+        version: 8.2.1(@types/node@22.20.1)(jiti@2.7.0)
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0))
+        version: 4.1.10(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0))
       wait-on:
         specifier: ^8.0.1
         version: 8.0.5(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
@@ -126,10 +126,10 @@ packages:
     resolution: {integrity: sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==}
     engines: {node: '>=6.9.0'}
 
-  '@capacitor/android@8.4.2':
-    resolution: {integrity: sha512-bzf8XZ9C+ePgOQ+e+T0fnhHGH4aCNY494vvSQIF5w4AY07RwEmkFqZs1678DDSMH0hLSQpxEwXGFNUVcXO6bBA==}
+  '@capacitor/android@8.5.0':
+    resolution: {integrity: sha512-Rb3prJeQiTp0pQhSSOReJuG9VgibOGMG4ECs+UhMwr6TCCHZ3NCZO811bDA0HxD0xrT/gCrJAsY5yfEATu84JQ==}
     peerDependencies:
-      '@capacitor/core': ^8.4.0
+      '@capacitor/core': ^8.5.0
 
   '@capacitor/app@8.1.1':
     resolution: {integrity: sha512-xM2ZTX5jK60tFtmjsmJv+Cdj1Qsb6NcavkqmdEnCPQBeya9oKhamZJxYOnQNj1ZvcJM7sWfG6BEtSLx42pisbA==}
@@ -151,23 +151,23 @@ packages:
     engines: {node: '>=16.0.0'}
     hasBin: true
 
-  '@capacitor/cli@8.4.2':
-    resolution: {integrity: sha512-hE4HmpMdr5T8eQ++kGa1BKkdG2JLEvo1y1cj1kmFK78VB9dBp538oe1EZvzwupNGOl0ZueALotzL5wcXRD9w1Q==}
+  '@capacitor/cli@8.5.0':
+    resolution: {integrity: sha512-rLdzMUM5QV4WITcqoWv04p32i14BXgUH2diqEH6MWQlWaJfiyNrvOyt/+d5vHAfOxOm1klBu637VDEobctlwBA==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@capacitor/core@8.4.2':
-    resolution: {integrity: sha512-fQPRb3JXRaU2pnufDUvqOjhsrYxDQeFRZyaj/sHydIUxD2NxOGHKMpmKUdI+U4OOmKuGZyvRpi7TSJU+7Bjbmg==}
+  '@capacitor/core@8.5.0':
+    resolution: {integrity: sha512-Ca4krtqH1hothjtBIwf2J2TW7IhYq1ujp8QeItTiJohNsqij8ja2DYYH3DU0l8RmxCWaBAFTGA2TgOgOMCSNsQ==}
 
   '@capacitor/haptics@8.0.2':
     resolution: {integrity: sha512-c2hZzRR5Fk1tbTvhG1jhh2XBAf3EhnIerMIb2sl7Mt41Gxx1fhBJFDa0/BI1IbY4loVepyyuqNC9820/GZuoWQ==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
-  '@capacitor/ios@8.4.2':
-    resolution: {integrity: sha512-ClVzIjK++yRjsRPOpdEzhsZfbHfoEc0f4M6vD0v7sWh0qcoF6NkxNAeHpWTn4OPJpJfpGGoYsq+IfEHrYyBiWA==}
+  '@capacitor/ios@8.5.0':
+    resolution: {integrity: sha512-7k1TfohJu5BzRXc1F3g04Q8QQ0fyQgms6h1AvhnHb04VaNr9EdHOx03hL8O+OigEKMQnyJd1ZOjTPPNHCqL5Yw==}
     peerDependencies:
-      '@capacitor/core': ^8.4.0
+      '@capacitor/core': ^8.5.0
 
   '@capacitor/local-notifications@8.2.1':
     resolution: {integrity: sha512-Bkim+MGl7UrDTjDferV4ECq0aWciTsa0k15+MX2jnx2PeWgEPvlBy5yrqzBlwEZPrtHFUvPVxPi5V66MPGHkAw==}
@@ -1331,8 +1331,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@43.2.0:
-    resolution: {integrity: sha512-80zvrgG7ZRXD+tD0IyLvrnN9n+veSxadMRsMaC9wKKP3iUbtC7rGM8+dVuCmOb0Rrwwv8ESW4awnUZh9Hbp1fA==}
+  electron@43.3.0:
+    resolution: {integrity: sha512-nLlvu0WFjftWsSaTkV2B/c4NDuJBspTyXu8vKSQ6vLvFt8uG3NgN49LLKcXddwX0GqVvAQDhciWp+4xOdTdhew==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -2723,8 +2723,8 @@ packages:
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
-  vite@8.2.0:
-    resolution: {integrity: sha512-pn+CFpM0lwDeKwmOq1ZaBK/9sjorZcgqxki6MbY/jPEVd9vichIlmlD4HmQ5wdP5EgqQCFRaACBxMC7uEGc6lQ==}
+  vite@8.2.1:
+    resolution: {integrity: sha512-EU/eS7BH3XROHh2YnBefjM6DBKA6ZeMZEYQbj7NLWg5wHYlhB8B/Mayd5XsgWq+NFYccDOTemRpdETWR6Ka/lw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2953,13 +2953,13 @@ snapshots:
 
   '@babel/helper-validator-identifier@7.29.7': {}
 
-  '@capacitor/android@8.4.2(@capacitor/core@8.4.2)':
+  '@capacitor/android@8.5.0(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/app@8.1.1(@capacitor/core@8.4.2)':
+  '@capacitor/app@8.1.1(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
   '@capacitor/assets@3.0.5(@types/node@22.20.1)(supports-color@8.1.1)(typescript@5.7.3)':
     dependencies:
@@ -2983,9 +2983,9 @@ snapshots:
       - supports-color
       - typescript
 
-  '@capacitor/browser@8.0.4(@capacitor/core@8.4.2)':
+  '@capacitor/browser@8.0.4(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
   '@capacitor/cli@5.7.8(supports-color@8.1.1)':
     dependencies:
@@ -3009,7 +3009,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@capacitor/cli@8.4.2(supports-color@8.1.1)':
+  '@capacitor/cli@8.5.0(supports-color@8.1.1)':
     dependencies:
       '@ionic/cli-framework-output': 2.2.8(supports-color@8.1.1)
       '@ionic/utils-subprocess': 3.0.1(supports-color@8.1.1)
@@ -3027,41 +3027,42 @@ snapshots:
       semver: 7.8.5
       tar: 7.5.22
       tslib: 2.8.1
+      xcode: 3.0.1
       xml2js: 0.6.2
     transitivePeerDependencies:
       - supports-color
 
-  '@capacitor/core@8.4.2':
+  '@capacitor/core@8.5.0':
     dependencies:
       tslib: 2.8.1
 
-  '@capacitor/haptics@8.0.2(@capacitor/core@8.4.2)':
+  '@capacitor/haptics@8.0.2(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/ios@8.4.2(@capacitor/core@8.4.2)':
+  '@capacitor/ios@8.5.0(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/local-notifications@8.2.1(@capacitor/core@8.4.2)':
+  '@capacitor/local-notifications@8.2.1(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/network@8.0.1(@capacitor/core@8.4.2)':
+  '@capacitor/network@8.0.1(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/preferences@8.0.1(@capacitor/core@8.4.2)':
+  '@capacitor/preferences@8.0.1(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/splash-screen@8.0.2(@capacitor/core@8.4.2)':
+  '@capacitor/splash-screen@8.0.2(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
-  '@capacitor/status-bar@8.0.3(@capacitor/core@8.4.2)':
+  '@capacitor/status-bar@8.0.3(@capacitor/core@8.5.0)':
     dependencies:
-      '@capacitor/core': 8.4.2
+      '@capacitor/core': 8.5.0
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -3186,16 +3187,16 @@ snapshots:
     dependencies:
       '@ghostery/adblocker-extended-selectors': 2.18.2
 
-  '@ghostery/adblocker-electron-preload@2.18.2(electron@43.2.0(supports-color@8.1.1))':
+  '@ghostery/adblocker-electron-preload@2.18.2(electron@43.3.0(supports-color@8.1.1))':
     dependencies:
       '@ghostery/adblocker-content': 2.18.2
-      electron: 43.2.0(supports-color@8.1.1)
+      electron: 43.3.0(supports-color@8.1.1)
 
-  '@ghostery/adblocker-electron@2.18.2(electron@43.2.0(supports-color@8.1.1))':
+  '@ghostery/adblocker-electron@2.18.2(electron@43.3.0(supports-color@8.1.1))':
     dependencies:
       '@ghostery/adblocker': 2.18.2
-      '@ghostery/adblocker-electron-preload': 2.18.2(electron@43.2.0(supports-color@8.1.1))
-      electron: 43.2.0(supports-color@8.1.1)
+      '@ghostery/adblocker-electron-preload': 2.18.2(electron@43.3.0(supports-color@8.1.1))
+      electron: 43.3.0(supports-color@8.1.1)
       tldts-experimental: 7.4.10
 
   '@ghostery/adblocker-extended-selectors@2.18.2': {}
@@ -3714,10 +3715,10 @@ snapshots:
 
   '@types/slice-ansi@4.0.0': {}
 
-  '@vitejs/plugin-react@6.0.5(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0))':
+  '@vitejs/plugin-react@6.0.5(vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.2.0(@types/node@22.20.1)(jiti@2.7.0)
+      vite: 8.2.1(@types/node@22.20.1)(jiti@2.7.0)
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -3728,13 +3729,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.10(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0))':
+  '@vitest/mocker@4.1.10(vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.2.0(@types/node@22.20.1)(jiti@2.7.0)
+      vite: 8.2.1(@types/node@22.20.1)(jiti@2.7.0)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -4341,9 +4342,9 @@ snapshots:
       - electron-builder-squirrel-windows
       - supports-color
 
-  electron-overlay-window@4.1.0(electron@43.2.0(supports-color@8.1.1)):
+  electron-overlay-window@4.1.0(electron@43.3.0(supports-color@8.1.1)):
     dependencies:
-      electron: 43.2.0(supports-color@8.1.1)
+      electron: 43.3.0(supports-color@8.1.1)
       node-gyp-build: 4.8.4
       throttle-debounce: 5.0.2
 
@@ -4386,7 +4387,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@43.2.0(supports-color@8.1.1):
+  electron@43.3.0(supports-color@8.1.1):
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.1.0(supports-color@8.1.1)
@@ -5736,7 +5737,7 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
-  vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0):
+  vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -5748,10 +5749,10 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.7.0
 
-  vitest@4.1.10(@types/node@22.20.1)(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0)):
+  vitest@4.1.10(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.2.0(@types/node@22.20.1)(jiti@2.7.0))
+      '@vitest/mocker': 4.1.10(vite@8.2.1(@types/node@22.20.1)(jiti@2.7.0))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -5768,7 +5769,7 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 8.2.0(@types/node@22.20.1)(jiti@2.7.0)
+      vite: 8.2.1(@types/node@22.20.1)(jiti@2.7.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.20.1

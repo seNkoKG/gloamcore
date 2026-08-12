@@ -34,7 +34,7 @@ pnpm dist
 ```
 
 Do not commit `node_modules`, package output, local stores, release snapshots,
-logs, signing material, OAuth tokens, or user data.
+logs, signing material, account credentials, or user data.
 
 ## Make a focused change
 
@@ -66,7 +66,8 @@ A contribution must not:
 
 - read or modify Path of Exile process memory;
 - inject code, automate gameplay, or send unattended input;
-- persist an OAuth token or authenticated character response;
+- add account authorization, persist account credentials, or retain private
+  character or stash responses;
 - expose Node, Electron, filesystem, or direct clipboard access to remote pages;
 - silently broaden an external URL or IPC allowlist;
 - hide stale, incomplete, unresolved, or low-confidence data from the user;

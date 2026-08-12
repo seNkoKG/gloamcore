@@ -10,12 +10,10 @@ const require = createRequire(import.meta.url);
 const {
   CONTRACT_VERSION,
   MAX_BUILD_BYTES,
-  MAX_CHARACTER_BYTES,
   analyzePobNodes,
   calculatePobBuild,
   diagnosePobEngine,
   huntPobTimeless,
-  importPobCharacter,
   inspectInstallation,
   previewPobTimeless,
   _internals,
@@ -164,19 +162,6 @@ describe("authoritative local Path of Building bridge", () => {
     expect(killCount).toBe(1);
   });
 
-  it("rejects malformed and oversized character payloads before starting an engine", async () => {
-    await expect(importPobCharacter({ character: null })).resolves.toMatchObject({
-      ok: false,
-      authoritative: false,
-      code: "POB_CHARACTER_INVALID",
-    });
-    await expect(importPobCharacter({ character: { padding: "x".repeat(MAX_CHARACTER_BYTES) } })).resolves.toMatchObject({
-      ok: false,
-      authoritative: false,
-      code: "POB_CHARACTER_INVALID",
-    });
-  });
-
   it("rejects a result from a different engine identity", () => {
     const validation = _internals.validateWorkerPayload({
       ok: true,
@@ -223,132 +208,6 @@ describe("authoritative local Path of Building bridge", () => {
     expect(heroic).toMatchObject({ ok: true, authoritative: true, preview: { jewelName: "Heroic Tragedy", seed: 100, minimumSeed: 100, maximumSeed: 8000, seedStep: 1 } });
     expect(heroic.preview.affectedNodes.some((node: { stats: string[] }) => node.stats.some((stat) => stat.includes("Ward")))).toBe(true);
   }, 45_000);
-
-  it.runIf(capability.available)("imports official characters through PoB's exact item, socket, gem, and jewel logic", async () => {
-    const imported = await importPobCharacter({
-      character: {
-        name: "GloamCore parity fixture",
-        class: "Scion",
-        level: 90,
-        league: "Standard",
-        equipment: [
-          {
-            id: "helmet-fixture",
-            frameType: 2,
-            name: "Storm Crown",
-            typeLine: "Hubris Circlet",
-            inventoryId: "Helm",
-            ilvl: 84,
-            properties: [
-              { name: "Quality", values: [["+20%", 1]] },
-              { name: "Energy Shield", values: [["100", 0]] },
-            ],
-            sockets: [
-              { group: 1, sColour: "G" },
-              { group: 2, sColour: "B" },
-              { group: 2, sColour: "B" },
-              { group: 3, sColour: "B" },
-            ],
-            socketedItems: [
-              { id: "grace-fixture", frameType: 4, typeLine: "Grace", socket: 0, properties: [{ name: "Level", values: [["20", 0]] }] },
-              { id: "arc-fixture", frameType: 4, typeLine: "Arc", socket: 1, properties: [{ name: "Level", values: [["20", 0]] }, { name: "Quality", values: [["20%", 0]] }] },
-              { id: "added-lightning-fixture", frameType: 4, typeLine: "Added Lightning Damage Support", support: true, socket: 2, properties: [{ name: "Level", values: [["20", 0]] }] },
-              {
-                id: "firestorm-pelting-fixture",
-                frameType: 4,
-                typeLine: "Firestorm of Pelting",
-                socket: 3,
-                hybrid: { baseTypeName: "Firestorm of Pelting", isVaalGem: false },
-                properties: [{ name: "Level", values: [["20", 0]] }, { name: "Quality", values: [["20%", 0]] }],
-              },
-            ],
-          },
-          { id: "flask-fixture", frameType: 0, name: "", typeLine: "Small Life Flask", inventoryId: "Flask", x: 0, ilvl: 1, properties: [] },
-          {
-            id: "belt-fixture",
-            frameType: 0,
-            name: "",
-            typeLine: "Stygian Vise",
-            inventoryId: "Belt",
-            ilvl: 84,
-            properties: [],
-            implicitMods: ["Has 1 Abyssal Socket"],
-            sockets: [{ group: 0, sColour: "A" }],
-            socketedItems: [{
-              id: "abyss-fixture",
-              frameType: 2,
-              name: "Doom Gaze",
-              typeLine: "Ghastly Eye Jewel",
-              abyssJewel: true,
-              socket: 0,
-              ilvl: 84,
-              properties: [],
-              explicitMods: ["+30 to maximum Life"],
-            }],
-          },
-        ],
-        jewels: [{
-          id: "jewel-fixture",
-          frameType: 2,
-          name: "Storm Ornament",
-          typeLine: "Cobalt Jewel",
-          inventoryId: "PassiveJewels",
-          x: 0,
-          ilvl: 80,
-          properties: [],
-          explicitMods: ["+10 to Intelligence"],
-        }],
-        passives: {
-          hashes: [26725],
-          hashes_ex: [],
-          mastery_effects: {},
-          skill_overrides: {},
-          jewel_data: {},
-          bandit_choice: "Eramir",
-        },
-      },
-    });
-
-    expect(imported).toMatchObject({
-      ok: true,
-      authoritative: true,
-      engine: { version: "2.67.2" },
-      calculation: {
-        mainSocketGroup: 2,
-        scalarCount: expect.any(Number),
-        stats: { Life: expect.any(Number) },
-        skillGroups: expect.any(Array),
-      },
-      isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
-    });
-    if (!imported.ok) throw new Error(imported.message);
-    expect(imported.calculation.skillGroups[1].activeSkills.map((skill) => skill.name)).toContain("Arc");
-    expect(imported.calculation.configCatalog.length).toBeGreaterThan(100);
-    expect(imported.calculation.configCatalog).toContainEqual(expect.objectContaining({
-      name: "bandit",
-      type: "list",
-      options: expect.arrayContaining([expect.objectContaining({ value: "None" })]),
-    }));
-    expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Helmet")(?=[^>]*itemId="1")[^>]*\/>/);
-    expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Flask 1")(?=[^>]*itemId="2")[^>]*\/>/);
-    expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Belt Abyssal Socket 1")(?=[^>]*itemId="3")[^>]*\/>/);
-    expect(imported.xml).toMatch(/<Slot\b(?=[^>]*name="Belt")(?=[^>]*itemId="4")[^>]*\/>/);
-    expect(imported.xml).toMatch(/<Socket\b(?=[^>]*nodeId="26725")(?=[^>]*itemId="5")[^>]*\/>/);
-    expect(imported.xml).toContain("Doom Gaze");
-    expect(imported.xml).toContain('gemId="Metadata/Items/Gems/SkillGemGrace"');
-    expect(imported.xml).toContain('gemId="Metadata/Items/Gems/SkillGemArc"');
-    expect(imported.xml).toContain('variantId="SupportAddedLightningDamage"');
-    expect(imported.xml).toContain('skillId="SupportAddedLightningDamage"');
-    expect(imported.xml).toMatch(/<Gem\b(?=[^>]*nameSpec="Firestorm of Pelting")(?=[^>]*gemId="Metadata\/Items\/Gems\/SkillGemFirestorm")(?=[^>]*variantId="FirestormAltY")(?=[^>]*skillId="FirestormAltY")[^>]*\/>/);
-    expect(imported.xml).not.toContain('nameSpec="Doom Gaze"');
-    expect(imported.xml.match(/<Skill\b/g)).toHaveLength(3);
-    expect(imported.xml).toMatch(/<Build\b(?=[^>]*mainSocketGroup="2")(?=[^>]*bandit="None")[^>]*>/);
-    const savedEnergyShield = Number(/<PlayerStat\b(?=[^>]*stat="EnergyShield")(?=[^>]*value="([^"]+)")[^>]*\/>/.exec(imported.xml)?.[1]);
-    const recalculated = await calculatePobBuild({ xml: imported.xml, name: "official import parity fixture" });
-    expect(recalculated).toMatchObject({ ok: true, authoritative: true });
-    if (!recalculated.ok) throw new Error(recalculated.message);
-    expect(savedEnergyShield).toBe(recalculated.calculation.stats.EnergyShield);
-  }, 30_000);
 
   it.runIf(capability.available)("calculates A to B to A in isolated official PoB processes", async () => {
     const firstA = await calculatePobBuild({ xml: minimalBuild(1), name: "fresh-process A1" });

@@ -7,6 +7,45 @@ import toolkitFiles from "../electron/toolkit-files.cjs";
 const { MAX_IMAGE_BYTES, MAX_TEXT_BYTES, createToolkitFileService } = toolkitFiles;
 
 describe("toolkit file service", () => {
+  it("offers Ruthless filters in both filter and general text pickers", async () => {
+    const showOpenDialog = vi.fn(async (
+      _window: unknown,
+      _options: { filters: Array<{ extensions: string[] }> },
+    ) => ({ canceled: true, filePaths: [] }));
+    const service = createToolkitFileService({
+      dialog: { showOpenDialog },
+      userDataDirectory: os.tmpdir(),
+    });
+    await service.openText({}, "filter");
+    await service.openText({}, "text");
+    for (const call of showOpenDialog.mock.calls) {
+      const extensions = call[1].filters.flatMap((filter) => filter.extensions);
+      expect(extensions).toContain("ruthlessfilter");
+    }
+  });
+
+  it("rejects a mismatched Ruthless Save As extension before writing or authorising it", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-extension-"));
+    const wrongTarget = path.join(root, "strict.filter");
+    const showSaveDialog = vi.fn(async () => ({
+      canceled: false,
+      filePath: wrongTarget,
+    }));
+    const service = createToolkitFileService({
+      dialog: { showSaveDialog },
+      userDataDirectory: root,
+    });
+
+    await expect(service.saveText({}, {
+      text: "Minimal\n",
+      suggestedName: "strict.ruthlessfilter",
+      kind: "filter",
+      filterMode: "ruthless",
+    })).rejects.toThrow(/Ruthless.*\.ruthlessfilter/i);
+    expect(fs.existsSync(wrongTarget)).toBe(false);
+    expect(() => service.createCheckpoint({ path: wrongTarget })).toThrow(/Open/);
+  });
+
   it("requires a user-authorised path and restores through a safety checkpoint", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-toolkit-files-"));
     const file = path.join(root, "test.filter");

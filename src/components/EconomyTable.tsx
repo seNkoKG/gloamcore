@@ -438,6 +438,8 @@ export function EconomyTable({
                       {row.confidenceReason || "Thin market"} · verify on Trade
                     </span>
                   ) : row.source !== "exchange" && (
+                    price.unit === "chaos" ? row.divineValue != null : Number.isFinite(row.chaosValue)
+                  ) && (
                     <span className="value-secondary">
                       ≈ {formatPrice(price.unit === "chaos" ? row.divineValue : row.chaosValue)}{" "}
                       {price.unit === "chaos" ? "Divine" : "Chaos"}

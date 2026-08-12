@@ -52,18 +52,14 @@ databases.
 The bundled headless adapter is copied from Path of Building Community 2.67.2's
 `src/HeadlessWrapper.lua` and is covered by the MIT License. Its complete notice
 is shipped at `electron/pob-headless-wrapper.LICENSE.md`. The bridge verifies the
-supported local PoB engine before character import or recalculation and fails
-closed for an unknown fingerprint.
-
-PoB map-modifier data can also corroborate entries in the generated regex pack.
-That pack records the exact PoB input file, version, license, and SHA-256 used
-for its build.
+supported local PoB engine before recalculation and fails closed for an unknown
+fingerprint.
 
 `public/data/toolkit/cluster-back-v1.json` records the SHA-256 of the installed
 PoB `src/Data/ClusterJewels.lua` used to derive notable display order. It does
 not ship PoB runtime code or the source database. The generator combines that
 order with separately retrieved Wiki spawn-weight records and the app's pinned
-official Trade stat snapshot.
+Awakened PoE Trade stat snapshot.
 
 ## Path of Exile Wiki and Cargo
 
@@ -82,29 +78,24 @@ The Cargo-derived portion retains that attribution and license boundary. Game
 names, artwork, and other Path of Exile material remain the property of their
 respective owners.
 
-## Grinding Gear Games public data
+## Grinding Gear Games data and Trade handoff
 
-The regex pack records bounded responses from public Grinding Gear Games Trade
-data endpoints for item, stat, and static reference records. Each source entry
-in `public/data/toolkit/regex-v1.json` contains its endpoint, retrieval time,
-input SHA-256, and available upstream freshness metadata.
+The app does not call the official Trade website's undocumented search,
+exchange, or fetch APIs. Item text and filter edits stay local. A deliberate
+user click opens `pathofexile.com/trade` in the system browser with the complete
+encoded query. GloamCore receives no Trade result payload or result ID from
+that page.
 
-The app also uses anonymous official Trade website search, exchange, and fetch
-routes to provide a compact seller snapshot after a user requests a price
-check. These routes are an unofficial convenience rather than a guaranteed
-developer API. Requests omit account credentials and expose only bounded,
-sanitized listing fields to the renderer.
-
-Market Explorer's Faustus source reads Grinding Gear Games' public
-completed-hour Currency Exchange digests from `web.poecdn.com`. Current
-poe.ninja economy item names are resolved to canonical item metadata IDs
-through PoE Wiki Cargo before matching direct Chaos or Divine markets. The app
-does not interpolate between hours or substitute Ninja values when an official
-completed-hour range is absent. It may retain the most recent official
-observation from its eight-hour history with an explicit age warning. It checks
-every five minutes for a newly available digest and every minute while the
-latest completed hour is still unpublished; that discovery cadence does not
-change the hourly source cadence.
+Market Explorer's Faustus source is limited to documented Public Currency
+Exchange completed-hour evidence. Current poe.ninja economy item names are
+resolved to canonical item metadata IDs through PoE Wiki Cargo before direct
+Chaos or Divine markets are matched. GloamCore does not interpolate between
+hours or substitute poe.ninja values when a completed-hour range is absent. It
+may retain the most recent observation from its eight-hour history with an
+explicit age warning. Evidence older than two hours remains informational and
+cannot alter an estimate, range, or confidence. This historical source is
+separate from the Trade website and is not an active order book or
+completed-sale ledger.
 
 No GloamCore project license is asserted over Grinding Gear Games names,
 artwork, APIs, or game data.
@@ -115,18 +106,36 @@ cluster pack records the exact local pack hash used during generation.
 
 ## Live poe.ninja data
 
-Market Explorer requests public league economy data from
-[poe.ninja](https://poe.ninja/). Source cache headers, ETags, observation
-quality, and last-good fallback state are preserved where available. GloamCore
-does not claim ownership of poe.ninja data, and poe.ninja does not endorse this
-project.
+Market Explorer consumes a project-controlled static mirror of public league
+economy data from [poe.ninja](https://poe.ninja/). A scheduled GitHub Actions
+publisher checks every configured route at 7 and 37 minutes past each hour with
+a descriptive user agent and upstream ETags, validates the league/route matrix,
+JSON schema, byte bounds, and SHA-256 digests, and then deploys the complete
+snapshot with the existing GitHub Pages site. Installed clients do not fall back
+to direct poe.ninja API requests.
+
+The manifest preserves upstream ETags plus checked, source-updated, and next
+refresh timestamps. Clients use those source timestamps rather than the Pages
+response date, verify route size and SHA-256 where they fetch it, and fail closed
+once a last-good source snapshot is more than two hours old. GitHub schedules
+can be delayed, dropped during high load, or disabled after prolonged public
+repository inactivity, so an unavailable or old mirror is reported as
+unavailable/stale instead of being disguised as current. GloamCore does not
+infer a missing Divine conversion from unrelated rows. Missing or zero sample
+counts remain low confidence and are excluded from confidence-sensitive market
+pulse and target alerts. GloamCore does not claim ownership of poe.ninja data,
+and poe.ninja does not endorse this project.
 
 ## Combined regex pack
 
-`public/data/toolkit/regex-v1.json` is a transformed search-reference pack built
-from the pinned Awakened packs, public GGG Trade data, selected PoE Wiki Cargo
-Area modifiers, and Path of Building map-modifier data. Its own `sources`,
-`coverage`, `limitations`, and `update` fields document the exact build inputs.
+`public/data/toolkit/regex-v1.json` is a transformed search-reference pack with
+15,854 entries in 20 categories. Its three declared sources are the pinned
+Awakened PoE Trade base pack, the pinned Awakened PoE Trade stat pack, and
+selected PoE Wiki Cargo Area modifiers. It contains no live or cached GGG Trade
+endpoint response. Its `sources`, `coverage`, `limitations`, and `update` fields
+document the exact inputs, while each safe optimization records the
+`shortest-full-tooltip-literal-v2` algorithm, tooltip-corpus hash, and corpus
+line count.
 
 Because inputs have different ownership and licenses, consumers must follow the
 attribution and use terms attached to each source. The pack is not offered as a

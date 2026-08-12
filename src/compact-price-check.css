@@ -389,8 +389,7 @@
 
 .pco-trade,
 .pco-details,
-.pco-online,
-.pco-search {
+.pco-online {
   min-width: 51px;
   display: grid;
   place-items: center;
@@ -408,22 +407,11 @@
 
 .pco-details:hover,
 .pco-trade:hover,
-.pco-search:hover,
 .pco-online:hover,
 .pco-online[data-availability="available"],
 .pco-online[data-availability="securable"] {
   color: #68d9bd;
   background: #21323e;
-}
-
-.pco-search {
-  min-width: 86px;
-  flex: 1;
-  grid-auto-flow: column;
-  justify-content: center;
-  gap: 5px;
-  color: #68d9bd;
-  background: rgba(48, 116, 103, 0.16);
 }
 
 .pco-source {
@@ -459,24 +447,6 @@
   background: #101820;
   scrollbar-width: thin;
   scrollbar-color: #394b58 #101820;
-}
-
-.pco-live-listings {
-  min-height: 0;
-  max-width: none;
-  flex: 1;
-  border: 0;
-}
-
-.pco-live-listings.is-with-modifiers {
-  min-height: 0;
-  max-height: none;
-  flex: 1 1 auto;
-  border-top: 0;
-}
-
-.pco-live-listings .ctl-scroll {
-  overflow-y: hidden;
 }
 
 .pco-results-head,

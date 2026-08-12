@@ -196,6 +196,49 @@ describe("Faustus market normalization", () => {
     expect(result.lowConfidence).toBe(false);
   });
 
+  it("keeps a direct Chaos market but never fabricates its Divine conversion", () => {
+    const hour = market(7_200, 350, 379);
+    hour.markets = [hour.markets[0]];
+    const result = normalizeFaustusOverview(base, {
+      latestHour: 7_200,
+      items: [{
+        id: "mirror",
+        name: "Mirror of Kalandra",
+        metadataId: "Metadata/Items/Currency/CurrencyDuplicate",
+      }],
+      hours: [hour],
+    }, category).rows[0];
+
+    expect(result).toMatchObject({ chaosValue: 364.5, divineValue: null });
+  });
+
+  it("drops a Divine-referenced hour when that same hour has no Chaos FX", () => {
+    const hour = market(7_200, 350, 379);
+    hour.markets = [{
+      ...hour.markets[0],
+      market_pair: ["Metadata/Items/Currency/CurrencyDuplicate", DIVINE_METADATA_ID],
+      lowest_ratio: {
+        "Metadata/Items/Currency/CurrencyDuplicate": 1,
+        [DIVINE_METADATA_ID]: 2,
+      },
+      highest_ratio: {
+        "Metadata/Items/Currency/CurrencyDuplicate": 1,
+        [DIVINE_METADATA_ID]: 1.8,
+      },
+    }];
+    const result = normalizeFaustusOverview(base, {
+      latestHour: 7_200,
+      items: [{
+        id: "mirror",
+        name: "Mirror of Kalandra",
+        metadataId: "Metadata/Items/Currency/CurrencyDuplicate",
+      }],
+      hours: [hour],
+    }, category);
+
+    expect(result.rows).toEqual([]);
+  });
+
   it("keeps a last-observed official market when the newest hour has no usable range", () => {
     const previous = market(3_600, 300, 320);
     const newest = market(7_200, 350, 379);

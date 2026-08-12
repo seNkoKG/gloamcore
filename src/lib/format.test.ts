@@ -41,6 +41,7 @@ describe("trade query generation", () => {
         },
       }),
     );
+    if (!query) throw new Error("Expected an exact trade query.");
 
     expect(query).toMatchObject({
       query: {
@@ -61,6 +62,7 @@ describe("trade query generation", () => {
         levelRequired: 86,
       }),
     );
+    if (!query) throw new Error("Expected an exact trade query.");
 
     expect(query.query).toMatchObject({
       type: "Silk Gloves",
@@ -85,6 +87,7 @@ describe("trade query generation", () => {
         tradeInfo: [{ mod: "explicit.stat_123", min: 0, max: 0 }],
       }),
     );
+    if (!query) throw new Error("Expected an exact trade query.");
 
     expect(query.query).toMatchObject({
       name: "The Squire",
@@ -95,6 +98,9 @@ describe("trade query generation", () => {
           filters: [{ id: "explicit.stat_123" }],
         },
       ],
+      filters: {
+        misc_filters: { filters: { mutated: { option: true } } },
+      },
     });
     expect(JSON.stringify(query)).not.toContain('"value"');
   });
@@ -107,7 +113,61 @@ describe("trade query generation", () => {
         categoryLabel: "Valdo Maps",
       }),
     );
+    if (!query) throw new Error("Expected an exact trade query.");
     expect(query.query).toMatchObject({ term: "Iron Nadir" });
+  });
+
+  it("preserves poe.ninja selector options for current cluster jewel enchants", () => {
+    const query = buildTradeQuery(row({
+      name: "6% increased Mana Reservation Efficiency of Skills",
+      baseType: "Small Cluster Jewel",
+      categoryId: "cluster-jewels",
+      tradeInfo: [
+        { mod: "enchant.stat_3948993189", min: 0, max: 0, option: "54" },
+        { mod: "enchant.stat_3086156145", min: 3, max: 3 },
+      ],
+    }));
+    if (!query) throw new Error("Expected an exact trade query.");
+
+    expect(query.query).toMatchObject({
+      type: "Small Cluster Jewel",
+      stats: [{
+        type: "and",
+        filters: [
+          { id: "enchant.stat_3948993189|54" },
+          { id: "enchant.stat_3086156145", value: { min: 3, max: 3 } },
+        ],
+      }],
+    });
+  });
+
+  it.each([
+    ["Forbidden Flame", "Crimson Jewel", "explicit.stat_1190333629|61627"],
+    ["Forbidden Flesh", "Cobalt Jewel", "explicit.stat_2460506030|61627"],
+  ])("builds an exact %s passive selector", (variant, baseType, statId) => {
+    const query = buildTradeQuery(row({
+      name: "Ricochet",
+      baseType,
+      variant,
+      categoryId: "forbidden-jewels",
+      metadata: { baseClass: "Ranger", ascendancy: "Deadeye", passiveName: "Ricochet" },
+    }));
+    if (!query) throw new Error("Expected an exact Forbidden jewel query.");
+
+    expect(query.query).toMatchObject({
+      name: variant,
+      type: baseType,
+      stats: [{ type: "and", filters: [{ id: statId }] }],
+    });
+  });
+
+  it("fails closed for a future Forbidden passive missing from the pinned stat pack", () => {
+    expect(buildTradeQuery(row({
+      name: "Unknown Future Passive",
+      baseType: "Crimson Jewel",
+      variant: "Forbidden Flame",
+      categoryId: "forbidden-jewels",
+    }))).toBeNull();
   });
 });
 
@@ -133,7 +193,7 @@ describe("official Trade links", () => {
         stackSize: 10,
       }),
       "Allflame",
-    ));
+    )!);
 
     expect(url.pathname).toBe("/trade/exchange/Allflame");
     expect(JSON.parse(url.searchParams.get("q") || "null")).toEqual({
@@ -153,7 +213,7 @@ describe("official Trade links", () => {
         source: "faustus",
       }),
       "Allflame",
-    ));
+    )!);
 
     expect(url.pathname).toBe("/trade/search/Allflame");
     expect(JSON.parse(url.searchParams.get("q") || "null")).toMatchObject({

@@ -5,6 +5,8 @@ import {
   createSerialTaskQueue,
   mergeDesktopSettingsPatch,
   reconcileSettingsSnapshot,
+  sanitizeDesktopSettingsPatch,
+  sanitizeDesktopSettingsSnapshot,
 } from "./settings-sync";
 
 describe("settings synchronization", () => {
@@ -96,5 +98,57 @@ describe("settings synchronization", () => {
     expect(next.shortcuts).toEqual(defaultDesktopShortcuts);
     expect(next.shortcuts).not.toBe(current.shortcuts);
     expect(current.priceCheck.defaultOnlineOnly).toBe(true);
+  });
+
+  it("keeps corrupt persisted and runtime values behind typed settings boundaries", () => {
+    const current = {
+      alwaysOnTop: false,
+      opacity: 0.9,
+      compact: false,
+      clickThrough: false,
+      startMinimized: false,
+      autoCheckUpdates: false,
+      shortcuts: { ...defaultDesktopShortcuts },
+      priceCheck: {
+        ...defaultPriceCheckSettings,
+        rollTolerance: 7,
+        maxHistory: 50,
+      },
+    };
+    const corrupt = {
+      alwaysOnTop: "false",
+      opacity: "zero",
+      compact: true,
+      shortcuts: { toggleWidget: 42 },
+      priceCheck: {
+        enabled: "yes",
+        rollTolerance: "NaN",
+        maxHistory: 999,
+        captureMode: "manual",
+      },
+      settingsRevision: 99,
+    };
+
+    const snapshot = sanitizeDesktopSettingsSnapshot(corrupt, current);
+    expect(snapshot).toMatchObject({
+      alwaysOnTop: false,
+      opacity: 0.9,
+      compact: true,
+      priceCheck: {
+        enabled: true,
+        rollTolerance: 7,
+        maxHistory: 200,
+        captureMode: "auto-copy",
+      },
+    });
+    expect(snapshot).not.toHaveProperty("settingsRevision");
+    expect(snapshot.shortcuts.toggleWidget).toBe("");
+
+    const patch = sanitizeDesktopSettingsPatch(corrupt, current);
+    const next = mergeDesktopSettingsPatch(current, patch);
+    expect(typeof next.alwaysOnTop).toBe("boolean");
+    expect(typeof next.opacity).toBe("number");
+    expect(typeof next.priceCheck.rollTolerance).toBe("number");
+    expect(next).not.toHaveProperty("settingsRevision");
   });
 });

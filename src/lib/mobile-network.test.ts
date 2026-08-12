@@ -5,7 +5,6 @@ import {
   faustusRequestCacheKey,
   isExactMobileResponseUrl,
   isValidMobileStoredResponse,
-  mobileOverviewUrl,
   mobileWikiTooltipUrl,
   parseLimitedMobileJson,
   responseMaxAge,
@@ -47,19 +46,6 @@ describe("mobile network helpers", () => {
         now,
       ),
     ).toBe(now);
-  });
-
-  it("builds each poe.ninja mobile endpoint with encoded parameters", () => {
-    const request = { league: "Test League", type: "Skill Gem" };
-    expect(mobileOverviewUrl({ ...request, source: "exchange" })).toContain(
-      "/exchange/current/overview?league=Test+League&type=Skill+Gem",
-    );
-    expect(mobileOverviewUrl({ ...request, source: "stash-currency" })).toContain(
-      "/stash/current/currency/overview?league=Test+League&type=Skill+Gem",
-    );
-    expect(mobileOverviewUrl({ ...request, source: "stash-item" })).toContain(
-      "/stash/current/item/overview?league=Test+League&type=Skill+Gem",
-    );
   });
 
   it("escapes wiki Cargo names without changing the requested fields", () => {
@@ -108,7 +94,7 @@ describe("mobile network helpers", () => {
   });
 
   it("rejects redirects and oversized or malformed response metadata", () => {
-    const requested = "https://poe.ninja/poe1/api/economy/leagues";
+    const requested = "https://senkokg.github.io/gloamcore/data/poe-ninja/v1/manifest.json";
     expect(isExactMobileResponseUrl(requested, requested)).toBe(true);
     expect(
       isExactMobileResponseUrl(requested, "https://127.0.0.1/private"),

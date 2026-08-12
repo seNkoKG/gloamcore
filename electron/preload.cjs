@@ -15,8 +15,6 @@ contextBridge.exposeInMainWorld("poeWidget", {
     ipcRenderer.invoke("price-check:get-overlay-state"),
   getTradeStatCatalog: () =>
     ipcRenderer.invoke("price-check:get-trade-stat-catalog"),
-  getOfficialTradeListings: (request) =>
-    ipcRenderer.invoke("price-check:get-official-listings", request),
   openExternal: (url) => ipcRenderer.invoke("app:open-external", url),
   openWealthyExile: (bounds) => ipcRenderer.invoke("app:open-wealthy-exile", bounds),
   hideWealthyExile: () => ipcRenderer.invoke("app:hide-wealthy-exile"),
@@ -45,7 +43,7 @@ contextBridge.exposeInMainWorld("poeWidget", {
   getMapModOverlayResult: () => ipcRenderer.invoke("map-mod-check:get-overlay-result"),
   hideMapModOverlay: () => ipcRenderer.invoke("map-mod-check:hide-overlay"),
   getPoeEventLog: () => ipcRenderer.invoke("poe-event-log:get"),
-  startPoeEventLog: (logPath) => ipcRenderer.invoke("poe-event-log:start", logPath),
+  startPoeEventLog: () => ipcRenderer.invoke("poe-event-log:start"),
   stopPoeEventLog: () => ipcRenderer.invoke("poe-event-log:stop"),
   clearPoeEventLog: () => ipcRenderer.invoke("poe-event-log:clear"),
   selectPoeEventLogPath: () => ipcRenderer.invoke("poe-event-log:select-path"),
@@ -57,18 +55,8 @@ contextBridge.exposeInMainWorld("poeWidget", {
   analyzePobNodes: (request) => ipcRenderer.invoke("planner:analyze-nodes", request),
   previewPobTimeless: (request) => ipcRenderer.invoke("planner:preview-timeless", request),
   huntPobTimeless: (request) => ipcRenderer.invoke("planner:hunt-timeless", request),
-  importPobCharacter: (request) => ipcRenderer.invoke("planner:import-character-pob", request),
   readPlannerClipboard: () => ipcRenderer.invoke("planner:read-clipboard"),
   resolvePlannerItemArtwork: (request) => ipcRenderer.invoke("planner:resolve-item-artwork", request),
-  listPoeCharacters: (request) => ipcRenderer.invoke("planner:list-characters", request),
-  getPoeCharacter: (request) => ipcRenderer.invoke("planner:get-character", request),
-  getPoeStashLeagues: (request) => ipcRenderer.invoke("stash:get-leagues", request),
-  listPoeStashTabs: (request) => ipcRenderer.invoke("stash:list-tabs", request),
-  getPoeStashTab: (request) => ipcRenderer.invoke("stash:get-tab", request),
-  syncPoeStash: (request) => ipcRenderer.invoke("stash:sync", request),
-  connectPoeOAuth: (options) => ipcRenderer.invoke("oauth:connect", options),
-  getPoeOAuthStatus: () => ipcRenderer.invoke("oauth:status"),
-  disconnectPoeOAuth: () => ipcRenderer.invoke("oauth:disconnect"),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (patch) => ipcRenderer.invoke("settings:save", patch),
   windowAction: (action, payload) => ipcRenderer.invoke("window:action", action, payload),
@@ -104,11 +92,6 @@ contextBridge.exposeInMainWorld("poeWidget", {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on("surface:state", listener);
     return () => ipcRenderer.removeListener("surface:state", listener);
-  },
-  onStashProgress: (callback) => {
-    const listener = (_event, value) => callback(value);
-    ipcRenderer.on("stash:progress", listener);
-    return () => ipcRenderer.removeListener("stash:progress", listener);
   },
   onUpdateState: (callback) => {
     const listener = (_event, value) => callback(value);

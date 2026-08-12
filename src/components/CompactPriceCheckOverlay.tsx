@@ -3,10 +3,9 @@ import {
   Pin,
   PinOff,
   RefreshCw,
-  Search,
   X,
 } from "lucide-react";
-import type { MouseEvent as ReactMouseEvent, PointerEventHandler } from "react";
+import type { PointerEventHandler } from "react";
 import type {
   PriceCheckDashboardMode,
   PriceCheckModifierFilter,
@@ -21,7 +20,6 @@ import {
 import { isOfficialPriceCheckFilter } from "../lib/price-check/equipment-properties";
 import {
   defaultPriceCheckModeForItem,
-  officialTradeNeedsExplicitSearch,
   priceCheckItemForMode,
   priceCheckModesForItem,
 } from "../lib/price-check/official-trade-workflow";
@@ -32,7 +30,6 @@ import {
   compactPriceCheckItemStateStripHeight,
   compactPriceCheckModifierRowsHeight,
 } from "./CompactRareModifierEditor";
-import { CompactTradeListings } from "./CompactTradeListings";
 import {
   unidentifiedUniqueCandidates,
   UnidentifiedUniqueResolver,
@@ -89,8 +86,8 @@ export function shortNumber(value: number) {
   return Number.isInteger(value) ? String(value) : trimmedDecimal(value, 2);
 }
 
-function marketValue(chaosValue: number, divineValue: number) {
-  return divineValue >= 1
+function marketValue(chaosValue: number, divineValue: number | null) {
+  return divineValue != null && divineValue >= 1
     ? `${shortNumber(divineValue)} DIVINE`
     : `${shortNumber(chaosValue)} CHAOS`;
 }
@@ -193,19 +190,6 @@ function stateText(session: PriceCheckSession, hotkey: string) {
 
 export const COMPACT_PRICE_CHECK_WIDTH = 460;
 
-/**
- * Auto-searched items render their loading/listing viewport on the first ready
- * frame. Keeping this decision pure lets native geometry and React markup use
- * the same height before the request effect has run.
- */
-export function compactPriceCheckReservesOfficialListings(
-  session: PriceCheckSession,
-) {
-  return session.status === "ready" &&
-    Boolean(session.item && session.query) &&
-    !officialTradeNeedsExplicitSearch(session);
-}
-
 export function compactPriceCheckPanelHeight(
   session: PriceCheckSession,
   mode?: PriceCheckDashboardMode,
@@ -217,11 +201,6 @@ export function compactPriceCheckPanelHeight(
     : 0;
   const tradeOptionsHeight = session.query.tradeApi === "exchange" ? 0 : 31;
   const presetHeight = priceCheckModesForItem(session.item).length > 1 ? 31 : 0;
-  const hasOfficialListings = Boolean(
-    session.officialTradeLoading ||
-    session.officialTrade ||
-    compactPriceCheckReservesOfficialListings(session),
-  );
   const exactItemFilters =
     (mode ?? defaultPriceCheckModeForItem(session.item)) !== "similar";
   if (supportsCompactModifierEditor(
@@ -233,12 +212,6 @@ export function compactPriceCheckPanelHeight(
       session.item,
       session.query.filters,
     );
-    // Awakened owns a fixed twenty-row result budget. Request that budget on
-    // the first ready frame; the renderer later trims seller rows against the
-    // native work-area clamp without ever shrinking the modifier editor.
-    const listingsHeight = hasOfficialListings
-      ? 45 + AWAKENED_VISIBLE_TRADE_RESULTS * 25
-      : 0;
     const stateStripHeight = compactPriceCheckItemStateStripHeight(
       session.item,
       exactItemFilters,
@@ -251,14 +224,8 @@ export function compactPriceCheckPanelHeight(
     // opens every non-hidden stat, so the native card always reserves every
     // rendered editor row and never creates an inner modifier scrollbar.
     return presetHeight + tradeOptionsHeight + resolverHeight + 115 +
-      stateStripHeight + listingsHeight +
+      stateStripHeight +
       (hasVisibleStats ? 24 + rowHeight : 0);
-  }
-  if (hasOfficialListings) {
-    // 174px is the non-listing shell plus seller chrome; every visible seller
-    // row adds 25px. Keeping twenty slots stable avoids a loading/result jump.
-    return presetHeight + tradeOptionsHeight + resolverHeight + 174 +
-      AWAKENED_VISIBLE_TRADE_RESULTS * 25;
   }
   const rowCount = session.sourceStale
     ? 0
@@ -268,11 +235,7 @@ export function compactPriceCheckPanelHeight(
   return Math.min(520, presetHeight + tradeOptionsHeight + resolverHeight + 137 + Math.max(1, rowCount) * 28);
 }
 
-/**
- * A short work area cannot hold an eleven-row item plus full slider tracks.
- * Numeric min/max inputs remain available; only the redundant tracks collapse
- * after seller rows have already reached zero.
- */
+/** A short work area keeps numeric inputs but can collapse redundant sliders. */
 export function compactPriceCheckUsesConstrainedModifierRows(
   session: PriceCheckSession,
   panelHeight: number,
@@ -318,72 +281,6 @@ export function compactPriceCheckUsesConstrainedModifierRows(
   return fullShellHeight > panelHeight;
 }
 
-/**
- * Bounds only seller rows when native work-area clamping makes the requested
- * card too tall. A zero result means the listing section must be omitted so
- * every non-hidden modifier row and the action bar remain fully visible.
- */
-export function compactOfficialListingRowLimit(
-  session: PriceCheckSession,
-  panelHeight: number,
-  mode?: PriceCheckDashboardMode,
-) {
-  if (
-    session.status !== "ready" ||
-    !session.item ||
-    !session.query ||
-    !Number.isFinite(panelHeight)
-  ) return 0;
-
-  const uniqueCandidates = unidentifiedUniqueCandidates(session.item);
-  const resolverHeight = uniqueCandidates.length > 1
-    ? 25 + Math.ceil(uniqueCandidates.length / 2) * 33
-    : 0;
-  const tradeOptionsHeight = session.query.tradeApi === "exchange" ? 0 : 31;
-  const presetHeight = priceCheckModesForItem(session.item).length > 1 ? 31 : 0;
-  const exactItemFilters =
-    (mode ?? defaultPriceCheckModeForItem(session.item)) !== "similar";
-  const modifierEditor = supportsCompactModifierEditor(
-    session.item,
-    session.query.filters,
-    exactItemFilters,
-  );
-  let capacity: number;
-
-  if (modifierEditor) {
-    const stateStripHeight = compactPriceCheckItemStateStripHeight(
-      session.item,
-      exactItemFilters,
-      session.query.itemFilters,
-    );
-    const hasVisibleStats = session.query.filters.some(
-      (filter) => !filter.advancedOnly,
-    );
-    const showSliders = !compactPriceCheckUsesConstrainedModifierRows(
-      session,
-      panelHeight,
-      mode,
-    );
-    const editorHeight = compactPriceCheckModifierRowsHeight(
-      session.item,
-      session.query.filters,
-      showSliders,
-    );
-    const shellHeight = presetHeight + tradeOptionsHeight + resolverHeight + 115 +
-      stateStripHeight + (hasVisibleStats ? 24 + editorHeight : 0);
-    capacity = Math.floor((panelHeight - shellHeight - 45) / 25);
-  } else {
-    const shellAndListingChrome = presetHeight + tradeOptionsHeight +
-      resolverHeight + 174;
-    capacity = Math.floor((panelHeight - shellAndListingChrome) / 25);
-  }
-
-  return Math.max(
-    0,
-    Math.min(AWAKENED_VISIBLE_TRADE_RESULTS, capacity),
-  );
-}
-
 export function CompactPriceCheckOverlay({
   session,
   mode,
@@ -427,7 +324,6 @@ export function CompactPriceCheckOverlay({
     ? session.item.baseType
     : "";
   const facts = session.item ? compactItemFacts(session.item) : null;
-  const waitingForManualTradeSearch = officialTradeNeedsExplicitSearch(session);
   const modifierEditor = Boolean(
     ready && contextualItem && session.query &&
     supportsCompactModifierEditor(
@@ -444,47 +340,6 @@ export function CompactPriceCheckOverlay({
           isOfficialPriceCheckFilter(filter),
       ).length
     : 0;
-  const officialRows = (session.officialTrade?.listings || [])
-    .filter((listing) => listing.price != null)
-    .map((listing) => ({
-      id: listing.id,
-      amount: listing.price!.amount,
-      currency: listing.price!.currency,
-      indexedAt: listing.indexed,
-      seller: listing.seller.account,
-      character: listing.seller.character,
-      itemName: listing.item.name,
-      baseType: listing.item.baseType,
-      icon: listing.item.icon,
-      whisper: listing.whisper,
-      groupedCount: listing.groupedCount,
-      stock: listing.stock,
-      exchange: listing.exchange ? {
-        haveAmount: listing.exchange.haveAmount,
-        itemAmount: listing.exchange.itemAmount,
-        stock: listing.exchange.stock,
-      } : undefined,
-    }));
-  const showOfficialListings = Boolean(
-    session.officialTradeLoading ||
-    session.officialTrade ||
-    compactPriceCheckReservesOfficialListings(session),
-  );
-  const optimisticOfficialLoading = Boolean(
-    showOfficialListings &&
-    !session.officialTrade &&
-    !session.officialTradeLoading,
-  );
-  const officialListingRowLimit = showOfficialListings
-    ? compactOfficialListingRowLimit(
-        session,
-        panelHeight ?? compactPriceCheckPanelHeight(session, effectiveMode),
-        effectiveMode,
-      )
-    : 0;
-  const boundedOfficialRows = officialRows.slice(0, officialListingRowLimit);
-  const renderOfficialListings = showOfficialListings &&
-    officialListingRowLimit > 0;
   const constrainedModifierRows = modifierEditor &&
     compactPriceCheckUsesConstrainedModifierRows(
       session,
@@ -495,13 +350,6 @@ export function CompactPriceCheckOverlay({
   const matchSummary = validMatches.length > matches.length
     ? `${matches.length} OF ${validMatches.length}`
     : `${matches.length} ${matches.length === 1 ? "MATCH" : "MATCHES"}`;
-  const searchOnEditorExit = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    const previous = event.relatedTarget;
-    if (
-      previous instanceof Element &&
-      previous.closest(".pco-rare-editor")
-    ) onRetry();
-  };
 
   return (
     <section className="pco" aria-label="PoE item price check">
@@ -520,15 +368,7 @@ export function CompactPriceCheckOverlay({
         {ready ? (
           <span className={clsx("pco-matched", !tradeDrivenEditor && session.sourceStale && "is-stale")}>
             {tradeDrivenEditor
-              ? session.officialTradeLoading
-                ? "SEARCHING"
-                : session.officialTrade?.stale
-                  ? "TRADE STALE"
-                  : session.officialTrade?.error
-                    ? "TRADE ERROR"
-                    : session.officialTrade
-                      ? "TRADE LIVE"
-                      : "TRADE FILTERS"
+              ? "TRADE FILTERS"
               : session.sourceStale
                 ? "POE.NINJA STALE"
                 : marketAge(session.sourceFetchedAt)}
@@ -538,13 +378,11 @@ export function CompactPriceCheckOverlay({
           {retryable ? (
             <button
               type="button"
-              title={waitingForManualTradeSearch ? "Search official Trade" : "Refresh price"}
-              aria-label={waitingForManualTradeSearch ? "Search official Trade" : "Refresh price"}
+              title="Refresh market data"
+              aria-label="Refresh market data"
               onClick={onRetry}
             >
-              {waitingForManualTradeSearch
-                ? <Search size={12} aria-hidden />
-                : <RefreshCw size={12} aria-hidden />}
+              <RefreshCw size={12} aria-hidden />
             </button>
           ) : null}
           <button
@@ -611,11 +449,7 @@ export function CompactPriceCheckOverlay({
                 title={`${appliedModifierFilters} official Trade filters selected`}
                 aria-label={`${appliedModifierFilters} official Trade filters selected`}
               >
-                {session.officialTradeLoading
-                  ? "..."
-                  : session.officialTrade
-                    ? `${session.officialTrade.total} LISTED`
-                    : `${appliedModifierFilters} STATS`}
+                {appliedModifierFilters} STATS
               </output>
             ) : (
               <output
@@ -661,26 +495,13 @@ export function CompactPriceCheckOverlay({
           ) : null}
 
           <div className="pco-controls">
-            {waitingForManualTradeSearch ? (
-              <button
-                className="pco-search"
-                type="button"
-                title="Run this edited official Trade search"
-                aria-label="Search official Trade with edited filters"
-                onMouseEnter={searchOnEditorExit}
-                onClick={onRetry}
-              >
-                <Search size={11} aria-hidden /> SEARCH
-              </button>
-            ) : (
-              <span className="pco-source">
-                {modifierEditor
-                  ? ""
-                  : matches.length
-                    ? matchSummary
-                    : ""}
-              </span>
-            )}
+            <span className="pco-source">
+              {modifierEditor
+                ? ""
+                : matches.length
+                  ? matchSummary
+                  : ""}
+            </span>
             <button
               className="pco-online"
               type="button"
@@ -747,24 +568,7 @@ export function CompactPriceCheckOverlay({
             </div>
           ) : null}
 
-          {renderOfficialListings ? (
-            <CompactTradeListings
-              className={clsx(
-                "pco-live-listings",
-                modifierEditor && "is-with-modifiers",
-              )}
-              rows={boundedOfficialRows}
-              limit={officialListingRowLimit}
-              total={session.officialTrade?.total || 0}
-              loading={session.officialTradeLoading || optimisticOfficialLoading}
-              stale={session.officialTrade?.stale}
-              error={session.officialTrade?.error || undefined}
-              onRetry={onRetry}
-              onOpenTrade={onOpenTrade}
-            />
-          ) : null}
-
-          {!modifierEditor && !renderOfficialListings ? <div className="pco-results">
+          {!modifierEditor ? <div className="pco-results">
             <div className="pco-results-head">
               <span>VALUE</span>
               <span>MATCH</span>
@@ -803,6 +607,3 @@ export function CompactPriceCheckOverlay({
     </section>
   );
 }
-// Awakened renders twenty grouped market rows. Fetching may inspect up to one
-// hundred raw listings to obtain those useful seller groups.
-export const AWAKENED_VISIBLE_TRADE_RESULTS = 20;

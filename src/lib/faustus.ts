@@ -161,14 +161,13 @@ function referencePrice(
 function priceForHour(
   hour: RawFaustusHour,
   itemMetadataId: string,
-  fallbackDivineChaos: number,
 ) {
   const divineChaos =
     marketRange(
       pairMarket(hour, DIVINE_METADATA_ID, CHAOS_METADATA_ID),
       DIVINE_METADATA_ID,
       CHAOS_METADATA_ID,
-    )?.midpoint || fallbackDivineChaos;
+    )?.midpoint ?? null;
   const direct = referencePrice(
     hour,
     itemMetadataId,
@@ -190,7 +189,7 @@ function priceForHour(
     itemMetadataId,
     DIVINE_METADATA_ID,
   );
-  if (!divine) return undefined;
+  if (!divine || divineChaos == null) return undefined;
   return {
     minimum: divine.range.minimum * divineChaos,
     maximum: divine.range.maximum * divineChaos,
@@ -258,8 +257,6 @@ export function normalizeFaustusOverview(
   const hours = [...data.hours].sort((left, right) => left.id - right.id);
   const latestHour =
     hours.find((hour) => hour.id === data.latestHour) || hours.at(-1);
-  const baseDivineChaos =
-    base.rows.find((row) => row.name === "Divine Orb")?.chaosValue || 180;
   if (!latestHour) return { rows: [], core: base.core };
 
   const rows = base.rows.flatMap((row) => {
@@ -269,7 +266,7 @@ export function normalizeFaustusOverview(
       .reverse()
       .map((hour) => ({
         hour,
-        price: priceForHour(hour, metadataId, baseDivineChaos),
+        price: priceForHour(hour, metadataId),
       }))
       .find((entry) => entry.price);
     if (!observed?.price) return [];
@@ -287,7 +284,7 @@ export function normalizeFaustusOverview(
       .filter(Boolean)
       .join("; ") || undefined;
     const sparkline = hours.map((hour) => {
-      const price = priceForHour(hour, metadataId, baseDivineChaos);
+      const price = priceForHour(hour, metadataId);
       if (!price || priceConfidence(price, metadataId).lowConfidence) return null;
       return price.midpoint;
     });
@@ -306,7 +303,10 @@ export function normalizeFaustusOverview(
         key: `${category.id}:faustus:${row.id}`,
         source: "faustus" as const,
         chaosValue: latest.midpoint,
-        divineValue: latest.midpoint / latest.divineChaos,
+        divineValue:
+          latest.divineChaos == null
+            ? null
+            : latest.midpoint / latest.divineChaos,
         change: lowConfidence ? null : percentChange(sparkline),
         sparkline,
         volume: traded,

@@ -95,7 +95,8 @@ describe("detailed price-check controls", () => {
     expect(markup).toContain("NO MATCH");
     expect(markup).toContain("Verify current listings on the official Trade page.");
     expect(markup).toContain("Trade filters ready");
-    expect(markup).toContain("Search Trade");
+    expect(markup).toContain("Open Trade");
+    expect(markup).toContain("Refresh");
     expect(markup).not.toContain("Loading market reference...");
     expect(markup).not.toContain("No update time");
   });
@@ -137,11 +138,13 @@ describe("detailed price-check controls", () => {
     expect(tabs).toContain('aria-pressed="true"');
   });
 
-  it("requires Search after editing even an item that initially auto-searches", () => {
+  it("keeps local refresh separate from the official Trade browser handoff", () => {
     const session = sessionFor(uniqueFixture);
-    session.officialTradeNeedsSearch = true;
+    const markup = renderDetails(session);
 
-    expect(renderDetails(session)).toContain("Search Trade");
+    expect(markup).toContain("Open Trade");
+    expect(markup).toContain("Refresh");
+    expect(markup).not.toContain("Search Trade");
   });
 
   it("shows calculated weapon inputs without inventing slider bounds", () => {
@@ -401,32 +404,4 @@ describe("detailed price-check controls", () => {
     expect(markup).not.toContain(`${label} presence only`);
   });
 
-  it("shows current official seller rows beside the full modifier controls", () => {
-    const session = sessionFor(watcherEyeAdvancedFixture);
-    session.officialTrade = {
-      listings: [{
-        id: "official-watcher",
-        price: { amount: 42, currency: "divine" },
-        indexed: new Date().toISOString(),
-        seller: { account: "Account#1234", character: "AuraSeller" },
-        item: { name: "Watcher's Eye", baseType: "Prismatic Jewel", icon: "" },
-        whisper: "",
-      }],
-      total: 9,
-      searchId: "watcher-search",
-      fetchedAt: Date.now(),
-      stale: false,
-      error: "",
-    };
-
-    const markup = renderDetails(session);
-    expect(markup).toContain('aria-label="Live seller listings"');
-    expect(markup).toContain('aria-label="9 seller listings"');
-    expect(markup).toContain(">42<");
-    expect(markup).toContain(">divine<");
-    expect(markup).toContain(">AuraSeller<");
-    expect(markup).toContain(
-      'aria-label="Include 25% to Critical Strike Multiplier while affected by Precision in the filter plan"',
-    );
-  });
 });

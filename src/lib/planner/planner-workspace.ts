@@ -1,4 +1,4 @@
-import { normalizeImportedPassiveSpecs, normalizeImportedPobBuild, type ImportedPassiveSpec, type ImportedPobBuild, type ImportedPobStat, type PobStatCategory } from "./pob-build";
+import { isPoe1PobVersion, normalizeImportedPassiveSpecs, normalizeImportedPobBuild, type ImportedPassiveSpec, type ImportedPobBuild, type ImportedPobStat, type PobStatCategory } from "./pob-build";
 import {
   RETIRED_PLANNER_FORMAT,
   retiredProductStorageKey,
@@ -40,7 +40,7 @@ export interface PlannerWorkspaceSnapshot {
   tags: string[];
   createdAt: number;
   updatedAt: number;
-  game: "poe1" | "poe2";
+  game: "poe1";
   treeVersion: string;
   build: ImportedPobBuild | null;
   specs: ImportedPassiveSpec[];
@@ -108,7 +108,6 @@ export function createPlannerSnapshot(input: {
   id?: string;
   name?: string;
   tags?: string[];
-  game: "poe1" | "poe2";
   treeVersion: string;
   build: ImportedPobBuild | null;
   specs: ImportedPassiveSpec[];
@@ -129,7 +128,7 @@ export function createPlannerSnapshot(input: {
     tags: tags(input.tags),
     createdAt: input.createdAt ?? now,
     updatedAt: now,
-    game: input.game,
+    game: "poe1",
     treeVersion: text(input.treeVersion, 24),
     build: input.build,
     specs: input.specs,
@@ -149,9 +148,26 @@ export function sanitizePlannerSnapshot(value: unknown): PlannerWorkspaceSnapsho
     candidate.format !== RETIRED_PLANNER_FORMAT
   ) return null;
   if (!Array.isArray(candidate.allocated)) return null;
+  if ((candidate.game != null && candidate.game !== "poe1")
+    || !isPoe1PobVersion(text(candidate.treeVersion, 24))) return null;
   const now = Date.now();
   const build = normalizeImportedPobBuild(candidate.build || null);
-  const specs = normalizeImportedPassiveSpecs(candidate.specs);
+  if (candidate.build != null && !build) return null;
+  const rawSpecs = Array.isArray(candidate.specs) ? candidate.specs : [];
+  const normalizedSpecs = normalizeImportedPassiveSpecs(rawSpecs);
+  if (normalizedSpecs.some((spec) => !isPoe1PobVersion(spec.treeVersion))) return null;
+  const specs = normalizedSpecs.map((spec, index) => {
+    const rawSpec = rawSpecs[index];
+    const buildSpec = build?.specs[index];
+    if (!buildSpec || !rawSpec || typeof rawSpec !== "object") return spec;
+    const source = rawSpec as Partial<ImportedPassiveSpec>;
+    return {
+      ...spec,
+      ...(source.clusterHashFormatVersion === undefined && buildSpec.clusterHashFormatVersion !== undefined
+        ? { clusterHashFormatVersion: buildSpec.clusterHashFormatVersion }
+        : {}),
+    };
+  });
   const requestedSpecId = text(candidate.activeSpecId, 160);
   const activeSpecId = specs.some((spec) => spec.id === requestedSpecId) ? requestedSpecId : specs[0]?.id || "";
   const activeSpec = specs.find((spec) => spec.id === activeSpecId);
@@ -163,7 +179,7 @@ export function sanitizePlannerSnapshot(value: unknown): PlannerWorkspaceSnapsho
     tags: tags(candidate.tags),
     createdAt: finite(candidate.createdAt, now),
     updatedAt: finite(candidate.updatedAt, now),
-    game: candidate.game === "poe2" || /^0_/.test(text(candidate.treeVersion, 24)) ? "poe2" : "poe1",
+    game: "poe1",
     treeVersion: text(candidate.treeVersion, 24),
     build,
     specs,

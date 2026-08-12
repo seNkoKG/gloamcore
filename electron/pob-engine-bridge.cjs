@@ -7,7 +7,6 @@ const { spawn, spawnSync } = require("node:child_process");
 const CONTRACT_VERSION = 1;
 const RESULT_PREFIX = "GLOAMCORE_POB_RESULT:";
 const MAX_BUILD_BYTES = 24 * 1024 * 1024;
-const MAX_CHARACTER_BYTES = 8 * 1024 * 1024;
 const MAX_STDOUT_BYTES = 8 * 1024 * 1024;
 const MAX_STDERR_BYTES = 2 * 1024 * 1024;
 const MAX_ENGINE_LOG_BYTES = 64 * 1024;
@@ -773,49 +772,6 @@ function validateTimelessHuntWorkerPayload(payload, installation) {
   return null;
 }
 
-function validateImportWorkerPayload(payload, installation) {
-  if (!payload || typeof payload !== "object") {
-    return failure("POB_PROTOCOL_ERROR", "The Path of Building worker returned no result object.");
-  }
-  if (payload.ok !== true) {
-    return failure(
-      typeof payload.code === "string" ? payload.code : "POB_CHARACTER_IMPORT_FAILED",
-      typeof payload.message === "string" ? payload.message : "Path of Building could not import this character.",
-      true,
-      { detail: typeof payload.detail === "string" ? payload.detail.slice(0, 4000) : undefined },
-    );
-  }
-  if (payload.authoritative !== true || payload.readOnly !== true || payload.freshProcess !== true
-    || payload.operation !== "import-character") {
-    return failure("POB_AUTHORITY_ASSERTION_FAILED", "The character importer did not assert the required read-only fresh-process contract.");
-  }
-  if (payload.engineVersion !== installation.engine.number
-    || payload.engineBranch !== installation.engine.branch
-    || payload.enginePlatform !== installation.engine.platform) {
-    return failure("POB_ENGINE_CHANGED", "Path of Building reported a different engine identity than the validated installation.", true, {
-      expected: installation.engine,
-      actual: {
-        number: payload.engineVersion,
-        branch: payload.engineBranch,
-        platform: payload.enginePlatform,
-      },
-    });
-  }
-  if (typeof payload.importedXml !== "string"
-    || Buffer.byteLength(payload.importedXml, "utf8") === 0
-    || Buffer.byteLength(payload.importedXml, "utf8") > MAX_BUILD_BYTES
-    || payload.importedXml.includes("\0")
-    || !payload.importedXml.includes("<PathOfBuilding")) {
-    return failure("POB_IMPORT_RESULT_INVALID", "Path of Building returned invalid or oversized character XML.");
-  }
-  if (payload.warnings != null && (!Array.isArray(payload.warnings) || payload.warnings.length > 32)) {
-    return failure("POB_IMPORT_RESULT_INVALID", "Path of Building returned an invalid character-import warning list.");
-  }
-  const calculationValidation = validateWorkerPayload(payload, installation);
-  if (calculationValidation) return calculationValidation;
-  return null;
-}
-
 async function calculateInternal(input, options = {}) {
   if (!input || typeof input.xml !== "string") {
     return failure("POB_XML_INVALID", "A PathOfBuilding XML string is required.");
@@ -1084,101 +1040,6 @@ async function huntTimelessInternal(input, options = {}) {
   };
 }
 
-async function importCharacterInternal(input, options = {}) {
-  if (!input || !input.character || typeof input.character !== "object" || Array.isArray(input.character)) {
-    return failure("POB_CHARACTER_INVALID", "An official Path of Exile character object is required.");
-  }
-  let characterJson;
-  try {
-    characterJson = JSON.stringify(input.character);
-  } catch (error) {
-    return failure("POB_CHARACTER_INVALID", "The character payload could not be encoded.", false, {
-      detail: normalizeError(error),
-    });
-  }
-  const byteLength = Buffer.byteLength(characterJson, "utf8");
-  if (byteLength === 0 || byteLength > MAX_CHARACTER_BYTES || characterJson.includes("\0")) {
-    return failure("POB_CHARACTER_INVALID", `The character payload must be non-empty and no larger than ${MAX_CHARACTER_BYTES} bytes.`);
-  }
-
-  if (options.signal?.aborted) {
-    return failure("POB_CANCELLED", "The Path of Building operation was cancelled.", true);
-  }
-  const installation = inspectInstallation(options);
-  if (!installation.ok) return installation;
-  if (options.signal?.aborted) {
-    return failure("POB_CANCELLED", "The Path of Building operation was cancelled.", true);
-  }
-
-  let resources;
-  let host;
-  try {
-    resources = materializeResources(options);
-    host = ensureHost(installation.runtimeArchitecture, resources, options);
-  } catch (error) {
-    return failure(error?.code || "POB_HOST_UNAVAILABLE", "The authoritative Path of Building host is unavailable.", true, {
-      detail: normalizeError(error),
-    });
-  }
-  if (options.signal?.aborted) {
-    return failure("POB_CANCELLED", "The Path of Building operation was cancelled.", true);
-  }
-
-  const startedAt = Date.now();
-  const run = await runWorker(host, resources, installation, {
-    operation: "import-character",
-    characterJson,
-  }, options);
-  if (run && run.ok === false) return run;
-  const validation = validateImportWorkerPayload(run.payload, installation);
-  if (validation) return validation;
-
-  const after = inspectInstallation(options);
-  if (!after.ok || after.engine.sha256 !== installation.engine.sha256
-    || after.sourceFingerprint !== installation.sourceFingerprint) {
-    return failure("POB_ENGINE_CHANGED", "Path of Building changed while the character was being imported. The result was discarded.", true);
-  }
-
-  const payload = run.payload;
-  return {
-    ok: true,
-    authoritative: true,
-    contractVersion: CONTRACT_VERSION,
-    xml: payload.importedXml,
-    engine: {
-      name: "Path of Building Community",
-      version: installation.engine.number,
-      branch: installation.engine.branch,
-      platform: installation.engine.platform,
-      runtimeArchitecture: installation.runtimeArchitecture,
-      root: installation.root,
-      manifestFingerprint: installation.engine.sha256,
-      sourceFingerprint: installation.sourceFingerprint,
-      hostFingerprint: host.sha256,
-      bridgeFingerprint: resources.fingerprint,
-    },
-    warnings: Array.isArray(payload.warnings) ? payload.warnings.slice(0, 32).map((warning) => String(warning).slice(0, 2000)) : [],
-    calculation: {
-      outputRevision: payload.outputRevision ?? null,
-      targetVersion: payload.targetVersion ?? null,
-      className: payload.className ?? null,
-      ascendancyName: payload.ascendancyName ?? null,
-      mainSocketGroup: payload.mainSocketGroup ?? null,
-      mainSkillName: payload.mainSkillName ?? null,
-      skillGroups: Array.isArray(payload.skillGroups) ? payload.skillGroups : [],
-      items: Array.isArray(payload.items) ? payload.items : [],
-      gemCatalog: Array.isArray(payload.gemCatalog) ? payload.gemCatalog : [],
-      configCatalog: Array.isArray(payload.configCatalog) ? payload.configCatalog : [],
-      scalarCount: payload.scalarCount,
-      stats: payload.stats,
-    },
-    engineMilliseconds: Number.isFinite(payload.importMilliseconds) ? payload.importMilliseconds : null,
-    durationMilliseconds: Date.now() - startedAt,
-    isolation: { freshProcess: true, installedPobReadOnly: true, noGuiLaunch: true },
-    engineLog: run.engineLog || "",
-  };
-}
-
 let engineQueue = Promise.resolve();
 function calculatePobBuild(input, options = {}) {
   const task = engineQueue.then(() => calculateInternal(input, options));
@@ -1208,30 +1069,19 @@ function huntPobTimeless(input, options = {}) {
   return task.catch((error) => failure("POB_BRIDGE_FAILED", "The authoritative Path of Building Timeless Jewel hunt failed unexpectedly.", true, { detail: normalizeError(error) }));
 }
 
-function importPobCharacter(input, options = {}) {
-  const task = engineQueue.then(() => importCharacterInternal(input, options));
-  engineQueue = task.catch(() => undefined);
-  return task.catch((error) => failure("POB_BRIDGE_FAILED", "The authoritative Path of Building character importer failed unexpectedly.", true, {
-    detail: normalizeError(error),
-  }));
-}
-
 module.exports = {
   CONTRACT_VERSION,
   MAX_BUILD_BYTES,
-  MAX_CHARACTER_BYTES,
   PROVEN_ENGINES,
   analyzePobNodes,
   calculatePobBuild,
   diagnosePobEngine,
   huntPobTimeless,
-  importPobCharacter,
   previewPobTimeless,
   inspectInstallation,
   _internals: {
     ensureHost,
     runWorker,
-    validateImportWorkerPayload,
     canonicalSourceSha1,
     validateNodeAnalysisWorkerPayload,
     validateTimelessPreviewWorkerPayload,

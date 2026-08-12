@@ -14,6 +14,6 @@
 
 - [ ] No secrets, personal data, machine-specific paths, build output, or local caches were added.
 - [ ] New or changed remote data has explicit provenance, validation, bounds, and rate-limit behavior.
-- [ ] OAuth tokens and authenticated character responses remain memory-only and uncached.
+- [ ] No GloamCore GGG OAuth, account-session, character-response, or private-stash code or credentials were added.
 - [ ] The change does not read game memory, inject into the game, or automate gameplay.
 - [ ] Relevant tests pass, and documentation or third-party notices are updated where needed.

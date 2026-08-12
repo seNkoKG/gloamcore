@@ -1,8 +1,27 @@
 # GloamCore roadmap
 
-GloamCore is the economy, intelligence, one-key in-game price-check, and
-compact live-listing baseline. New knowledge work remains isolated from the
-price dashboard until its data, performance, and accuracy checks pass.
+GloamCore is the economy, intelligence, one-key in-game price-check, and exact
+official Trade browser-handoff baseline. New knowledge work remains isolated
+from the price dashboard until its data, performance, and accuracy checks pass.
+
+Older sections below record what earlier releases shipped. Version 2.9.0
+explicitly supersedes any retired transport or data-source behavior.
+
+## Current in 2.9.0
+
+- Removed the unapproved Path of Exile OAuth, account-character, and native
+  stash integration completely after the application was rejected. Current
+  Build Lab inputs are PoB XML, codes, supported links, and local files;
+  the separate Wealthy Exile browser session remains isolated.
+- Made Build Lab strictly Path of Exile 1 and fail closed for unsupported build
+  or passive-tree version families while preserving PoB passive sockets,
+  overrides, unknown children, and equipment weapon sets.
+- Removed the unsupported in-app Trade search, exchange, and fetch transport,
+  listing UI, caches, IPC, and packaged remnants. Query planning stays
+  local; only a user click opens the encoded filters on the official Trade site.
+- Rebuilt the regex pack as 15,854 entries in 20 categories from pinned local
+  Awakened base/stat packs and PoE Wiki data. Safe full-tooltip output is the
+  default and compact category-only output is experimental.
 
 ## Shipped in 2.2.3-2.2.7
 
@@ -23,12 +42,9 @@ price dashboard until its data, performance, and accuracy checks pass.
 - Repaired authoritative passive-tree rendering, Cluster Jewel graphs, path and
   refund previews, remote-jewel dependencies, tooltip hit testing, and PoB's
   mastery chooser behavior and effect order.
-- Added exact PoE 1 public/OAuth character import and scalar recalculation
-  through the verified local Path of Building Community 2.67.2 engine. OAuth
-  character data is never cached and unknown engine fingerprints fail closed.
-- Kept PoB2 XML/code import and installed-tree editing, but intentionally
-  disabled PoE 2 account import until skills, weapon-set specialisations, and
-  quest statistics can be preserved losslessly.
+- Added scalar recalculation through the verified local Path of Building
+  Community 2.67.2 engine. Imported PoB data remains the source of truth and
+  unknown engine fingerprints fail closed.
 
 ## Shipped in 2.2.2
 
@@ -37,12 +53,12 @@ price dashboard until its data, performance, and accuracy checks pass.
   edits, contextual modes/states, gem/map/unique-special handling, bulk routing,
   named Trade rate windows, no artificial item cooldown, and 20 displayed
   grouped first-page sellers with adaptive fetching up to 100 IDs.
-- Added the Player Toolkit: filter editing and intent replay, PoE1/PoE2 regex
-  workspaces, socket recolouring, economy/dust/card audits, opt-in macros and
+- Added the Player Toolkit: filter editing and intent replay, source-tracked
+  Path of Exile 1 regex workspaces, socket recolouring, economy/dust/card audits, opt-in macros and
   stash scrolling, cheat sheets, themes, whiteboard overlays, checkpoints, and
   a permissioned sandbox plugin host.
-- Added Build Lab with real installed PoB/PoB2 tree parsing, PoE1 character and
-  PoB/PoB2 XML/code import, interactive allocation/refund/history, editable
+- Added Build Lab with real installed PoB tree parsing, PoB XML/code import,
+  interactive allocation/refund/history, editable
   build sections, imported calculation snapshots, radial stat view, saved build
   comparison, and PoB export. Calculation snapshots are marked stale after
   local edits instead of inventing recalculated DPS.
@@ -117,10 +133,9 @@ price dashboard until its data, performance, and accuracy checks pass.
 ## Product principles
 
 - Prefer documented GGG APIs, permitted game-data exports, and clearly licensed
-  community datasets. Where the desktop checker uses the public official Trade
-  website search/fetch routes, keep them fixed-host, anonymous, bounded,
-  conservatively rate-limited, optional, and easy to disable if policy or
-  behavior changes.
+  community datasets. Never call the official Trade website's undocumented
+  search, exchange, or fetch APIs. Build Trade filters locally and open them
+  only through an explicit user-clicked browser handoff.
 - Never use player session cookies such as `POESESSID`, reverse-engineer private
   endpoints, automate whispers/trades, or represent public Trade website access
   as an authenticated developer API.
@@ -129,8 +144,9 @@ price dashboard until its data, performance, and accuracy checks pass.
   database for automatic rollback and offline use.
 - Keep calculations reproducible and label estimated or uncertain mechanics.
 - Preserve GloamCore's economy, tooltip, watchlist, and mobile paths as
-  independently testable modules. Keep future authorized Currency Exchange
-  support isolated behind a compliant identifiable application service.
+  independently testable modules. Keep documented Public Currency Exchange
+  completed-hour evidence isolated from active Trade results and other market
+  sources.
 
 ## Phase 1 - Versioned PoE data foundation
 
@@ -196,8 +212,9 @@ data source.
 
 ## Recommended next milestone
 
-Extend the shipped live search with a separately downloaded, checksummed RePoE
-snapshot and staged updater. Add gems, passive/Atlas data, areas, monsters,
+Extend the shipped Item Intel live search with a separately downloaded,
+checksummed RePoE snapshot and staged updater. Add gems, passive/Atlas data,
+areas, monsters,
 recipes, patch comparison, and richer asset handling before considering any
 independent crafting calculator. Craft of Exile remains the recommended
 specialist handoff unless a future engine can be validated and maintained safely.

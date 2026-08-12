@@ -16,7 +16,7 @@ import type { QuickSearchRow, SurfaceState } from "../types";
 import { CurrencyMark } from "./CurrencyMark";
 
 function adaptivePrice(row: QuickSearchRow) {
-  return row.divineValue >= 1
+  return row.divineValue != null && row.divineValue >= 1
     ? { value: row.divineValue, unit: "divine" }
     : { value: row.chaosValue, unit: "chaos" };
 }

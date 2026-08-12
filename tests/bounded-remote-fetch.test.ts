@@ -14,7 +14,7 @@ const { assertTrustedRemoteUrl, fetchTrustedLimited } = require(
 
 function response(
   chunks: Uint8Array[],
-  { url = "https://poe.ninja/poe1/api/economy/leagues", status = 200 } = {},
+  { url = "https://senkokg.github.io/gloamcore/data/poe-ninja/v1/manifest.json", status = 200 } = {},
 ) {
   let index = 0;
   return {
@@ -38,10 +38,22 @@ describe("bounded remote fetch", () => {
   it("allows only the exact market/wiki routes used by the app", () => {
     expect(
       assertTrustedRemoteUrl(
+        "https://senkokg.github.io/gloamcore/data/poe-ninja/v1/manifest.json",
+        "json",
+      ),
+    ).toContain("senkokg.github.io");
+    expect(
+      assertTrustedRemoteUrl(
+        `https://senkokg.github.io/gloamcore/data/poe-ninja/v1/routes/${"a".repeat(64)}.json`,
+        "json",
+      ),
+    ).toContain("/routes/");
+    expect(() =>
+      assertTrustedRemoteUrl(
         "https://poe.ninja/poe1/api/economy/leagues",
         "json",
       ),
-    ).toContain("poe.ninja");
+    ).toThrow(/untrusted/i);
     expect(
       assertTrustedRemoteUrl(
         "https://web.poecdn.com/api/currency-exchange/1786474800",
@@ -74,9 +86,9 @@ describe("bounded remote fetch", () => {
       return response([], { url: "https://127.0.0.1/private" });
     });
     await expect(
-      fetchTrustedLimited("https://poe.ninja/poe1/api/economy/leagues", {
+      fetchTrustedLimited("https://senkokg.github.io/gloamcore/data/poe-ninja/v1/manifest.json", {
         kind: "json",
-        label: "poe.ninja",
+        label: "market mirror",
         maximumBytes: 64,
         timeoutMs: 1000,
         fetchImpl,
@@ -89,9 +101,9 @@ describe("bounded remote fetch", () => {
       response([new Uint8Array(5), new Uint8Array(5)]),
     );
     await expect(
-      fetchTrustedLimited("https://poe.ninja/poe1/api/economy/leagues", {
+      fetchTrustedLimited("https://senkokg.github.io/gloamcore/data/poe-ninja/v1/manifest.json", {
         kind: "json",
-        label: "poe.ninja",
+        label: "market mirror",
         maximumBytes: 8,
         timeoutMs: 1000,
         fetchImpl,
@@ -108,9 +120,9 @@ describe("bounded remote fetch", () => {
       }),
     );
     await expect(
-      fetchTrustedLimited("https://poe.ninja/poe1/api/economy/leagues", {
+      fetchTrustedLimited("https://senkokg.github.io/gloamcore/data/poe-ninja/v1/manifest.json", {
         kind: "json",
-        label: "poe.ninja",
+        label: "market mirror",
         maximumBytes: 64,
         timeoutMs: 100,
         fetchImpl,

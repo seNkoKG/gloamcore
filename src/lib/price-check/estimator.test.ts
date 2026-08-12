@@ -356,4 +356,36 @@ describe("price-check confidence estimator", () => {
     expect(estimate.evidence.some((entry) => entry.source === "faustus")).toBe(true);
     expect(estimate.reasons.join(" ")).toContain("Faustus completed-hour evidence agrees");
   });
+
+  it.each([
+    { label: "agreeing", minimumChaos: 95, maximumChaos: 105 },
+    { label: "divergent", minimumChaos: 10, maximumChaos: 20 },
+  ])("keeps stale $label Faustus evidence informational", ({ minimumChaos, maximumChaos }) => {
+    const baseline = estimatePriceCheck(item(), [match()], {
+      now: NOW,
+      sourceFetchedAt: NOW - 60_000,
+    });
+    const stale = estimatePriceCheck(item(), [
+      match({
+        row: row({
+          faustus: {
+            hour: Math.floor((NOW - 24 * 60 * 60_000) / (60 * 60_000)),
+            minimumChaos,
+            maximumChaos,
+            traded: 100,
+            reference: "chaos",
+          },
+        }),
+      }),
+    ], { now: NOW, sourceFetchedAt: NOW - 60_000 });
+
+    expect(stale.evidence.find((entry) => entry.source === "faustus")).toMatchObject({
+      stale: true,
+      confidence: "low",
+    });
+    expect(stale.chaosValue).toBe(baseline.chaosValue);
+    expect(stale.confidenceScore).toBe(baseline.confidenceScore);
+    expect(stale.reasons.join(" ")).not.toContain("Faustus completed-hour evidence agrees");
+    expect(stale.warnings.join(" ")).not.toContain("Faustus evidence and the listing estimate disagree");
+  });
 });

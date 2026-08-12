@@ -3,6 +3,7 @@ import {
   isOverviewPayload,
   isWikiCargoPayload,
   isWikiImagePayload,
+  sanitizeStoredMobileSettings,
 } from "./mobile-bridge";
 
 describe("mobile response payload validation", () => {
@@ -29,5 +30,39 @@ describe("mobile response payload validation", () => {
       true,
     );
     expect(isWikiImagePayload({ query: { pages: [null] } })).toBe(false);
+  });
+
+  it("repairs corrupt persisted settings instead of returning invalid runtime types", () => {
+    const result = sanitizeStoredMobileSettings({
+      alwaysOnTop: "false",
+      opacity: "zero",
+      compact: true,
+      shortcuts: { toggleWidget: 42 },
+      priceCheck: {
+        enabled: "yes",
+        hotkey: 12,
+        rollTolerance: "NaN",
+        maxHistory: Number.POSITIVE_INFINITY,
+      },
+    });
+
+    expect(result).toMatchObject({
+      alwaysOnTop: false,
+      opacity: 1,
+      compact: true,
+      shortcuts: {
+        toggleWidget: "CommandOrControl+Shift+E",
+      },
+      priceCheck: {
+        enabled: true,
+        hotkey: "CommandOrControl+D",
+        rollTolerance: 10,
+        maxHistory: 50,
+        captureMode: "auto-copy",
+      },
+    });
+    expect(typeof result.alwaysOnTop).toBe("boolean");
+    expect(typeof result.opacity).toBe("number");
+    expect(typeof result.priceCheck.rollTolerance).toBe("number");
   });
 });

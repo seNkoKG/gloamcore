@@ -25,6 +25,7 @@ mobile-signing.local.properties
 /icons/
 /build/native-input/
 /build/pob-engine/
+/.mirror-site/
 
 # Local configuration and credentials
 .env
@@ -32,7 +33,6 @@ mobile-signing.local.properties
 !.env.example
 oauth-credentials.json
 oauth-credentials.*.json
-!oauth-credentials.example.json
 ggg-oauth-request.txt
 *.jks
 *.keystore

@@ -25,18 +25,18 @@ filter plan. StatGroup category selection, merged IDs, per-ID numeric
 transforms, base-property discriminators, and unique fixed-stat declarations
 remain pinned to that source release.
 GloamCore does not use POESESSID or account-session cookies. The Windows price
-checker may anonymously use fixed public official Trade website search/exchange/fetch
-routes for a compact listing snapshot; the mobile packages do not include that
-desktop bridge. Awakened PoE Trade acknowledges RePoE for extracted game data.
+checker opens an encoded query on the official Trade website in the user's
+browser; it does not fetch seller listings inside the app. Awakened PoE Trade
+acknowledges RePoE for extracted game data.
 
 Regex reference data
 --------------------
 
-The bundled PoE 1 regex reference pack is generated from public Grinding Gear
-Games Trade API data, the app's transformed Awakened Trade catalog, Path of
-Building Community data, and Area modifier records queried from PoE Wiki Cargo.
-Its source identities, retrieval timestamps, input hashes, coverage, and known
-limitations are embedded in public/data/toolkit/regex-v1.json.
+The bundled PoE 1 regex reference pack is generated from the app's pinned,
+transformed Awakened PoE Trade base-type and stat packs plus Area modifier
+records queried from PoE Wiki Cargo. Its source identities, retrieval
+timestamps, input hashes, coverage, and known limitations are embedded in
+public/data/toolkit/regex-v1.json.
 
 PoE Wiki textual content that the wiki may license is provided under CC
 BY-NC-SA 3.0. Source: https://www.poewiki.net/ and
@@ -48,11 +48,12 @@ intellectual property of their respective owners.
 Cluster Back reference data
 ---------------------------
 
-The bundled PoE 1 Cluster Back reference pack is generated from public
-Grinding Gear Games Trade API data, Path of Building Community data, and
-Cluster Jewel modifier records queried from PoE Wiki Cargo. Its source
-identities, retrieval timestamps, input hashes, transformations, and known
-limitations are embedded in public/data/toolkit/cluster-back-v1.json.
+The bundled PoE 1 Cluster Back reference pack is generated from an installed
+Path of Building Community data file, the app's pinned transformed Awakened
+PoE Trade stat pack, and Cluster Jewel modifier records queried from PoE Wiki
+Cargo. Its source identities, retrieval timestamps, input hashes,
+transformations, and known limitations are embedded in
+public/data/toolkit/cluster-back-v1.json.
 
 PoE Wiki textual content that the wiki may license is provided under CC
 BY-NC-SA 3.0. Source: https://www.poewiki.net/ and
@@ -98,7 +99,7 @@ Shipped dependency license inventory
 ------------------------------------
 
 ==============================================================================
-@capacitor/android 8.4.2
+@capacitor/android 8.5.0
 License: MIT
 Project: https://capacitorjs.com
 License source: LICENSE
@@ -186,7 +187,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-@capacitor/core 8.4.2
+@capacitor/core 8.5.0
 License: MIT
 Project: https://capacitorjs.com
 License source: LICENSE
@@ -244,7 +245,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-@capacitor/ios 8.4.2
+@capacitor/ios 8.5.0
 License: MIT
 Project: https://capacitorjs.com
 License source: LICENSE
@@ -5410,7 +5411,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-electron 43.2.0
+electron 43.3.0
 License: MIT
 Project: https://github.com/electron/electron#readme
 License source: LICENSE

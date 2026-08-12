@@ -6,7 +6,6 @@ const {
   calculatePobBuild,
   diagnosePobEngine,
   huntPobTimeless,
-  importPobCharacter,
   previewPobTimeless,
 } = require("./pob-engine-bridge.cjs");
 
@@ -37,16 +36,14 @@ parentPort.on("message", async (message) => {
         ? await huntPobTimeless(message.request, options)
       : message?.operation === "calculate"
         ? await calculatePobBuild(message.request, options)
-        : message?.operation === "import-character"
-          ? await importPobCharacter(message.request, options)
-          : {
+        : {
               ok: false,
               authoritative: false,
               contractVersion: 1,
               code: "POB_DISPATCH_INVALID",
               message: "The Path of Building worker received an unknown operation.",
               recoverable: false,
-            };
+          };
     parentPort.postMessage({ result });
   } catch (error) {
     parentPort.postMessage({

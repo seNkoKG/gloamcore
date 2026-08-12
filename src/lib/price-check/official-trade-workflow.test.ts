@@ -21,8 +21,6 @@ import {
   defaultOfficialTradeStatusForItem,
   defaultPriceCheckModeForItem,
   isBulkMapPriceCheckMode,
-  officialTradeFailureResult,
-  officialTradeNeedsExplicitSearch,
   priceCheckModesForItem,
 } from "./official-trade-workflow";
 
@@ -231,92 +229,5 @@ describe("Awakened-style price-check workflow", () => {
     expect(defaultOfficialTradeStatusForItem(parsePoeItem(currencyFixture))).toBe("securable");
     expect(defaultOfficialTradeStatusForItem(parsePoeItem(divinationCardFixture)))
       .toBe("available");
-  });
-
-  it("marks every edited query as waiting even for an auto-search item", () => {
-    const item = parsePoeItem(uniqueFixture);
-    const query = buildPriceCheckQueryPlan(item, "Allflame");
-    const base = {
-      id: "workflow",
-      capturedAt: Date.now(),
-      league: "Allflame",
-      status: "ready" as const,
-      item,
-      matches: [],
-      estimate: null,
-      query,
-      sourceStale: false,
-    };
-
-    expect(officialTradeNeedsExplicitSearch(base)).toBe(false);
-    expect(officialTradeNeedsExplicitSearch({
-      ...base,
-      officialTradeNeedsSearch: true,
-    })).toBe(true);
-  });
-
-  it("distinguishes an empty first failure from stale cached evidence", () => {
-    const firstFailure = officialTradeFailureResult(
-      new Error("Error invoking remote method 'trade:listings': offline"),
-    );
-    expect(firstFailure).toMatchObject({
-      listings: [],
-      stale: false,
-      error: "offline",
-    });
-
-    const cachedFailure = officialTradeFailureResult(new Error("offline"), {
-      api: "trade",
-      listings: [{
-        id: "listing-1",
-        price: { amount: 1, currency: "divine" },
-        indexed: "2026-08-02T12:34:56Z",
-        seller: { account: "Seller", character: "Mapper" },
-        item: { name: "Mageblood", baseType: "Heavy Belt", icon: "" },
-        whisper: "",
-      }],
-      total: 1,
-      searchId: "search-1",
-      fetchedAt: 123,
-      stale: false,
-      error: "",
-    });
-    expect(cachedFailure).toMatchObject({
-      api: "trade",
-      stale: true,
-      total: 1,
-      searchId: "search-1",
-      fetchedAt: 123,
-      error: "offline",
-    });
-
-    expect(officialTradeFailureResult(new Error("offline"), {
-      api: "exchange",
-      listings: [],
-      total: 0,
-      searchId: "empty-search",
-      fetchedAt: 321,
-      stale: false,
-      error: "",
-    })).toMatchObject({
-      api: "exchange",
-      listings: [],
-      stale: true,
-      searchId: "empty-search",
-    });
-
-    expect(officialTradeFailureResult(new Error("ipc failed"), {
-      api: "trade",
-      listings: [],
-      total: 12,
-      searchId: "partial-search",
-      fetchedAt: 456,
-      stale: false,
-      error: "listing fetch failed",
-    })).toMatchObject({
-      stale: false,
-      searchId: "partial-search",
-      error: "ipc failed",
-    });
   });
 });

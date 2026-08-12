@@ -6,8 +6,6 @@ local MAX_SCALAR_STATS = 4096
 local MAX_WARNINGS = 32
 local MAX_CONFIG_INPUTS = 4096
 local MAX_CONFIG_OPTIONS = 2048
-local MAX_CHARACTER_BYTES = 8 * 1024 * 1024
-local MAX_IMPORTED_XML_BYTES = 8 * 1024 * 1024
 
 local json = require("dkjson")
 
@@ -216,15 +214,6 @@ local operation = request.operation or "calculate"
 if operation == "calculate" or operation == "analyze-nodes" or operation == "preview-timeless" or operation == "hunt-timeless" then
 	if type(request.xml) ~= "string" or not request.xml:find("<PathOfBuilding", 1, true) then
 		fail("POB_XML_INVALID", "The calculation request has no PathOfBuilding XML root.")
-		return
-	end
-elseif operation == "import-character" then
-	if type(loadBuildFromJSON) ~= "function" then
-		fail("POB_CHARACTER_IMPORT_UNAVAILABLE", "This verified Path of Building engine has no JSON character importer.")
-		return
-	end
-	if type(request.characterJson) ~= "string" or #request.characterJson == 0 or #request.characterJson > MAX_CHARACTER_BYTES then
-		fail("POB_CHARACTER_INVALID", "The character import JSON is empty or exceeds the safety limit.")
 		return
 	end
 else
@@ -501,55 +490,6 @@ local function collectCalculationOutput()
 end
 
 local ok, result = xpcall(function()
-	if operation == "import-character" then
-		-- Use PoB's own ImportTab implementation. This is the authoritative path for
-		-- slot names, jewel ordinals, item properties, linked sockets, transfigured
-		-- gems, Abyss jewels and main-skill selection; none of those are inferred by
-		-- GloamCore.
-		loadBuildFromJSON(request.characterJson)
-		-- ImportTab marks the build dirty but does not synchronously refresh the
-		-- PlayerStat snapshot that SaveDB embeds. Rebuild it now so the editable UI
-		-- never labels pre-import values as current PoB output.
-		wipeGlobalCache()
-		build.calcsTab:BuildOutput()
-		if fatalDataWarning then
-			error(fatalDataWarning)
-		end
-		local calculation = collectCalculationOutput()
-		local importedXml = build:SaveDB("code")
-		if type(importedXml) ~= "string"
-			or #importedXml == 0
-			or #importedXml > MAX_IMPORTED_XML_BYTES
-			or not importedXml:find("<PathOfBuilding", 1, true) then
-			error("Path of Building produced invalid or oversized imported XML.")
-		end
-		return {
-			ok = true,
-			authoritative = true,
-			operation = operation,
-			engineVersion = launch and launch.versionNumber or nil,
-			engineBranch = launch and launch.versionBranch or nil,
-			enginePlatform = launch and launch.versionPlatform or nil,
-			importedXml = importedXml,
-			outputRevision = calculation.outputRevision,
-			targetVersion = calculation.targetVersion,
-			className = calculation.className,
-			ascendancyName = calculation.ascendancyName,
-			mainSocketGroup = calculation.mainSocketGroup,
-			mainSkillName = calculation.mainSkillName,
-			skillGroups = calculation.skillGroups,
-			items = calculation.items,
-			gemCatalog = calculation.gemCatalog,
-			configCatalog = calculation.configCatalog,
-			scalarCount = calculation.scalarCount,
-			stats = calculation.stats,
-			warnings = warnings,
-			importMilliseconds = math.floor((os.clock() - startedAt) * 1000),
-			readOnly = true,
-			freshProcess = true,
-		}
-	end
-
 	loadBuildFromXML(request.xml, request.name or "GloamCore calculation")
 	-- Required even in a fresh process: it preserves the same safe ordering if
 	-- PoB initialization populated a globally keyed trigger cache.
@@ -931,9 +871,7 @@ local ok, result = xpcall(function()
 end, debug.traceback)
 
 if not ok then
-	if operation == "import-character" then
-		fail("POB_CHARACTER_IMPORT_FAILED", "Path of Building could not import this character.", result)
-	elseif operation == "analyze-nodes" then
+	if operation == "analyze-nodes" then
 		fail("POB_NODE_ANALYSIS_FAILED", "Path of Building could not analyze passive power for this build.", result)
 	elseif operation == "preview-timeless" then
 		fail("POB_TIMELESS_PREVIEW_FAILED", "Path of Building could not preview this Timeless Jewel seed.", result)

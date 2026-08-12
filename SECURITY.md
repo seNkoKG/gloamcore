@@ -1,9 +1,9 @@
 # Security policy
 
 GloamCore is a desktop companion that handles global shortcuts, copied item
-text, local files, remote data, native overlay windows, an isolated Wealthy
-Exile browser profile, and an optional official OAuth token. Reports that cross
-one of those trust boundaries are taken seriously.
+text, local files, remote data, native overlay windows, and an isolated Wealthy
+Exile browser profile. Reports that cross one of those trust boundaries are
+taken seriously.
 
 ## Supported versions
 
@@ -42,9 +42,8 @@ details should wait until users have had a reasonable opportunity to update.
 
 - GloamCore must not inspect game memory, inject into Path of Exile, automate
   gameplay, send whispers, or use account-session cookies.
-- The optional `account:characters` OAuth token is held only in process memory,
-  cleared after import, and never persisted. Authenticated character responses
-  are not cached.
+- GloamCore must not request Path of Exile account authorization, accept account
+  access tokens, or fetch private character or stash responses.
 - Remote plugin pages must remain isolated from Node, Electron, the filesystem,
   direct clipboard access, and game memory. Sensitive capabilities require an
   explicit per-plugin permission.

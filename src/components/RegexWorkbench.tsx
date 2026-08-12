@@ -21,10 +21,12 @@ import {
 } from "../lib/toolkit/map-regex-properties";
 import {
   buildPoeRegex,
+  migrateRegexTokenMode,
   normalizePoeSearchText,
   type RegexEntry,
   type RegexEntryMode,
   type RegexMatchMode,
+  type RegexTokenMode,
 } from "../lib/toolkit/poe-regex";
 import {
   loadRegexDataPack,
@@ -40,8 +42,6 @@ import {
   retiredProductStorageKey,
 } from "../lib/storage-migration";
 
-type TokenMode = "exact" | "optimized";
-
 interface CustomRegexEntry {
   id: string;
   label: string;
@@ -52,7 +52,7 @@ interface RegexWorkbenchState {
   activeCategoryId: string;
   selections: Record<string, Record<string, RegexEntryMode>>;
   customEntries: Record<string, CustomRegexEntry[]>;
-  tokenMode: TokenMode;
+  tokenMode: RegexTokenMode;
   wantMatch: RegexMatchMode;
   autoCopy: boolean;
   mapProperties: MapRegexPropertySettings;
@@ -76,9 +76,8 @@ const EMPTY_CUSTOM_ENTRIES: CustomRegexEntry[] = [];
 const SECTION_LABELS: Record<RegexDataCategory["section"], string> = {
   core: "Core tools",
   mechanic: "League mechanics",
-  "official-items": "Official item groups",
-  "official-stats": "Official modifier groups",
-  "official-static": "Official static groups",
+  "bundled-items": "Bundled item groups",
+  "bundled-stats": "Bundled modifier groups",
 };
 
 function cleanMapProperties(): MapRegexPropertySettings {
@@ -94,7 +93,7 @@ function cleanState(): RegexWorkbenchState {
     activeCategoryId: "map-modifiers",
     selections: {},
     customEntries: {},
-    tokenMode: "optimized",
+    tokenMode: "safe",
     wantMatch: "any",
     autoCopy: false,
     mapProperties: cleanMapProperties(),
@@ -105,9 +104,9 @@ function stateForCategory(
   current: RegexWorkbenchState,
   category: RegexDataCategory,
 ): RegexWorkbenchState {
-  const tokenMode = current.tokenMode === "exact"
-    ? (category.search.supportsExact ? "exact" : "optimized")
-    : (category.search.supportsOptimized ? "optimized" : "exact");
+  const tokenMode = current.tokenMode === "compact" && category.search.supportsOptimized
+    ? "compact"
+    : "safe";
   const wantMatch = current.wantMatch === "all"
     ? (category.search.supportsMatchAll ? "all" : "any")
     : (category.search.supportsMatchAny ? "any" : "all");
@@ -207,7 +206,7 @@ function normalizeState(value: unknown): RegexWorkbenchState | null {
     activeCategoryId: typeof value.activeCategoryId === "string" ? value.activeCategoryId.slice(0, 160) : "map-modifiers",
     selections,
     customEntries,
-    tokenMode: value.tokenMode === "exact" ? "exact" : "optimized",
+    tokenMode: migrateRegexTokenMode(value.tokenMode),
     wantMatch: value.wantMatch === "all" ? "all" : "any",
     autoCopy: Boolean(value.autoCopy),
     mapProperties: normalizeMapProperties(value.mapProperties),
@@ -247,7 +246,7 @@ function cloneState(value: RegexWorkbenchState) {
 }
 
 function mapPackAge(pack: RegexDataPack) {
-  const timestamp = Date.parse(pack.update.officialRetrievedAt);
+  const timestamp = Date.parse(pack.update.sourceUpdatedAt);
   return Number.isFinite(timestamp) ? Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000)) : null;
 }
 
@@ -383,7 +382,7 @@ export function RegexWorkbench() {
       : { requiredPatterns: [], avoidEntries: [] };
     selectedEntries.push(...mapClauses.avoidEntries);
     return buildPoeRegex(selectedEntries, {
-      exact: state.tokenMode === "exact",
+      optimization: state.tokenMode,
       wantMatch: state.wantMatch,
       requiredPatterns: mapClauses.requiredPatterns,
       universe: [...baseEntries, ...currentCustom.map((entry) => entry.label)],
@@ -391,7 +390,7 @@ export function RegexWorkbench() {
   }, [activeCategory?.id, baseEntries, currentCustom, currentSelections, entryIndex, state.mapProperties, state.tokenMode, state.wantMatch]);
 
   useEffect(() => {
-    if (!state.autoCopy || !result.valid || result.overflow || result.chunks.length !== 1 || !result.expression || lastAutoCopy.current === result.expression) return;
+    if (!state.autoCopy || !result.fullTooltipSafe || !result.valid || result.overflow || result.chunks.length !== 1 || !result.expression || lastAutoCopy.current === result.expression) return;
     let active = true;
     navigator.clipboard.writeText(result.expression).then(() => {
       if (!active) return;
@@ -527,16 +526,17 @@ export function RegexWorkbench() {
     <div className="regex-workbench">
       <section className="regex-output-card">
         <div className="regex-output-head">
-          <span>{activeCategory.label} · {state.tokenMode === "optimized" ? "verified optimized" : "exact"}</span>
+          <span>{activeCategory.label} · {state.tokenMode === "safe" ? "full-tooltip safe" : "compact experimental"}</span>
           <strong className={clsx(result.overflow && "is-over")}>{result.characterCount}/250</strong>
         </div>
         <code>{result.expression || "Nothing selected. Choose AVOID or WANT below."}</code>
         <div className="regex-output-actions">
           <button type="button" className="is-primary" disabled={!result.expression || result.overflow || !result.valid} onClick={() => void copy(result.expression, "Regex")}><Clipboard size={14} /> Copy regex</button>
-          <label><input type="checkbox" checked={state.autoCopy} onChange={(event) => setState((current) => ({ ...current, autoCopy: event.target.checked }))} /> Auto-copy one valid chunk</label>
+          <label><input type="checkbox" checked={state.autoCopy} disabled={!result.fullTooltipSafe} onChange={(event) => setState((current) => ({ ...current, autoCopy: event.target.checked }))} /> Auto-copy one safe chunk</label>
           <span>{selectedCount} selected · {result.tokens.length} clauses</span>
         </div>
         {result.optimizationFallbacks.length > 0 && <div className="regex-notice is-advisory"><Info size={13} /> {result.optimizationFallbacks.length} selection{result.optimizationFallbacks.length === 1 ? "" : "s"} fell back to exact because no shorter token was proven unique.</div>}
+        {!result.fullTooltipSafe && <div className="regex-notice is-advisory"><CircleAlert size={13} /> Compact mode proves fragments only inside this category. It can match names, bases, headers, properties, flags, or other tooltip lines and is not lossless. Auto-copy is disabled; verify the full tooltip before use.</div>}
         {result.overflow && <div className={clsx("regex-notice", result.chunksAreLossless ? "is-safe" : "is-advisory")}><CircleAlert size={13} />{result.chunksAreLossless ? `Use all ${result.chunks.length} chunks and combine their matches. The split is lossless.` : "These chunks are advisory only. Separate searches change AND or exclusion semantics, so refine the selection for one exact query."}</div>}
         {result.oversizedTerms.length > 0 && <div className="regex-notice is-advisory"><CircleAlert size={13} /> {result.oversizedTerms.length} complete term{result.oversizedTerms.length === 1 ? " is" : "s are"} longer than the in-game limit and cannot be split safely.</div>}
         {result.chunks.length > 1 && <div className="regex-chunks">{result.chunks.map((chunk, index) => <article key={`${index}-${chunk}`}><header><span>Chunk {index + 1}</span><strong>{chunk.length}/250</strong></header><code>{chunk}</code><button type="button" onClick={() => void copy(chunk, `Chunk ${index + 1}`)}><Clipboard size={13} /> Copy</button></article>)}</div>}
@@ -547,8 +547,8 @@ export function RegexWorkbench() {
 
       <div className="regex-top-controls">
         <span className="regex-token-mode" role="group" aria-label="Regex token mode">
-          <button type="button" className={state.tokenMode === "optimized" ? "is-active" : ""} disabled={!activeCategory.search.supportsOptimized} onClick={() => setState((current) => ({ ...current, tokenMode: "optimized" }))}>Verified optimized</button>
-          <button type="button" className={state.tokenMode === "exact" ? "is-active" : ""} disabled={!activeCategory.search.supportsExact} onClick={() => setState((current) => ({ ...current, tokenMode: "exact" }))}>Exact</button>
+          <button type="button" className={state.tokenMode === "safe" ? "is-active" : ""} onClick={() => setState((current) => ({ ...current, tokenMode: "safe" }))}>Safe full-tooltip</button>
+          <button type="button" className={state.tokenMode === "compact" ? "is-active" : ""} disabled={!activeCategory.search.supportsOptimized} onClick={() => setState((current) => ({ ...current, tokenMode: "compact", autoCopy: false }))}>Compact (experimental)</button>
         </span>
         <span className="regex-token-mode" role="group" aria-label="Wanted modifier matching">
           <button type="button" className={state.wantMatch === "any" ? "is-active" : ""} disabled={!activeCategory.search.supportsMatchAny} onClick={() => setState((current) => ({ ...current, wantMatch: "any" }))}>WANT any</button>
@@ -602,8 +602,8 @@ export function RegexWorkbench() {
             <div className="regex-profile-list">{profiles.map((profile) => <div key={profile.id}><button type="button" onClick={() => loadProfile(profile)}><strong>{profile.name}</strong><small>{new Date(profile.updatedAt).toLocaleString()}</small></button><button type="button" aria-label={`Delete ${profile.name}`} onClick={() => deleteProfile(profile.id)}><Trash2 size={12} /></button></div>)}{!profiles.length && <p>No profiles saved. Saving captures the entire logical workbench state.</p>}</div>
           </section>
           <section className="regex-provenance">
-            <header><strong>Data freshness</strong><span className={clsx(packAge != null && packAge > 14 && "is-stale")}>{packAge == null ? "Unknown age" : packAge === 0 ? "Retrieved today" : `${packAge} days old`}</span></header>
-            <p>Generated {new Date(pack.generatedAt).toLocaleString()}. Official Trade data retrieved {new Date(pack.update.officialRetrievedAt).toLocaleString()}.</p>
+            <header><strong>Data freshness</strong><span className={clsx(packAge != null && packAge > 14 && "is-stale")}>{packAge == null ? "Unknown age" : packAge === 0 ? "Updated today" : `${packAge} days old`}</span></header>
+            <p>Generated {new Date(pack.generatedAt).toLocaleString()}. Bundled source snapshot updated {new Date(pack.update.sourceUpdatedAt).toLocaleDateString()}.</p>
             <div>{pack.sources.map((source) => <span key={source.id}><strong>{source.label}</strong><small>{source.kind}{source.version ? ` · ${source.version}` : ""}</small></span>)}</div>
             <details><summary><Info size={12} /> Coverage and limitations</summary><ul>{pack.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul><code>{pack.update.command}</code></details>
           </section>

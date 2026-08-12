@@ -20,8 +20,8 @@ function expectOrdered(...fragments: string[]) {
 }
 
 describe("native price-check smoke harness", () => {
-  it("binds source and packaged runs to the current 2.8.1 release identity", () => {
-    expect(packageMetadata.version).toBe("2.8.1");
+  it("binds source and packaged runs to the current 2.9.0 release identity", () => {
+    expect(packageMetadata.version).toBe("2.9.0");
     expect(smoke).toContain('(Join-Path $projectRoot "package.json")');
     expect(smoke).toContain(").version)");
     expect(smoke).toContain("$provenance.gitHead -ne $snapshotHead.Trim()");
@@ -94,11 +94,9 @@ describe("native price-check smoke harness", () => {
     expect(smoke).toContain(
       "Canonical Mageblood exposed upstream-hidden stats or an optional-stat fold.",
     );
-    expect(smoke).toContain(
-      "NO PRICE was not backed by a live official listing with a positive finite price.",
-    );
-    expect(smoke).toContain("$result.result.listingRows -lt 1");
-    expect(smoke).toContain("$positiveListingPrice");
+    expect(smoke).toContain('$result.result.sourceLabel -ne "TRADE FILTERS"');
+    expect(smoke).toContain("Official Trade handoff is missing from the ready surface.");
+    expect(smoke).not.toMatch(/liveListings|listingRows|seller listings/i);
     expect(smoke).not.toContain("selected-first compact contract");
     expect(smoke).toContain("$result.result.modifierRows -ne 8");
   });

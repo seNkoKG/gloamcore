@@ -5,7 +5,6 @@ import packageMetadata from "../../package.json";
 import type {
   CacheEnvelope,
   DesktopSettings,
-  EconomyLeague,
   FaustusOverviewRequest,
   KnowledgeSearchRequest,
   PoeWidgetBridge,
@@ -21,6 +20,7 @@ import type {
   UpdateState,
 } from "../types";
 import { readMobileCache, writeMobileCache } from "./mobile-cache";
+import { fetchBoundedToolkitText } from "./bounded-text-fetch";
 import {
   knowledgeImageQuery,
   knowledgeImageTitles,
@@ -32,7 +32,6 @@ import {
   isValidMobileStoredResponse,
   MAX_MOBILE_ARTWORK_BYTES,
   MAX_MOBILE_JSON_BYTES,
-  mobileOverviewUrl,
   mobileWikiTooltipUrl,
   parseLimitedMobileJson,
   responseHeader,
@@ -42,12 +41,27 @@ import {
   withMobileHttpDeadline,
 } from "./mobile-network";
 import type { MobileStoredResponse } from "./mobile-network";
+import {
+  isPoeNinjaMirrorManifest,
+  MAX_ACTIONABLE_MIRROR_AGE_MS,
+  mirrorEnvelopeTimes,
+  mirrorRouteForRequest,
+  mirrorRouteUrl,
+  POE_NINJA_MIRROR_MANIFEST_URL,
+  verifyMirrorPayloadText,
+} from "./poe-ninja-mirror";
+import type {
+  PoeNinjaMirrorManifest,
+  PoeNinjaMirrorRoute,
+} from "./poe-ninja-mirror";
 import { resolveFaustusItemMetadata } from "./faustus";
 import { defaultPriceCheckSettings } from "./price-check/types";
 import {
   cloneDesktopSettings,
   createSerialTaskQueue,
   mergeDesktopSettingsPatch,
+  sanitizeDesktopSettingsPatch,
+  sanitizeDesktopSettingsSnapshot,
 } from "./settings-sync";
 import { defaultDesktopShortcuts, validateShortcutDraft } from "./shortcuts";
 
@@ -80,9 +94,9 @@ function isStoredKnowledgeArtwork(value: unknown): value is StoredKnowledgeArtwo
 const SETTINGS_KEY = "desktop-settings";
 const DEFAULT_TTL = 15 * 60 * 1000;
 const MAX_MARKET_STALE_MS = 2 * 60 * 60 * 1000;
-const MARKET_CACHE_VERSION = "v2";
+const MARKET_CACHE_VERSION = "v3-mirror";
 const FAUSTUS_API_ROOT = "https://web.poecdn.com/api/currency-exchange";
-const FAUSTUS_USER_AGENT = `GloamCore/${packageMetadata.version} (+https://github.com/seNkoKG/gloamcore)`;
+const WIKI_USER_AGENT = `GloamCore/${packageMetadata.version} (+https://github.com/seNkoKG/gloamcore)`;
 const CHAOS_METADATA_ID = "Metadata/Items/Currency/CurrencyRerollRare";
 const DIVINE_METADATA_ID = "Metadata/Items/Currency/CurrencyModValues";
 const mobileRequestInflight = new Map<string, Promise<CacheEnvelope<unknown>>>();
@@ -196,11 +210,15 @@ async function cachedGetUncoalesced<T>(
   fallbackTtl = DEFAULT_TTL,
   maxStaleMs = Number.POSITIVE_INFINITY,
   requestHeaders: Record<string, string> = {},
+  integrity?: Pick<PoeNinjaMirrorRoute, "bytes" | "sha256">,
 ): Promise<CacheEnvelope<T>> {
   const cacheKey = `http:${key}`;
   const now = Date.now();
   const stored = await readMobileCache<MobileStoredResponse<T>>(cacheKey);
-  const cached = isValidMobileStoredResponse(stored, validate, now) ? stored : null;
+  const cached = isValidMobileStoredResponse(stored, validate, now) &&
+    (!integrity || stored.integritySha256 === integrity.sha256)
+    ? stored
+    : null;
   if (!force && cached && cached.envelope.expiresAt > now) {
     return { ...cached.envelope, stale: false, cache: "fresh" };
   }
@@ -227,12 +245,14 @@ async function cachedGetUncoalesced<T>(
       await writeMobileCache(cacheKey, {
         envelope,
         etag: cached.etag,
+        integritySha256: cached.integritySha256,
       } satisfies MobileStoredResponse<T>);
       return envelope;
     }
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`Request failed (${response.status})`);
     }
+    if (integrity) await verifyMirrorPayloadText(response.data, integrity);
     const data = parseLimitedMobileJson<T>(response.data, MAX_MOBILE_JSON_BYTES);
     if (!validate(data)) {
       throw new Error("The source returned an invalid market payload.");
@@ -249,6 +269,7 @@ async function cachedGetUncoalesced<T>(
     await writeMobileCache(cacheKey, {
       envelope,
       etag: responseHeader(response.headers, "etag"),
+      integritySha256: integrity?.sha256,
     } satisfies MobileStoredResponse<T>);
     return envelope;
   } catch (reason) {
@@ -280,6 +301,7 @@ async function cachedGet<T>(
   fallbackTtl = DEFAULT_TTL,
   maxStaleMs = Number.POSITIVE_INFINITY,
   requestHeaders: Record<string, string> = {},
+  integrity?: Pick<PoeNinjaMirrorRoute, "bytes" | "sha256">,
 ) {
   const normalKey = `http:${key}:normal`;
   const forceKey = `http:${key}:force`;
@@ -298,6 +320,7 @@ async function cachedGet<T>(
       fallbackTtl,
       maxStaleMs,
       requestHeaders,
+      integrity,
     );
   const request = weaker
     ? weaker.catch(() => undefined).then(run)
@@ -310,19 +333,6 @@ async function cachedGet<T>(
       mobileRequestInflight.delete(inflightKey);
     }
   }
-}
-
-function isLeaguePayload(data: unknown): data is EconomyLeague[] {
-  return (
-    Array.isArray(data) &&
-    data.every(
-      (league) =>
-        league != null &&
-        typeof league === "object" &&
-        typeof (league as EconomyLeague).id === "string" &&
-        typeof (league as EconomyLeague).name === "string",
-    )
-  );
 }
 
 export function isOverviewPayload(data: unknown): data is OverviewPayload {
@@ -351,6 +361,17 @@ export function isOverviewPayload(data: unknown): data is OverviewPayload {
       hasOptionalSparkline(line, "receiveSparkLine") &&
       hasOptionalSparkline(line, "lowConfidencePaySparkLine") &&
       hasOptionalSparkline(line, "lowConfidenceReceiveSparkLine"),
+  );
+}
+
+async function getMobileMirrorManifest(force = false) {
+  return cachedGet<PoeNinjaMirrorManifest>(
+    `${MARKET_CACHE_VERSION}:manifest`,
+    POE_NINJA_MIRROR_MANIFEST_URL,
+    isPoeNinjaMirrorManifest,
+    force,
+    5 * 60 * 1000,
+    MAX_ACTIONABLE_MIRROR_AGE_MS,
   );
 }
 
@@ -540,25 +561,41 @@ const WIKI_TOOLTIP_FIELDS = [
   "removal_version",
 ].join(",");
 
+export function sanitizeStoredMobileSettings(value: unknown) {
+  let next = sanitizeDesktopSettingsSnapshot(value, mobileSettings);
+  let shortcutErrors = validateShortcutDraft({
+    ...next.shortcuts,
+    priceCheck: next.priceCheck.hotkey,
+  }, { priceCheckEnabled: next.priceCheck.enabled });
+  if (Object.values(shortcutErrors)[0]) {
+    next = {
+      ...next,
+      shortcuts: { ...defaultDesktopShortcuts },
+    };
+    shortcutErrors = validateShortcutDraft({
+      ...next.shortcuts,
+      priceCheck: next.priceCheck.hotkey,
+    }, { priceCheckEnabled: next.priceCheck.enabled });
+    if (Object.values(shortcutErrors)[0]) {
+      next = {
+        ...next,
+        priceCheck: {
+          ...next.priceCheck,
+          hotkey: defaultPriceCheckSettings.hotkey,
+        },
+      };
+    }
+  }
+  return next;
+}
+
 async function readStoredSettings() {
   try {
     const { value } = await Preferences.get({ key: SETTINGS_KEY });
     if (!value) {
       return cloneDesktopSettings(mobileSettings, mobileSettingsRevision);
     }
-    const saved = JSON.parse(value) as Partial<DesktopSettings>;
-    const merged = {
-      ...mobileSettings,
-      ...saved,
-      shortcuts: {
-        ...defaultDesktopShortcuts,
-        ...(saved.shortcuts || {}),
-      },
-      priceCheck: {
-        ...defaultPriceCheckSettings,
-        ...(saved.priceCheck || {}),
-      },
-    };
+    const merged = sanitizeStoredMobileSettings(JSON.parse(value));
     return cloneDesktopSettings(merged, mobileSettingsRevision);
   } catch {
     return cloneDesktopSettings(mobileSettings, mobileSettingsRevision);
@@ -568,7 +605,10 @@ async function readStoredSettings() {
 const mobileSettingsSaveQueue = createSerialTaskQueue(
   async (patch: import("../types").DesktopSettingsPatch) => {
     const current = await readStoredSettings();
-    const next = mergeDesktopSettingsPatch(current, patch);
+    const next = mergeDesktopSettingsPatch(
+      current,
+      sanitizeDesktopSettingsPatch(patch, current),
+    );
     const shortcutErrors = validateShortcutDraft({
       ...next.shortcuts,
       priceCheck: next.priceCheck.hotkey,
@@ -622,7 +662,7 @@ async function resolveMobileFaustusItems(request: FaustusOverviewRequest) {
       request.force,
       7 * 24 * 60 * 60 * 1000,
       Number.POSITIVE_INFINITY,
-      { "User-Agent": FAUSTUS_USER_AGENT },
+      { "User-Agent": WIKI_USER_AGENT },
     );
     cargoEntries.push(...(envelope.data.cargoquery || []));
   }
@@ -648,7 +688,7 @@ async function getMobileFaustusOverview(request: FaustusOverviewRequest): Promis
   for (let offset = 1; offset <= 3; offset += 1) {
     const hour = currentHour - offset * 3_600;
     try {
-      await cachedGet(`faustus-hour:${hour}`, `${FAUSTUS_API_ROOT}/${hour}`, isMobileFaustusDigest, false, 30 * 24 * 60 * 60 * 1000, Number.POSITIVE_INFINITY, { "User-Agent": FAUSTUS_USER_AGENT });
+      await cachedGet(`faustus-hour:${hour}`, `${FAUSTUS_API_ROOT}/${hour}`, isMobileFaustusDigest, false, 30 * 24 * 60 * 60 * 1000, Number.POSITIVE_INFINITY);
       latestHour = hour;
       break;
     } catch (error) {
@@ -663,7 +703,7 @@ async function getMobileFaustusOverview(request: FaustusOverviewRequest): Promis
   const envelopes = await Promise.all(Array.from({ length: 8 }, async (_value, index) => {
     const hour = latestHour - index * 3_600;
     try {
-      return { hour, envelope: await cachedGet(`faustus-hour:${hour}`, `${FAUSTUS_API_ROOT}/${hour}`, isMobileFaustusDigest, false, 30 * 24 * 60 * 60 * 1000, Number.POSITIVE_INFINITY, { "User-Agent": FAUSTUS_USER_AGENT }) };
+      return { hour, envelope: await cachedGet(`faustus-hour:${hour}`, `${FAUSTUS_API_ROOT}/${hour}`, isMobileFaustusDigest, false, 30 * 24 * 60 * 60 * 1000, Number.POSITIVE_INFINITY) };
     } catch {
       return null;
     }
@@ -687,24 +727,36 @@ async function getMobileFaustusOverview(request: FaustusOverviewRequest): Promis
 
 export const mobileBridge: PoeWidgetBridge = {
   async getLeagues(options) {
-    return cachedGet<EconomyLeague[]>(
-      `${MARKET_CACHE_VERSION}:leagues`,
-      "https://poe.ninja/poe1/api/economy/leagues",
-      isLeaguePayload,
-      options?.force,
-      30 * 60 * 1000,
-      24 * 60 * 60 * 1000,
-    );
+    const manifest = await getMobileMirrorManifest(Boolean(options?.force));
+    const times = mirrorEnvelopeTimes(manifest.data.leagueSnapshot);
+    return {
+      data: manifest.data.leagueSnapshot.data,
+      ...times,
+      stale: manifest.stale,
+      cache: manifest.cache,
+      error: manifest.error,
+    };
   },
   async getOverview(request) {
-    return cachedGet<OverviewPayload>(
+    const manifest = await getMobileMirrorManifest(Boolean(request.force));
+    const route = mirrorRouteForRequest(manifest.data, request);
+    const times = mirrorEnvelopeTimes(route);
+    const payload = await cachedGet<OverviewPayload>(
       `${MARKET_CACHE_VERSION}:overview:${request.league}:${request.source}:${request.type}`,
-      mobileOverviewUrl(request),
+      mirrorRouteUrl(route),
       isOverviewPayload,
       request.force,
       DEFAULT_TTL,
       MAX_MARKET_STALE_MS,
+      {},
+      route,
     );
+    return {
+      ...payload,
+      ...times,
+      stale: manifest.stale || payload.stale,
+      error: [manifest.error, payload.error].filter(Boolean).join("; ") || undefined,
+    };
   },
   async getItemTooltip(request) {
     return cachedGet<RawWikiCargoResponse>(
@@ -782,11 +834,7 @@ export const mobileBridge: PoeWidgetBridge = {
     throw new Error("Filter checkpoints require the desktop app.");
   },
   async fetchToolkitText(url) {
-    const parsed = trustedExternalUrl(url);
-    if (!parsed) throw new Error("Blocked an untrusted import URL.");
-    const response = await fetch(parsed);
-    if (!response.ok) throw new Error(`Import failed: ${response.status}`);
-    return response.text();
+    return fetchBoundedToolkitText(url);
   },
   async getPassiveTreeData() {
     throw new Error("The authoritative passive tree currently requires the Windows desktop app.");
@@ -845,15 +893,6 @@ export const mobileBridge: PoeWidgetBridge = {
       recoverable: false,
     };
   },
-  async importPobCharacter() {
-    return {
-      ok: false as const,
-      authoritative: false as const,
-      code: "POB_ENGINE_UNAVAILABLE",
-      message: "Authoritative Path of Building character import requires the Windows desktop app.",
-      recoverable: false,
-    };
-  },
   async readPlannerClipboard() {
     try {
       return await navigator.clipboard.readText();
@@ -863,36 +902,6 @@ export const mobileBridge: PoeWidgetBridge = {
   },
   async resolvePlannerItemArtwork() {
     return {};
-  },
-  async listPoeCharacters() {
-    throw new Error("Character account import currently requires the Windows desktop app.");
-  },
-  async getPoeCharacter() {
-    throw new Error("Character account import currently requires the Windows desktop app.");
-  },
-  async getPoeStashLeagues() {
-    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
-  },
-  async listPoeStashTabs() {
-    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
-  },
-  async getPoeStashTab() {
-    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
-  },
-  async syncPoeStash() {
-    throw new Error("Stash wealth tracking currently requires the Windows desktop app.");
-  },
-  async connectPoeOAuth() {
-    throw new Error("Connecting your Path of Exile account currently requires the Windows desktop app.");
-  },
-  async getPoeOAuthStatus() {
-    throw new Error("Connecting your Path of Exile account currently requires the Windows desktop app.");
-  },
-  async disconnectPoeOAuth() {
-    throw new Error("Connecting your Path of Exile account currently requires the Windows desktop app.");
-  },
-  onStashProgress() {
-    return () => undefined;
   },
   async getToolkitWorkspace() {
     return {

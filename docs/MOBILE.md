@@ -10,7 +10,7 @@ mobile-supported filters, trackers, item descriptions, trends, and trade links.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-2.8.1.apk`
+`deliverables/mobile/GloamCore-Android-2.9.0.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -32,7 +32,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-2.8.1.zip`
+`deliverables/mobile/GloamCore-iOS-Source-2.9.0.zip`
 
 On a Mac:
 
@@ -48,9 +48,13 @@ There is intentionally no unsigned IPA: iOS will not install one.
 
 ## Live data and tracking
 
-- poe.ninja economy data refreshes according to source cache headers.
-- Official Faustus completed-hour data is checked every five minutes, with
-  one-minute catch-up checks while a newly completed digest is unpublished.
+- poe.ninja economy data comes from GloamCore's 30-minute GitHub Pages mirror;
+  the app verifies its source timestamps and payload digest and never falls back
+  to a direct end-user API request. A last-good snapshot is usable for at most
+  two hours.
+- Documented Public Currency Exchange completed-hour evidence from Faustus is
+  checked every five minutes, with one-minute catch-up checks while a newly
+  completed hour is unpublished.
 - The app refreshes while open, immediately on resume, and when connectivity
   returns.
 - Cached snapshots and item descriptions remain available offline.
@@ -62,10 +66,12 @@ There is intentionally no unsigned IPA: iOS will not install one.
   the shared renderer.
 - Mobile opens the correct official Trade league through a user-clicked
   handoff. It does not provide the Windows `Ctrl+D` capture, global PoE-attached
-  overlay, or Electron bridge that retrieves compact live seller rows.
-- The mobile package contains no direct Path of Exile Trade search/fetch client
-  and never uses account cookies or `POESESSID`.
-- Target notifications are local and require notification permission.
+  overlay, or native input helper.
+- No GloamCore package calls the Trade website's undocumented search, exchange,
+  or fetch APIs. Mobile never uses account cookies or `POESESSID`.
+- Target notifications are local and require notification permission. A
+  Divine-denominated target pauses when its conversion is unavailable, and
+  low-confidence or stale rows cannot trigger an alert.
 
 Mobile operating systems can suspend ordinary apps after they are closed.
 Therefore, target checks are guaranteed while GloamCore is open and whenever
@@ -84,4 +90,6 @@ pnpm mobile:package
 ```
 
 The checked-in native projects target Android API 36 and iOS 15. The local
-Android build uses JDK 21 and Build Tools 36.0.0.
+Android build uses JDK 21 and Build Tools 36.0.0. CI synchronizes and compiles
+an Android debug app on Linux and an iOS simulator app on macOS; these checks do
+not change the public-release boundary, which remains Windows x64.

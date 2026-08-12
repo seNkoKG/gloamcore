@@ -35,6 +35,12 @@ import { parsePoeItem } from "../lib/price-check/parser";
 import type { ParsedPoeItem } from "../lib/price-check/types";
 import {
   findMatchingFilterBlocks,
+  itemFilterFileMatchesMode,
+  itemFilterFileName,
+  itemFilterModeFromFileName,
+  ITEM_FILTER_ACTION_SCHEMA,
+  ITEM_FILTER_EXTENSIONS,
+  ITEM_FILTER_VISIBILITY_MATRIX,
   moveBaseType,
   parseItemFilter,
   removeBlockAction,
@@ -42,9 +48,11 @@ import {
   serializeItemFilter,
   setBlockAction,
   setBlockVisibility,
+  setItemFilterMode,
   validateItemFilter,
   type FilterIntent,
   type FilterVisibility,
+  type ItemFilterMode,
   type ItemFilterDocument,
 } from "../lib/toolkit/item-filter";
 import {
@@ -65,6 +73,7 @@ import {
 import {
   mergePersistedPluginStorageIntoDraft,
   persistedPluginForPreview,
+  pluginCapabilities,
   workspaceWithLatestPersistedPluginStorage,
   workspaceWithPersistedPluginStorage,
 } from "../lib/toolkit/plugin-workspace";
@@ -208,7 +217,7 @@ function FilterEditor() {
     try {
       const opened = await bridge.openToolkitText("filter");
       if (!opened) return;
-      const parsed = parseItemFilter(opened.text);
+      const parsed = parseItemFilter(opened.text, itemFilterModeFromFileName(opened.name));
       setFile(opened);
       setDocument(parsed);
       setSelectedId(parsed.blocks[0]?.id || "");
@@ -219,6 +228,12 @@ function FilterEditor() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const changeFilterMode = (mode: ItemFilterMode) => {
+    if (!document || document.mode === mode) return;
+    setDocument(setItemFilterMode(document, mode));
+    setMessage(`Mode changed to ${mode === "ruthless" ? "Ruthless" : "Normal"}. Existing blocks were not rewritten; fix any incompatible visibility or alpha rules explicitly. Saving uses ${itemFilterFileName(file?.name || "GloamCore.filter", mode)}.`);
   };
 
   const captureItem = async () => {
@@ -243,20 +258,28 @@ function FilterEditor() {
 
   const editVisibility = (value: FilterVisibility) => {
     if (!document || !selected) return;
-    setDocument(setBlockVisibility(document, selected.id, value));
-    setIntents((current) => [
-      ...current,
-      { kind: "visibility", blockId: selected.id, tier: selected.tier, value, createdAt: Date.now() },
-    ]);
+    try {
+      setDocument(setBlockVisibility(document, selected.id, value));
+      setIntents((current) => [
+        ...current,
+        { kind: "visibility", blockId: selected.id, tier: selected.tier, value, createdAt: Date.now() },
+      ]);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const editAction = (action: string, values: string[]) => {
     if (!document || !selected) return;
-    setDocument(setBlockAction(document, selected.id, action, values));
-    setIntents((current) => [
-      ...current,
-      { kind: "action", blockId: selected.id, tier: selected.tier, action, values, createdAt: Date.now() },
-    ]);
+    try {
+      setDocument(setBlockAction(document, selected.id, action, values));
+      setIntents((current) => [
+        ...current,
+        { kind: "action", blockId: selected.id, tier: selected.tier, action, values, createdAt: Date.now() },
+      ]);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const removeAction = (action: string) => {
@@ -317,22 +340,31 @@ function FilterEditor() {
     setMessage("");
     try {
       if (problems.length) throw new Error(problems[0]);
-      if (file?.path) await bridge.createToolkitCheckpoint({ path: file.path, label: "Before save" });
+      const overwritePath = file?.path && itemFilterFileMatchesMode(file.name, document.mode)
+        ? file.path
+        : undefined;
+      if (overwritePath) await bridge.createToolkitCheckpoint({ path: overwritePath, label: "Before save" });
       const saved = await bridge.saveToolkitText({
-        path: file?.path,
+        path: overwritePath,
         text: serializeItemFilter(document),
-        suggestedName: file?.name || "GloamCore.filter",
+        suggestedName: itemFilterFileName(file?.name || "GloamCore.filter", document.mode),
         kind: "filter",
+        filterMode: document.mode,
       });
       if (!saved) return;
+      if (!itemFilterFileMatchesMode(saved.name, document.mode)) {
+        throw new Error(`${document.mode === "ruthless" ? "Ruthless" : "Normal"} filters must be saved as ${ITEM_FILTER_EXTENSIONS[document.mode]}.`);
+      }
       const text = serializeItemFilter(document);
       const nextFile = { path: saved.path, name: saved.name, text };
       const selectedIndex = document.blocks.findIndex((block) => block.id === selectedId);
-      const reparsed = parseItemFilter(text);
+      const reparsed = parseItemFilter(text, document.mode);
       setFile(nextFile);
       setDocument(reparsed);
       setSelectedId(reparsed.blocks[Math.max(0, selectedIndex)]?.id || reparsed.blocks[0]?.id || "");
-      setMessage("Saved. The previous file is available as a checkpoint.");
+      setMessage(overwritePath
+        ? "Saved. The previous file is available as a checkpoint."
+        : `Saved as ${saved.name}; the original file was not overwritten.`);
       if (saved.path) setCheckpoints(await bridge.listToolkitCheckpoints(saved.path));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -342,11 +374,12 @@ function FilterEditor() {
   };
 
   const syncOnline = async () => {
-    if (!syncUrl.trim()) return;
+    if (!syncUrl.trim() || !document) return;
+    const mode = document.mode;
     setBusy(true);
     setMessage("");
     try {
-      const remote = parseItemFilter(await bridge.fetchToolkitText(syncUrl.trim()));
+      const remote = parseItemFilter(await bridge.fetchToolkitText(syncUrl.trim()), mode);
       if (!remote.blocks.length) throw new Error("The downloaded text is not a valid item filter.");
       const replay = replayFilterIntents(remote, intents);
       setDocument(replay.document);
@@ -362,12 +395,14 @@ function FilterEditor() {
   };
 
   const syncDownloadedOnlineFilter = async () => {
+    if (!document) return;
+    const mode = document.mode;
     setBusy(true);
     setMessage("");
     try {
       const opened = await bridge.openToolkitText("filter");
       if (!opened) return;
-      const remote = parseItemFilter(opened.text);
+      const remote = parseItemFilter(opened.text, mode);
       if (!remote.blocks.length) throw new Error("The selected OnlineFilters file is not a valid item filter.");
       const replay = replayFilterIntents(remote, intents);
       setDocument(replay.document);
@@ -381,11 +416,12 @@ function FilterEditor() {
   };
 
   const restore = async (checkpoint: ToolkitCheckpoint) => {
-    if (!file?.path) return;
+    if (!file?.path || !document) return;
+    const mode = document.mode;
     setBusy(true);
     try {
       const restored = await bridge.restoreToolkitCheckpoint({ path: file.path, id: checkpoint.id });
-      const parsed = parseItemFilter(restored.text);
+      const parsed = parseItemFilter(restored.text, mode);
       setFile(restored);
       setDocument(parsed);
       setSelectedId(parsed.blocks[0]?.id || "");
@@ -403,8 +439,8 @@ function FilterEditor() {
     return (
       <div className="toolkit-empty">
         <FolderOpen size={34} />
-        <h2>Open your active .filter</h2>
-        <p>The editor preserves untouched lines, validates edits, and checkpoints before overwriting.</p>
+        <h2>Open your active .filter or .ruthlessfilter</h2>
+        <p>The filename selects Normal or Ruthless validation. Untouched and unknown lines are preserved.</p>
         <button type="button" onClick={openFilter} disabled={busy}><FolderOpen size={15} /> Choose filter</button>
       </div>
     );
@@ -419,6 +455,11 @@ function FilterEditor() {
   const minimap = action("MinimapIcon")?.values.join(" ") || "";
   const beam = action("PlayEffect")?.values[0] || "";
   const dropSound = action("DisableDropSound") ? "disable" : action("EnableDropSound") ? "enable" : "inherit";
+  const fontRange = ITEM_FILTER_ACTION_SCHEMA.SetFontSize.numberRanges[0];
+  const minimumTextAlpha = document.mode === "ruthless"
+    ? ITEM_FILTER_ACTION_SCHEMA.SetTextColor.ruthlessAlphaMinimum
+    : 0;
+  const allowedVisibilities = ITEM_FILTER_VISIBILITY_MATRIX[document.mode];
 
   return (
     <div className="filter-workbench">
@@ -426,10 +467,12 @@ function FilterEditor() {
         <button type="button" onClick={openFilter} disabled={busy}><FolderOpen size={14} /> {file?.name || "Open"}</button>
         <button type="button" onClick={captureItem} disabled={busy}><Clipboard size={14} /> Read copied item</button>
         <button type="button" className="is-primary" onClick={save} disabled={busy || problems.length > 0}><Save size={14} /> Save safely</button>
+        <label className="filter-mode-control">Mode<select value={document.mode} onChange={(event) => changeFilterMode(event.target.value as ItemFilterMode)}><option value="normal">Normal (.filter)</option><option value="ruthless">Ruthless (.ruthlessfilter)</option></select></label>
         <span>{document.blocks.length} blocks · {intents.length} local edits</span>
       </div>
 
       {message && <div className="toolkit-message"><CircleAlert size={14} /> {message}</div>}
+      {problems.length > 0 && <div className="toolkit-message"><CircleAlert size={14} /> {problems[0]}{problems.length > 1 ? ` (+${problems.length - 1} more)` : ""}</div>}
 
       <div className="filter-grid">
         <aside className="filter-tier-list">
@@ -459,7 +502,7 @@ function FilterEditor() {
             </div>
             <div className="filter-visibility">
               {(["Show", "Hide", "Minimal"] as FilterVisibility[]).map((value) => (
-                <button type="button" key={value} className={selected?.visibility === value ? "is-active" : ""} onClick={() => editVisibility(value)}>{value}</button>
+                <button type="button" key={value} className={selected?.visibility === value ? "is-active" : ""} disabled={!allowedVisibilities.includes(value)} title={!allowedVisibilities.includes(value) ? `${value} is not valid in ${document.mode === "ruthless" ? "Ruthless" : "Normal"} filters.` : undefined} onClick={() => editVisibility(value)}>{value}</button>
               ))}
             </div>
           </div>
@@ -476,12 +519,12 @@ function FilterEditor() {
             </label>
             <label>
               Font size
-              <input type="range" min="1" max="45" value={font} onChange={(event) => editAction("SetFontSize", [event.target.value])} />
+              <input type="range" min={fontRange.min} max={fontRange.max} value={font} onChange={(event) => editAction("SetFontSize", [event.target.value])} />
               <strong>{font}</strong>
             </label>
             <label>
               Text colour / alpha
-              <span className="filter-color-control"><input type="color" value={textColor.hex} onChange={(event) => editAction("SetTextColor", filterColorValues(event.target.value, textColor.alpha))} /><input type="number" min="0" max="255" value={textColor.alpha} onChange={(event) => editAction("SetTextColor", filterColorValues(textColor.hex, Number(event.target.value)))} /></span>
+              <span className="filter-color-control"><input type="color" value={textColor.hex} onChange={(event) => editAction("SetTextColor", filterColorValues(event.target.value, Math.max(minimumTextAlpha, textColor.alpha)))} /><input type="number" min={minimumTextAlpha} max="255" value={textColor.alpha} onChange={(event) => editAction("SetTextColor", filterColorValues(textColor.hex, Number(event.target.value)))} /></span>
             </label>
             <label>
               Border colour / alpha
@@ -730,7 +773,7 @@ function EconomyAudit({ league }: { league: string }) {
     try {
       const opened = await bridge.openToolkitText("filter");
       if (!opened) return;
-      const parsed = parseItemFilter(opened.text);
+      const parsed = parseItemFilter(opened.text, itemFilterModeFromFileName(opened.name));
       if (!parsed.blocks.length) throw new Error("This file has no valid item-filter blocks.");
       setFile(opened);
       setDocument(parsed);
@@ -797,8 +840,9 @@ function EconomyAudit({ league }: { league: string }) {
       const saved = await bridge.saveToolkitText({
         path: file.path,
         text,
-        suggestedName: file.name,
+        suggestedName: itemFilterFileName(file.name, document.mode),
         kind: "filter",
+        filterMode: document.mode,
       });
       if (saved) setFile({ ...file, ...saved, text });
       setMessage("Audit edits saved. The previous filter is available as a checkpoint.");
@@ -1126,10 +1170,9 @@ function SandboxedPluginHost({
               host: "GloamCore",
               apiVersion: 1,
               pluginId: plugin.id,
-              game: plugin.game,
-              poeVersion: plugin.game === "poe2" ? 2 : 1,
+              poeVersion: 1,
               league,
-              capabilities: ["get-context", "get-leagues", "storage:get", "storage:set", "storage:delete", "get-current-item", "capture-game", "open-external"],
+              capabilities: pluginCapabilities(),
               permissions: plugin.permissions,
             });
             return;
@@ -1262,14 +1305,13 @@ function OverlayWorkspace({ league }: { league: string }) {
   };
 
   const updateMacro = (id: string, patch: Partial<ToolkitWorkspace["macros"][number]>) => setWorkspace((current) => ({ ...current, macros: current.macros.map((entry) => entry.id === id ? { ...entry, ...patch } : entry) }));
-  const addMacro = () => setWorkspace((current) => ({ ...current, macros: [...current.macros, { id: crypto.randomUUID(), label: "Hideout", hotkey: "Ctrl+Alt+H", text: "/hideout", enabled: false, scope: "poe1" }] }));
+  const addMacro = () => setWorkspace((current) => ({ ...current, macros: [...current.macros, { id: crypto.randomUUID(), label: "Hideout", hotkey: "Ctrl+Alt+H", text: "/hideout", enabled: false }] }));
   const addSheet = () => setWorkspace((current) => ({ ...current, cheatSheets: [...current.cheatSheets, { id: crypto.randomUUID(), title: "New cheat sheet", category: "General", body: "Add reminders, encounter steps, or league notes here.", url: "", image: "", pinned: false }] }));
   const addPlugin = () => setWorkspace((current) => ({ ...current, plugins: [...current.plugins, {
     id: crypto.randomUUID(),
     name: "New plugin",
     url: "",
     enabled: false,
-    game: "poe1",
     permissions: { currentItem: false, gameCapture: false, openExternal: false },
     storage: {},
   }] }));
@@ -1331,7 +1373,7 @@ function OverlayWorkspace({ league }: { league: string }) {
       </div>
       {message && <div className="toolkit-message"><CircleAlert size={14} />{message}</div>}
 
-      {tab === "macros" && <div className="workspace-panel"><header><div><h2>Focus-gated chat macros</h2><p>One hotkey press sends one chat line only when the matching Path of Exile window is foreground. Nothing is injected into the game.</p></div><button type="button" onClick={addMacro}>Add macro</button></header><div className="stash-scroll-row"><label><input type="checkbox" checked={workspace.stashScroll.enabled} onChange={(event) => setWorkspace((current) => ({ ...current, stashScroll: { ...current.stashScroll, enabled: event.target.checked } }))} /> Scroll stash tabs with</label><select value={workspace.stashScroll.modifier} onChange={(event) => setWorkspace((current) => ({ ...current, stashScroll: { ...current.stashScroll, modifier: event.target.value as "Ctrl" | "Shift" | "Alt" } }))}><option>Ctrl</option><option>Shift</option><option>Alt</option></select><span>+ mouse wheel outside the stash grid. Off by default.</span></div><div className="macro-table"><div className="macro-head"><span>On</span><span>Label</span><span>Hotkey</span><span>Chat text</span><span>Game</span><span></span></div>{workspace.macros.map((macro) => <div key={macro.id}><input type="checkbox" checked={macro.enabled} onChange={(event) => updateMacro(macro.id, { enabled: event.target.checked })} /><input value={macro.label} onChange={(event) => updateMacro(macro.id, { label: event.target.value })} /><input value={macro.hotkey} onChange={(event) => updateMacro(macro.id, { hotkey: event.target.value })} /><input value={macro.text} maxLength={512} onChange={(event) => updateMacro(macro.id, { text: event.target.value.replace(/[\r\n]/g, "") })} /><select value={macro.scope} onChange={(event) => updateMacro(macro.id, { scope: event.target.value as "poe1" | "poe2" | "both" })}><option value="poe1">PoE 1</option><option value="poe2">PoE 2</option><option value="both">Both</option></select><button type="button" onClick={() => setWorkspace((current) => ({ ...current, macros: current.macros.filter((entry) => entry.id !== macro.id) }))}><Trash2 size={13} /></button></div>)}{!workspace.macros.length && <p className="workspace-none">No macros are enabled by default. Add only the commands you actually want.</p>}</div></div>}
+      {tab === "macros" && <div className="workspace-panel"><header><div><h2>Focus-gated chat macros</h2><p>One hotkey press sends one chat line only when Path of Exile is foreground. Nothing is injected into the game.</p></div><button type="button" onClick={addMacro}>Add macro</button></header><div className="stash-scroll-row"><label><input type="checkbox" checked={workspace.stashScroll.enabled} onChange={(event) => setWorkspace((current) => ({ ...current, stashScroll: { ...current.stashScroll, enabled: event.target.checked } }))} /> Scroll stash tabs with</label><select value={workspace.stashScroll.modifier} onChange={(event) => setWorkspace((current) => ({ ...current, stashScroll: { ...current.stashScroll, modifier: event.target.value as "Ctrl" | "Shift" | "Alt" } }))}><option>Ctrl</option><option>Shift</option><option>Alt</option></select><span>+ mouse wheel outside the stash grid. Off by default.</span></div><div className="macro-table"><div className="macro-head"><span>On</span><span>Label</span><span>Hotkey</span><span>Chat text</span><span></span></div>{workspace.macros.map((macro) => <div key={macro.id}><input type="checkbox" checked={macro.enabled} onChange={(event) => updateMacro(macro.id, { enabled: event.target.checked })} /><input value={macro.label} onChange={(event) => updateMacro(macro.id, { label: event.target.value })} /><input value={macro.hotkey} onChange={(event) => updateMacro(macro.id, { hotkey: event.target.value })} /><input value={macro.text} maxLength={512} onChange={(event) => updateMacro(macro.id, { text: event.target.value.replace(/[\r\n]/g, "") })} /><button type="button" onClick={() => setWorkspace((current) => ({ ...current, macros: current.macros.filter((entry) => entry.id !== macro.id) }))}><Trash2 size={13} /></button></div>)}{!workspace.macros.length && <p className="workspace-none">No macros are enabled by default. Add only the commands you actually want.</p>}</div></div>}
 
       {tab === "cheats" && (
         <div className="workspace-panel">
@@ -1377,10 +1419,14 @@ function OverlayWorkspace({ league }: { league: string }) {
               return (
                 <div key={plugin.id} className={pluginPreview === plugin.id ? "is-active" : ""}>
                   <input type="checkbox" checked={plugin.enabled} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, enabled: event.target.checked } : entry) }))} />
-                  <span><input value={plugin.name} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, name: event.target.value } : entry) }))} /><input value={plugin.url} aria-invalid={Boolean(plugin.url && !validPluginUrl)} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, url: event.target.value } : entry) }))} /><select value={plugin.game} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, game: event.target.value as "poe1" | "poe2" } : entry) }))}><option value="poe1">PoE 1</option><option value="poe2">PoE 2</option></select></span>
+                  <span><input value={plugin.name} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, name: event.target.value } : entry) }))} /><input value={plugin.url} aria-invalid={Boolean(plugin.url && !validPluginUrl)} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, url: event.target.value } : entry) }))} /></span>
                   <button type="button" disabled={!savedPlugin || !validPluginUrl} title={savedPlugin ? "Open saved plugin" : "Save and enable this exact plugin configuration first"} onClick={() => setPluginPreview(plugin.id)}>Open</button>
                   <button type="button" onClick={() => setWorkspace((current) => ({ ...current, plugins: current.plugins.filter((entry) => entry.id !== plugin.id) }))}><Trash2 size={12} /></button>
-                  <section className="plugin-permissions"><label><input type="checkbox" checked={plugin.permissions.currentItem} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, permissions: { ...entry.permissions, currentItem: event.target.checked } } : entry) }))} /> Copied item</label><label><input type="checkbox" checked={plugin.permissions.gameCapture} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, permissions: { ...entry.permissions, gameCapture: event.target.checked } } : entry) }))} /> Focused-game capture</label><label><input type="checkbox" checked={plugin.permissions.openExternal} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, permissions: { ...entry.permissions, openExternal: event.target.checked } } : entry) }))} /> Open trusted PoE links</label></section>
+                  <section className="plugin-permissions">
+                    <label><input type="checkbox" checked={plugin.permissions.currentItem} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, permissions: { ...entry.permissions, currentItem: event.target.checked } } : entry) }))} /> Copied item</label>
+                    <label><input type="checkbox" checked={plugin.permissions.gameCapture} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, permissions: { ...entry.permissions, gameCapture: event.target.checked } } : entry) }))} /> Focused-game capture</label>
+                    <label><input type="checkbox" checked={plugin.permissions.openExternal} onChange={(event) => setWorkspace((current) => ({ ...current, plugins: current.plugins.map((entry) => entry.id === plugin.id ? { ...entry, permissions: { ...entry.permissions, openExternal: event.target.checked } } : entry) }))} /> Open trusted PoE links</label>
+                  </section>
                 </div>
               );
             })}</aside>

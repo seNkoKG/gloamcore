@@ -57,15 +57,33 @@ const {
   createRendererCommandQueue,
 } = require("./renderer-command-queue.cjs");
 const { canAccessSettings } = require("./settings-access.cjs");
+const {
+  createPersistenceRetry,
+  sanitizeScalarSettings,
+  sanitizeWindowBounds,
+  writeJsonAtomically,
+} = require("./settings-store.cjs");
+const {
+  sanitizeSurfaceAlerts,
+  sanitizeSurfaceIdentity,
+} = require("./surface-state.cjs");
+const {
+  POE1_PROCESS_NAMES,
+  toolkitMacroTargets,
+} = require("./game-window-policy.cjs");
 const { fetchTrustedLimited } = require("./bounded-remote-fetch.cjs");
 const {
-  createOfficialTradeListingService,
-} = require("./official-trade-listings.cjs");
+  isPoeNinjaMirrorManifest,
+  MAX_ACTIONABLE_MIRROR_AGE_MS,
+  mirrorEnvelopeTimes,
+  mirrorRouteForRequest,
+  mirrorRouteUrl,
+  POE_NINJA_MIRROR_MANIFEST_URL,
+} = require("./poe-ninja-mirror.cjs");
 const { createToolkitFileService } = require("./toolkit-files.cjs");
 const { decodePobBuild, encodePobBuild } = require("./pob-planner.cjs");
 const { createPobEngineDispatcher } = require("./pob-engine-dispatch.cjs");
 const { createPobPlannerDispatcher } = require("./pob-planner-dispatch.cjs");
-const { createPoeCharacterService } = require("./poe-character-import.cjs");
 const { createToolkitRuntimeStore } = require("./toolkit-runtime.cjs");
 const { createMapModCheckService } = require("./map-mod-check.cjs");
 const { createPoeEventLogService } = require("./poe-event-log.cjs");
@@ -84,7 +102,6 @@ const {
   migrateLegacyDataDirectories,
 } = require("./legacy-data-migration.cjs");
 const {
-  isLeaguePayload,
   isOverviewPayload,
   isWikiCargoPayload,
   isWikiImageMetadataPayload,
@@ -104,18 +121,13 @@ protectLogStream(process.stderr);
 
 app.setName("GloamCore");
 
-const API_ROOT = "https://poe.ninja";
 const WIKI_API_ROOT = "https://www.poewiki.net/w/api.php";
 const FAUSTUS_API_ROOT = "https://web.poecdn.com/api/currency-exchange";
 const USER_AGENT = `GloamCore/${app.getVersion()} (+https://github.com/seNkoKG/gloamcore)`;
-const officialTradeListingService = createOfficialTradeListingService({
-  userAgent: USER_AGENT,
-});
 const pobEngineDispatcher = createPobEngineDispatcher({
   engineOptions: { resourcesPath: process.resourcesPath },
 });
 const pobPlannerDispatcher = createPobPlannerDispatcher();
-const poeCharacterService = createPoeCharacterService({ userAgent: USER_AGENT });
 let toolkitFileService = null;
 let toolkitRuntimeStore = null;
 let registeredToolkitMacros = new Set();
@@ -164,8 +176,10 @@ function getPoeEventLogService() {
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 const MAX_MARKET_STALE_MS = 2 * 60 * 60 * 1000;
 const MAX_MARKET_JSON_BYTES = 64 * 1024 * 1024;
+const MAX_MIRROR_MANIFEST_BYTES = 2 * 1024 * 1024;
+const MAX_MIRROR_ROUTE_BYTES = 16 * 1024 * 1024;
 const MAX_WIKI_IMAGE_BYTES = 2 * 1024 * 1024;
-const MARKET_CACHE_VERSION = "v2";
+const MARKET_CACHE_VERSION = "v3-mirror";
 const WIKI_TOOLTIP_TTL_MS = 24 * 60 * 60 * 1000;
 const WIKI_KNOWLEDGE_TTL_MS = 60 * 60 * 1000;
 const WIKI_ICON_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -191,7 +205,7 @@ const MAX_CLIPBOARD_ITEM_BYTES = 65_536;
 const MAX_TRADE_STAT_CATALOG_BYTES = 8 * 1024 * 1024;
 const TRADE_STAT_CATALOG_SHA256 = "42a6c5722c0a49a65d76155a2d01005e6dc36aa3db6f95a356a7316596bc304c";
 const MAX_REGEX_DATA_BYTES = 12 * 1024 * 1024;
-const REGEX_DATA_SHA256 = "ea0b93a6498a2af2f9f467e6945c392f7aee89b7344de27e8c64434a2e9e57cc";
+const REGEX_DATA_SHA256 = "758707fb396138c3aca8ac8246192103e0ac1ecce3ebaae8ecf9bcd14d01f8e0";
 const DEFAULT_PRICE_CHECK_HOTKEY = "CommandOrControl+D";
 const DEFAULT_LOCKED_PRICE_CHECK_HOTKEY = "CommandOrControl+Alt+D";
 const PRICE_CHECK_CLIPBOARD_TIMEOUT_MS = 600;
@@ -201,14 +215,6 @@ const PRICE_CHECK_CLIPBOARD_TIMEOUT_MS = 600;
 const PRICE_CHECK_COLD_CLIPBOARD_TIMEOUT_MS = 1_200;
 const PRICE_CHECK_PENDING_TTL_MS = 15_000;
 const NATIVE_INPUT_OUTPUT_LIMIT = 1024;
-const POE_PROCESS_NAMES = Object.freeze([
-  "PathOfExile.exe",
-  "PathOfExileSteam.exe",
-  "PathOfExileEGS.exe",
-  "PathOfExile_x64.exe",
-  "PathOfExile_x64Steam.exe",
-  "PathOfExile_x64EGS.exe",
-]);
 const TRUSTED_RENDERER_PATH = path.resolve(__dirname, "..", "dist", "index.html");
 const DEV_RUNTIME = !app.isPackaged;
 const START_MINIMIZED = process.argv.includes("--start-minimized");
@@ -345,6 +351,7 @@ let priceCheckQaCaptureScheduled = false;
 let priceCheckFocusRestoreAudit = null;
 let settingsNeedPersist = false;
 let settingsRevision = 0;
+let settingsPersistenceWarning = "";
 let settings = {
   alwaysOnTop: true,
   opacity: 1,
@@ -434,22 +441,17 @@ async function cleanupRetiredCacheFiles() {
 function loadSettings() {
   try {
     const saved = JSON.parse(fs.readFileSync(settingsPath(), "utf8"));
+    const sanitized = sanitizeSettingsPatch(saved);
     settings = {
       ...settings,
-      ...saved,
-      shortcuts: sanitizeDesktopShortcuts(
-        saved && typeof saved.shortcuts === "object" ? saved.shortcuts : {},
-        settings.shortcuts,
-      ),
-      priceCheck: {
-        ...settings.priceCheck,
-        ...(saved && typeof saved.priceCheck === "object"
-          ? saved.priceCheck
-          : {}),
-      },
+      ...sanitized,
+      shortcuts: sanitized.shortcuts || settings.shortcuts,
+      priceCheck: sanitized.priceCheck || settings.priceCheck,
       priceCheckPanelPosition: sanitizePriceCheckPanelPosition(
         saved?.priceCheckPanelPosition,
       ),
+      bounds: sanitizeWindowBounds(saved?.bounds),
+      expandedBounds: sanitizeWindowBounds(saved?.expandedBounds),
     };
     if (settings.priceCheck.openNearCursor) {
       settings.priceCheckPanelPosition = null;
@@ -479,23 +481,51 @@ function loadSettings() {
   }
 }
 
-function persistSettings() {
-  fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
-  const persistedSettings = { ...settings };
+function persistSettings(snapshot = settings) {
+  const persistedSettings = { ...snapshot };
   delete persistedSettings.settingsRevision;
   delete persistedSettings.shortcutWarning;
-  const serialized = JSON.stringify(persistedSettings, null, 2);
-  const temporaryPath = `${settingsPath()}.tmp`;
-  fs.writeFileSync(temporaryPath, serialized, "utf8");
-  fs.renameSync(temporaryPath, settingsPath());
+  writeJsonAtomically(settingsPath(), persistedSettings);
   settingsRevision += 1;
+}
+
+const settingsPersistenceRetry = createPersistenceRetry({
+  write: (snapshot) => persistSettings(snapshot),
+  getSnapshot: () => settings,
+  onFailure: (error) => {
+    settingsPersistenceWarning = `Settings could not be saved: ${String(error?.message || error).slice(0, 180)}`;
+    broadcastSettings();
+  },
+  onRecovered: () => {
+    settingsPersistenceWarning = "";
+    broadcastSettings();
+  },
+});
+
+function recordSettingsPersistenceFailure(error) {
+  settingsPersistenceWarning = `Settings could not be saved: ${String(error?.message || error).slice(0, 180)}`;
+  console.warn(settingsPersistenceWarning);
+  settingsPersistenceRetry.schedule();
+  broadcastSettings();
+}
+
+function tryPersistSettings(snapshot = settings) {
+  try {
+    persistSettings(snapshot);
+    settingsPersistenceRetry.dispose();
+    settingsPersistenceWarning = "";
+    return true;
+  } catch (error) {
+    recordSettingsPersistenceFailure(error);
+    return false;
+  }
 }
 
 function settingsForRenderer() {
   return {
     ...settings,
     settingsRevision,
-    shortcutWarning: desktopShortcutWarning || undefined,
+    shortcutWarning: [desktopShortcutWarning, settingsPersistenceWarning].filter(Boolean).join(" ") || undefined,
     priceCheck: {
       ...settings.priceCheck,
       shortcutWarning: priceCheckShortcutWarning || undefined,
@@ -618,13 +648,26 @@ async function getCachedRemoteJsonUncoalesced(
     defaultTtlMs = DEFAULT_TTL_MS,
     minimumTtlMs = 0,
     maxStaleMs = Number.POSITIVE_INFINITY,
-    sourceName = "poe.ninja",
+    sourceName = "remote source",
     validate,
+    expectedBytes,
+    expectedSha256,
+    maximumBytes = MAX_MARKET_JSON_BYTES,
+    sendUserAgent = true,
   } = {},
 ) {
   const now = Date.now();
   let cached = memoryCache.get(key) || (await readDiskCache(key));
   if (cached && validate && !validate(cached.data)) {
+    memoryCache.delete(key);
+    cached = null;
+  }
+  if (
+    cached &&
+    expectedSha256 &&
+    (cached.integritySha256 !== expectedSha256 ||
+      cached.integrityBytes !== expectedBytes)
+  ) {
     memoryCache.delete(key);
     cached = null;
   }
@@ -645,8 +688,8 @@ async function getCachedRemoteJsonUncoalesced(
 
   const headers = {
     Accept: "application/json",
-    "User-Agent": USER_AGENT,
   };
+  if (sendUserAgent) headers["User-Agent"] = USER_AGENT;
   if (cached?.etag) {
     headers["If-None-Match"] = cached.etag;
   }
@@ -656,7 +699,7 @@ async function getCachedRemoteJsonUncoalesced(
       headers,
       kind: "json",
       label: sourceName,
-      maximumBytes: MAX_MARKET_JSON_BYTES,
+      maximumBytes,
       timeoutMs: REQUEST_TIMEOUT_MS,
     });
 
@@ -688,9 +731,20 @@ async function getCachedRemoteJsonUncoalesced(
       throw new Error(`${sourceName} returned ${response.status}`);
     }
 
+    if (expectedSha256) {
+      if (body.length !== expectedBytes) {
+        throw new Error(`${sourceName} failed its size check.`);
+      }
+      const digest = crypto.createHash("sha256").update(body).digest("hex");
+      if (digest !== expectedSha256) {
+        throw new Error(`${sourceName} failed its integrity check.`);
+      }
+    }
+
     let data;
     try {
-      data = JSON.parse(body.toString("utf8"));
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
+      data = JSON.parse(text);
     } catch {
       throw new Error(`${sourceName} returned invalid JSON.`);
     }
@@ -706,6 +760,8 @@ async function getCachedRemoteJsonUncoalesced(
     const value = {
       data,
       etag: response.headers.get("etag"),
+      integrityBytes: expectedSha256 ? expectedBytes : undefined,
+      integritySha256: expectedSha256 || undefined,
       fetchedAt: responseSourceTime(response.headers, checkedAt),
       expiresAt: checkedAt + maxAge,
     };
@@ -834,11 +890,58 @@ async function getCachedRemoteImageDataUrl(key, url) {
   }
 }
 
-function getCachedJson(key, apiPath, force = false, kind = "overview") {
-  return getCachedRemoteJson(key, `${API_ROOT}${apiPath}`, force, {
-    maxStaleMs: kind === "leagues" ? 24 * 60 * 60 * 1000 : MAX_MARKET_STALE_MS,
-    validate: kind === "leagues" ? isLeaguePayload : isOverviewPayload,
-  });
+function getMirrorManifest(force = false) {
+  return getCachedRemoteJson(
+    `${MARKET_CACHE_VERSION}-manifest`,
+    POE_NINJA_MIRROR_MANIFEST_URL,
+    force,
+    {
+      defaultTtlMs: 5 * 60 * 1000,
+      maxStaleMs: MAX_ACTIONABLE_MIRROR_AGE_MS,
+      sourceName: "GloamCore market mirror",
+      validate: isPoeNinjaMirrorManifest,
+      maximumBytes: MAX_MIRROR_MANIFEST_BYTES,
+    },
+  );
+}
+
+async function getMirrorLeagues(force = false) {
+  const manifest = await getMirrorManifest(force);
+  const times = mirrorEnvelopeTimes(manifest.data.leagueSnapshot);
+  return {
+    data: manifest.data.leagueSnapshot.data,
+    ...times,
+    stale: manifest.stale,
+    cache: manifest.stale ? "stale" : manifest.cache,
+    error: manifest.error,
+  };
+}
+
+async function getMirrorOverview(key, request, force = false) {
+  const manifest = await getMirrorManifest(force);
+  const route = mirrorRouteForRequest(manifest.data, request);
+  const times = mirrorEnvelopeTimes(route);
+  const payload = await getCachedRemoteJson(
+    key,
+    mirrorRouteUrl(route),
+    force,
+    {
+      maxStaleMs: MAX_MARKET_STALE_MS,
+      sourceName: "GloamCore market mirror",
+      validate: isOverviewPayload,
+      expectedBytes: route.bytes,
+      expectedSha256: route.sha256,
+      maximumBytes: MAX_MIRROR_ROUTE_BYTES,
+    },
+  );
+  const stale = manifest.stale || payload.stale;
+  return {
+    ...payload,
+    ...times,
+    stale,
+    cache: stale ? "stale" : payload.cache,
+    error: [manifest.error, payload.error].filter(Boolean).join("; ") || undefined,
+  };
 }
 
 function limitedTooltipString(value, maximum = 180) {
@@ -988,6 +1091,7 @@ function getFaustusHour(hour) {
       minimumTtlMs: FAUSTUS_HOUR_TTL_MS,
       sourceName: "Official Faustus completed-hour digest",
       validate: (value) => Boolean(value && typeof value === "object" && Array.isArray(value.markets)),
+      sendUserAgent: false,
     },
   );
 }
@@ -1338,18 +1442,6 @@ async function getKnowledgeSearch(request) {
   };
 }
 
-function overviewPath(request) {
-  const league = encodeURIComponent(request.league);
-  const type = encodeURIComponent(request.type);
-  if (request.source === "exchange") {
-    return `/poe1/api/economy/exchange/current/overview?league=${league}&type=${type}`;
-  }
-  if (request.source === "stash-currency") {
-    return `/poe1/api/economy/stash/current/currency/overview?league=${league}&type=${type}`;
-  }
-  return `/poe1/api/economy/stash/current/item/overview?league=${league}&type=${type}`;
-}
-
 function createTrayIcon() {
   return loadTrayIcon(nativeImage, {
     resourcesPath: process.resourcesPath,
@@ -1440,13 +1532,17 @@ function updateTrayMenu() {
         type: "checkbox",
         checked: Boolean(settings.alwaysOnTop),
         click: (item) => {
-          settings.alwaysOnTop = item.checked;
+          const previous = settings;
+          const next = { ...settings, alwaysOnTop: Boolean(item.checked) };
           mainWindow?.setAlwaysOnTop(item.checked, "floating");
-          persistSettings();
-          sendMainCommand({
-            type: "always-on-top",
-            value: item.checked,
-          });
+          if (tryPersistSettings(next)) {
+            settings = next;
+            sendMainCommand({ type: "always-on-top", value: next.alwaysOnTop });
+          } else {
+            mainWindow?.setAlwaysOnTop(previous.alwaysOnTop, "floating");
+            updateTrayMenu();
+            broadcastSettings();
+          }
         },
       },
       {
@@ -1489,9 +1585,16 @@ function handleTrayClick() {
 }
 
 function setClickThrough(value) {
-  settings.clickThrough = Boolean(value);
-  mainWindow?.setIgnoreMouseEvents(settings.clickThrough, { forward: true });
-  persistSettings();
+  const previous = settings;
+  const next = { ...settings, clickThrough: Boolean(value) };
+  mainWindow?.setIgnoreMouseEvents(next.clickThrough, { forward: true });
+  if (!tryPersistSettings(next)) {
+    mainWindow?.setIgnoreMouseEvents(previous.clickThrough, { forward: true });
+    updateTrayMenu();
+    broadcastSettings();
+    return;
+  }
+  settings = next;
   updateTrayMenu();
   sendMainCommand({
     type: "click-through",
@@ -1564,17 +1667,24 @@ function setCompact(value) {
   const compact = Boolean(value);
   if (compact === settings.compact) return;
 
+  const previous = settings;
+  const previousBounds = mainWindow.getBounds();
+  const expandedBounds = compact ? previousBounds : settings.expandedBounds;
   if (compact) {
-    settings.expandedBounds = mainWindow.getBounds();
-    const current = mainWindow.getBounds();
-    mainWindow.setBounds(visibleWindowBounds(current, true));
-  } else if (settings.expandedBounds) {
-    mainWindow.setBounds(visibleWindowBounds(settings.expandedBounds, false));
+    mainWindow.setBounds(visibleWindowBounds(previousBounds, true));
+  } else if (expandedBounds) {
+    mainWindow.setBounds(visibleWindowBounds(expandedBounds, false));
   } else {
     mainWindow.setBounds(visibleWindowBounds({ width: 1380, height: 860 }, false));
   }
-  settings.compact = compact;
-  persistSettings();
+  const next = { ...settings, compact, expandedBounds };
+  if (!tryPersistSettings(next)) {
+    mainWindow.setBounds(previousBounds);
+    settings = previous;
+    broadcastSettings();
+    return;
+  }
+  settings = next;
 }
 
 function configureWindowSecurity(window) {
@@ -1757,8 +1867,8 @@ function priceCheckTargetTitle() {
 
 function priceCheckTargetProcessNames() {
   return QA_NATIVE_CAPTURE
-    ? [...POE_PROCESS_NAMES, "GloamCoreQaTarget.exe"]
-    : [...POE_PROCESS_NAMES];
+    ? [...POE1_PROCESS_NAMES, "GloamCoreQaTarget.exe"]
+    : [...POE1_PROCESS_NAMES];
 }
 
 function encodeNativeInputArgument(value) {
@@ -1834,20 +1944,16 @@ function runNativeInputHelper(
 }
 
 async function triggerToolkitChatMacro(macro) {
-  const scope = macro.scope || "poe1";
-  const allowedProcesses = scope === "poe2"
-    ? ["PathOfExile2.exe", "PathOfExile2Steam.exe"]
-    : scope === "both"
-      ? [...POE_PROCESS_NAMES, "PathOfExile2.exe", "PathOfExile2Steam.exe"]
-      : [...POE_PROCESS_NAMES];
-  const expectedTitle = scope === "poe2" ? "Path of Exile 2" : priceCheckTargetTitle();
+  const targets = toolkitMacroTargets();
   const deadline = Date.now() + 750;
   const result = await runNativeInputHelper([
     "send-text",
     String(deadline),
-    encodeNativeInputArgument(expectedTitle),
-    String(allowedProcesses.length),
-    ...allowedProcesses,
+    String(targets.length),
+    ...targets.flatMap(({ processName, title }) => [
+      processName,
+      encodeNativeInputArgument(title),
+    ]),
     encodeNativeInputArgument(macro.text),
   ], { deadline });
   if (result.code !== 0) {
@@ -3150,9 +3256,7 @@ const deadline = Date.now() + 150_000;
     let result = null;
     let settledSince = 0;
     let lastObservedBounds = null;
-    let lastListingRows = -1;
     let lastMarketRows = -1;
-    let uniqueCapture = false;
     let optionalStatsExpanded = false;
     const pollTrace = [];
     while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
@@ -3182,10 +3286,6 @@ const deadline = Date.now() + 150_000;
           const marketRows = document.querySelectorAll('.pco-row:not(.is-loading)').length;
           const modifierEditor = document.querySelector('.crme');
           const modifierRows = [...document.querySelectorAll('.crme-row')];
-          const listingPanel = document.querySelector('.ctl');
-          const listingLoading = listingPanel?.getAttribute('aria-busy') === 'true';
-          const listingPanelState = listingPanel?.getAttribute('data-state') || null;
-          const listingRows = document.querySelectorAll('.ctl tbody tr').length;
           const modifierList = modifierEditor?.querySelector('.crme-list');
           const modifierHeading = modifierEditor?.querySelector('.crme-heading');
           const stateStrip = modifierEditor?.querySelector('.crme-states');
@@ -3194,22 +3294,15 @@ const deadline = Date.now() + 150_000;
           const uniqueResolver = document.querySelector('.pco-unique-resolver');
           const modifierRowsHeight = modifierRows
             .reduce((height, row) => height + row.getBoundingClientRect().height, 0);
-          const modifierListingHeight = listingPanel
-            ? listingRows
-              ? 45 + Math.min(20, listingRows) * 25
-              : 93
-            : 0;
           const stateStripHeight = stateStrip?.getBoundingClientRect().height || 29;
           const presetHeight = presets?.getBoundingClientRect().height || 0;
           const tradeOptionsHeight = tradeOptions?.getBoundingClientRect().height || 0;
           const uniqueResolverHeight = uniqueResolver?.getBoundingClientRect().height || 0;
           const desiredHeight = modifierEditor
-            ? presetHeight + tradeOptionsHeight + uniqueResolverHeight + 115 + stateStripHeight + modifierListingHeight +
+            ? presetHeight + tradeOptionsHeight + uniqueResolverHeight + 115 + stateStripHeight +
               (modifierHeading?.getBoundingClientRect().height || 0) +
               (modifierList ? modifierRowsHeight : 0)
-            : listingPanel
-              ? Math.min(520, presetHeight + tradeOptionsHeight + uniqueResolverHeight + 199 + Math.max(0, Math.min(20, listingRows) - 1) * 25)
-              : Math.min(520, presetHeight + tradeOptionsHeight + uniqueResolverHeight + 137 + Math.max(1, Math.min(8, marketRows)) * 28);
+            : Math.min(520, presetHeight + tradeOptionsHeight + uniqueResolverHeight + 137 + Math.max(1, Math.min(8, marketRows)) * 28);
           const expectedHeight = Math.min(
             desiredHeight,
             Math.max(1, document.documentElement.clientHeight - 16),
@@ -3234,18 +3327,14 @@ const deadline = Date.now() + 150_000;
               // selected rows (for example a fixed-roll unique or a crafted
               // wand whose optional stats all start disabled). The mounted
               // editor and its state/summary controls are the ready surface.
-              (modifierEditor ? true : marketRows >= 1 || listingPanel) &&
+              (modifierEditor ? true : Boolean(results)) &&
               sourceLabel &&
               detailButton &&
               surfaceRect &&
-              !listingLoading &&
               Math.abs(surfaceRect.height - expectedHeight) <= 1
             ),
             buttons,
             marketRows,
-            liveListings: Boolean(listingPanel),
-            listingRows,
-            listingPanelState,
             tradeStatCatalog: document.documentElement.dataset.tradeStatCatalog || '',
             modifierEditor: Boolean(modifierEditor),
             modifierRows: modifierRows.length,
@@ -3323,7 +3412,6 @@ const deadline = Date.now() + 150_000;
                   presets: presetHeight,
                   tradeOptions: tradeOptionsHeight,
                   uniqueResolver: uniqueResolverHeight,
-                  listings: listingPanel?.getBoundingClientRect().height || 0,
                 }
               : null,
           };
@@ -3338,25 +3426,13 @@ const deadline = Date.now() + 150_000;
           result.surfaceBounds.height === priceCheckPanelBounds.height
         );
         // A momentary aligned/ready report does not prove the panel will stay
-        // still: live seller listings for a unique fixture can arrive in
-        // network batches and repaint the card mid-measurement. A unique's
-        // automatic listing surface mounts only after its estimate fetch
-        // resolves, so a pre-mount state must not count as settled. Require a
-        // durable quiescence proof — the listing surface mounted (unique
-        // fixtures), identical renderer and native bounds, and stable
-        // market/listing row counts across consecutive polls, held for a full
-        // settle window — before the back-to-back repeat is measured.
-        uniqueCapture = /Rarity: Unique/.test(lastPriceCheckCapture?.text || "");
-        const listingSurfaceMounted = Boolean(
-          result?.liveListings || !uniqueCapture
-        );
-        const listingsSettled = result?.listingPanelState !== "loading";
-        const listingRowsPresent = result?.listingRows > 0 || !uniqueCapture;
-        const rowCountsSettled = Boolean(
+        // still: local market data and editor layout can repaint the card
+        // mid-measurement. Require identical renderer/native bounds and a
+        // stable market-row count across consecutive polls, held for a full
+        // settle window, before the back-to-back repeat is measured.
+        const marketRowsSettled = Boolean(
           result &&
-          lastListingRows >= 0 &&
           lastMarketRows >= 0 &&
-          result.listingRows === lastListingRows &&
           result.marketRows === lastMarketRows
         );
         const boundsSettled = Boolean(
@@ -3371,26 +3447,17 @@ const deadline = Date.now() + 150_000;
           result &&
           result.ready &&
           nativePanelAligned &&
-          listingSurfaceMounted &&
-          listingsSettled &&
-          listingRowsPresent &&
-          rowCountsSettled &&
+          marketRowsSettled &&
           boundsSettled
         );
         pollTrace.push({
           t: Date.now(),
           ready: Boolean(result?.ready),
           aligned: nativePanelAligned,
-          listings: result?.liveListings,
-          rows: result?.listingRows,
           mrows: result?.marketRows,
-          state: result?.listingPanelState,
           sbH: result?.surfaceBounds?.height ?? null,
           npH: priceCheckPanelBounds?.height ?? null,
-          lsm: listingSurfaceMounted,
-          lsp: listingsSettled,
-          lrp: listingRowsPresent,
-          rcs: rowCountsSettled,
+          mrs: marketRowsSettled,
           bs: boundsSettled,
           settled,
           age: settledSince ? Date.now() - settledSince : 0,
@@ -3402,7 +3469,6 @@ const deadline = Date.now() + 150_000;
           settledSince = 0;
         }
         lastObservedBounds = result?.surfaceBounds ? { ...result.surfaceBounds } : null;
-        lastListingRows = result?.listingRows ?? -1;
         lastMarketRows = result?.marketRows ?? -1;
         if (result?.error) break;
       } catch (error) {
@@ -3558,14 +3624,12 @@ const deadline = Date.now() + 150_000;
       // A back-to-back check keeps the card passive, immediate, and
       // focus-stable, and must leave it resting in the same place. Progressive
       // market paints can transiently resize the panel right after a press
-      // (live seller listings for a unique arrive after the new generation
-      // mounts), so each repeat generation is settled with the same quiescence
-      // proof as the gate before its resting bounds are compared.
+      // while local estimates and the query editor mount, so each repeat
+      // generation is settled before its resting bounds are compared.
       const settleRepeatGeneration = async () => {
         const deadline = Date.now() + 8_000;
         let stableSince = 0;
         let priorBounds = null;
-        let priorListingRows = -1;
         let priorMarketRows = -1;
         console.log("STATE settle-enter win=" + Boolean(priceCheckWindow));
         while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
@@ -3573,13 +3637,8 @@ const deadline = Date.now() + 150_000;
             const poll = await priceCheckWindow.webContents.executeJavaScript(`(() => {
               const panel = document.querySelector('.pco');
               const surface = panel?.getBoundingClientRect();
-              const listingPanel = document.querySelector('.ctl');
               return {
-                listingLoading: listingPanel?.getAttribute('aria-busy') === 'true',
-                listingPanelState: listingPanel?.getAttribute('data-state') || null,
-                listingRows: document.querySelectorAll('.ctl tbody tr').length,
                 marketRows: document.querySelectorAll('.pco-row:not(.is-loading)').length,
-                liveListings: Boolean(listingPanel),
                 surfaceBounds: surface ? {
                   x: Math.round(surface.x),
                   y: Math.round(surface.y),
@@ -3598,15 +3657,8 @@ const deadline = Date.now() + 150_000;
               poll.surfaceBounds.width === priceCheckPanelBounds.width &&
               poll.surfaceBounds.height === priceCheckPanelBounds.height
             );
-            const listingSurfaceMounted = Boolean(
-              poll.liveListings || !uniqueCapture
-            );
-            const listingsSettled = poll.listingPanelState !== "loading";
-            const listingRowsPresent = poll.listingRows > 0 || !uniqueCapture;
-            const rowCountsSettled = Boolean(
-              priorListingRows >= 0 &&
+            const marketRowsSettled = Boolean(
               priorMarketRows >= 0 &&
-              poll.listingRows === priorListingRows &&
               poll.marketRows === priorMarketRows
             );
             const boundsSettled = Boolean(
@@ -3626,16 +3678,12 @@ const deadline = Date.now() + 150_000;
             );
             const settled = Boolean(
               poll &&
-              !poll.listingLoading &&
               modeStable &&
               nativePanelAligned &&
-              listingSurfaceMounted &&
-              listingsSettled &&
-              listingRowsPresent &&
-              rowCountsSettled &&
+              marketRowsSettled &&
               boundsSettled
             );
-            console.log("STATE settle-poll " + JSON.stringify({ l: poll?.listingLoading, m: modeStable, na: nativePanelAligned, lsm: listingSurfaceMounted, lsp: listingsSettled, lrp: listingRowsPresent, rcs: rowCountsSettled, bs: boundsSettled, sbH: poll?.surfaceBounds?.height, npH: priceCheckPanelBounds?.height, pmode: priceCheckPresentationMode, vis: priceCheckOverlayVisible, tgt: OverlayController.targetHasFocus, foc: priceCheckWindow.isFocused(), timer: Boolean(priceCheckGeometryTimer) }));
+            console.log("STATE settle-poll " + JSON.stringify({ m: modeStable, na: nativePanelAligned, mrs: marketRowsSettled, bs: boundsSettled, sbH: poll?.surfaceBounds?.height, npH: priceCheckPanelBounds?.height, pmode: priceCheckPresentationMode, vis: priceCheckOverlayVisible, tgt: OverlayController.targetHasFocus, foc: priceCheckWindow.isFocused(), timer: Boolean(priceCheckGeometryTimer) }));
             if (settled) {
               if (!stableSince) stableSince = Date.now();
               if (Date.now() - stableSince >= 1000) {
@@ -3648,7 +3696,6 @@ const deadline = Date.now() + 150_000;
               stableSince = 0;
             }
             priorBounds = poll.surfaceBounds ? { ...poll.surfaceBounds } : null;
-            priorListingRows = poll.listingRows ?? -1;
             priorMarketRows = poll.marketRows ?? -1;
           } catch (error) {
             console.log("STATE settle-poll-error " + String(error?.message || error));
@@ -5035,8 +5082,8 @@ function createWindow() {
     clearTimeout(boundsTimer);
     boundsTimer = setTimeout(() => {
       if (mainWindow && !mainWindow.isMinimized() && !settings.compact) {
-        settings.bounds = mainWindow.getBounds();
-        persistSettings();
+        const next = { ...settings, bounds: mainWindow.getBounds() };
+        if (tryPersistSettings(next)) settings = next;
       }
     }, 350);
   };
@@ -5109,14 +5156,9 @@ app.whenReady().then(() => {
       // The normal renderer request reports a precise catalog error if the build is incomplete.
     }
   });
-  void getCachedJson(
-    `${MARKET_CACHE_VERSION}-poe1-leagues`,
-    "/poe1/api/economy/leagues",
-    false,
-    "leagues",
-  ).catch(() => undefined);
+  void getMirrorLeagues(false).catch(() => undefined);
   getToolkitRuntimeStore();
-  if (settingsNeedPersist) persistSettings();
+  if (settingsNeedPersist) tryPersistSettings();
   if (!registerPriceCheckShortcut()) {
     priceCheckShortcutWarning =
       `${settings.priceCheck.hotkey} is already in use. Open Price checker settings ` +
@@ -5292,30 +5334,19 @@ function finiteNumber(value, fallback = 0) {
 }
 
 function sanitizeQuickRow(row, fallbackLeague) {
-  if (!row || typeof row !== "object") return null;
-  const allowedSources = new Set([
-    "exchange",
-    "stash-item",
-    "stash-currency",
-  ]);
-  const key = limitedString(row.key);
-  const name = limitedString(row.name);
-  const categoryId = limitedString(row.categoryId, 100);
-  const source = allowedSources.has(row.source) ? row.source : "";
-  if (!key || !name || !categoryId || !source) return null;
+  const identity = sanitizeSurfaceIdentity(row, fallbackLeague);
+  if (!identity) return null;
+  const chaosValue = Number(row.chaosValue);
+  const divineValue = row.divineValue == null ? null : Number(row.divineValue);
+  if (!Number.isFinite(chaosValue) || chaosValue <= 0) return null;
   return {
-    key,
-    name,
-    icon:
-      typeof row.icon === "string" && /^https:\/\//i.test(row.icon)
-        ? row.icon.slice(0, 1000)
-        : undefined,
-    categoryId,
+    ...identity,
     categoryLabel: limitedString(row.categoryLabel, 100),
-    source,
-    league: limitedString(row.league || fallbackLeague, 100),
-    chaosValue: Math.max(0, finiteNumber(row.chaosValue)),
-    divineValue: Math.max(0, finiteNumber(row.divineValue)),
+    chaosValue,
+    divineValue:
+      divineValue != null && Number.isFinite(divineValue) && divineValue > 0
+        ? divineValue
+        : null,
     change: row.change == null ? null : finiteNumber(row.change),
     volume: row.volume == null ? null : Math.max(0, finiteNumber(row.volume)),
     listingCount:
@@ -5341,38 +5372,7 @@ function sanitizeSurfaceState(value) {
     .slice(0, 5)
     .map((row) => sanitizeQuickRow(row, league))
     .filter(Boolean);
-  const alerts = (Array.isArray(value.alerts) ? value.alerts : [])
-    .slice(0, 20)
-    .map((alert) => {
-      const row = sanitizeQuickRow(
-        {
-          ...alert,
-          key: alert?.key,
-          name: alert?.name,
-          categoryLabel: "",
-          chaosValue: 0,
-          divineValue: 0,
-          change: null,
-          volume: null,
-          listingCount: null,
-          lowConfidence: false,
-        },
-        league,
-      );
-      if (!row || (alert.unit !== "chaos" && alert.unit !== "divine")) return null;
-      return {
-        key: row.key,
-        name: row.name,
-        icon: row.icon,
-        current: Math.max(0, finiteNumber(alert.current)),
-        target: Math.max(0, finiteNumber(alert.target)),
-        unit: alert.unit,
-        categoryId: row.categoryId,
-        source: row.source,
-        league: row.league,
-      };
-    })
-    .filter(Boolean);
+  const alerts = sanitizeSurfaceAlerts(value.alerts, league);
   return {
     league,
     categoryLabel: limitedString(value.categoryLabel, 100),
@@ -5491,19 +5491,7 @@ function validateSurfaceAction(action) {
 
 function sanitizeSettingsPatch(patch) {
   if (!patch || typeof patch !== "object") return {};
-  const sanitized = {};
-  if ("alwaysOnTop" in patch) sanitized.alwaysOnTop = Boolean(patch.alwaysOnTop);
-  if ("compact" in patch) sanitized.compact = Boolean(patch.compact);
-  if ("clickThrough" in patch) sanitized.clickThrough = Boolean(patch.clickThrough);
-  if ("startMinimized" in patch) {
-    sanitized.startMinimized = Boolean(patch.startMinimized);
-  }
-  if ("autoCheckUpdates" in patch) {
-    sanitized.autoCheckUpdates = Boolean(patch.autoCheckUpdates);
-  }
-  if ("opacity" in patch) {
-    sanitized.opacity = Math.max(0.65, Math.min(1, Number(patch.opacity) || 1));
-  }
+  const sanitized = sanitizeScalarSettings(patch);
   if (patch.shortcuts && typeof patch.shortcuts === "object") {
     const candidate = patch.shortcuts;
     sanitized.shortcuts = Object.fromEntries(
@@ -5523,45 +5511,44 @@ function sanitizeSettingsPatch(patch) {
       : current.hotkey;
     sanitized.priceCheck = {
       ...current,
-      enabled:
-        "enabled" in candidate ? Boolean(candidate.enabled) : current.enabled,
+      enabled: typeof candidate.enabled === "boolean" ? candidate.enabled : current.enabled,
       hotkey,
       captureMode: "auto-copy",
       openNearCursor:
-        "openNearCursor" in candidate
-          ? Boolean(candidate.openNearCursor)
+        typeof candidate.openNearCursor === "boolean"
+          ? candidate.openNearCursor
           : current.openNearCursor,
       closeOnBlur:
-        "closeOnBlur" in candidate
-          ? Boolean(candidate.closeOnBlur)
+        typeof candidate.closeOnBlur === "boolean"
+          ? candidate.closeOnBlur
           : current.closeOnBlur,
       pinByDefault:
-        "pinByDefault" in candidate
-          ? Boolean(candidate.pinByDefault)
+        typeof candidate.pinByDefault === "boolean"
+          ? candidate.pinByDefault
           : current.pinByDefault,
       rollTolerance: Math.max(
         0,
         Math.min(50, Math.round(finiteNumber(candidate.rollTolerance, current.rollTolerance))),
       ),
       defaultOnlineOnly:
-        "defaultOnlineOnly" in candidate
-          ? Boolean(candidate.defaultOnlineOnly)
+        typeof candidate.defaultOnlineOnly === "boolean"
+          ? candidate.defaultOnlineOnly
           : current.defaultOnlineOnly,
       rememberHistory:
-        "rememberHistory" in candidate
-          ? Boolean(candidate.rememberHistory)
+        typeof candidate.rememberHistory === "boolean"
+          ? candidate.rememberHistory
           : current.rememberHistory,
       maxHistory: Math.max(
         0,
         Math.min(200, Math.round(finiteNumber(candidate.maxHistory, current.maxHistory))),
       ),
       showAdvanced:
-        "showAdvanced" in candidate
-          ? Boolean(candidate.showAdvanced)
+        typeof candidate.showAdvanced === "boolean"
+          ? candidate.showAdvanced
           : current.showAdvanced,
       legacyBehavior:
-        "legacyBehavior" in candidate
-          ? Boolean(candidate.legacyBehavior)
+        typeof candidate.legacyBehavior === "boolean"
+          ? candidate.legacyBehavior
           : current.legacyBehavior,
     };
   }
@@ -5570,23 +5557,16 @@ function sanitizeSettingsPatch(patch) {
 
 ipcMain.handle("economy:get-leagues", (event, options = {}) => {
   assertTrustedSender(event);
-  return (
-  getCachedJson(
-    `${MARKET_CACHE_VERSION}-poe1-leagues`,
-    "/poe1/api/economy/leagues",
-    Boolean(options.force),
-    "leagues",
-  )
-  );
+  return getMirrorLeagues(Boolean(options.force));
 });
 
 ipcMain.handle("economy:get-overview", (event, rawRequest) => {
   assertTrustedSender(event);
   const request = validateOverviewRequest(rawRequest);
   const key = `${MARKET_CACHE_VERSION}-${request.league}-${request.source}-${request.type}`;
-  return getCachedJson(
+  return getMirrorOverview(
     key,
-    overviewPath(request),
+    request,
     Boolean(request.force),
   );
 });
@@ -5772,9 +5752,9 @@ ipcMain.handle("poe-event-log:get", (event) => {
   return getPoeEventLogService().getState();
 });
 
-ipcMain.handle("poe-event-log:start", (event, logPath) => {
+ipcMain.handle("poe-event-log:start", (event) => {
   assertDashboardSender(event);
-  return getPoeEventLogService().start(typeof logPath === "string" ? logPath : undefined);
+  return getPoeEventLogService().start();
 });
 
 ipcMain.handle("poe-event-log:stop", (event) => {
@@ -5796,17 +5776,14 @@ ipcMain.handle("poe-event-log:select-path", async (event) => {
     filters: [{ name: "Path of Exile Client log", extensions: ["txt"] }],
   });
   if (selected.canceled || selected.filePaths.length !== 1) return null;
-  const selectedPath = path.resolve(selected.filePaths[0]);
-  if (path.basename(selectedPath).toLocaleLowerCase() !== "client.txt") {
-    throw new Error("Choose Path of Exile's logs\\Client.txt file.");
-  }
-  return getPoeEventLogService().start(selectedPath);
+  const service = getPoeEventLogService();
+  service.authorizePath(selected.filePaths[0]);
+  return service.start();
 });
 
 ipcMain.handle("planner:get-passive-tree", (event, options) => {
   assertDashboardSender(event);
   return pobPlannerDispatcher.load({
-    game: options?.game === "poe2" ? "poe2" : "poe1",
     treeVersion: String(options?.treeVersion || options?.version || "").slice(0, 40),
     ruthless: Boolean(options?.ruthless),
     alternate: Boolean(options?.alternate),
@@ -5872,13 +5849,6 @@ ipcMain.handle("planner:hunt-timeless", (event, request) => {
   });
 });
 
-ipcMain.handle("planner:import-character-pob", (event, request) => {
-  assertDashboardSender(event);
-  return pobEngineDispatcher.importCharacter({
-    character: request?.character,
-  });
-});
-
 ipcMain.handle("planner:read-clipboard", (event) => {
   assertDashboardSender(event);
   return clipboard.readText().replace(/\0/g, "").slice(0, 24 * 1024 * 1024);
@@ -5887,16 +5857,6 @@ ipcMain.handle("planner:read-clipboard", (event) => {
 ipcMain.handle("planner:resolve-item-artwork", (event, request) => {
   assertDashboardSender(event);
   return resolvePlannerItemArtwork(request);
-});
-
-ipcMain.handle("planner:list-characters", (event, request) => {
-  assertDashboardSender(event);
-  return poeCharacterService.listCharacters(request);
-});
-
-ipcMain.handle("planner:get-character", (event, request) => {
-  assertDashboardSender(event);
-  return poeCharacterService.getCharacter(request);
 });
 
 ipcMain.handle("price-check:read-clipboard", (event) => {
@@ -5990,19 +5950,6 @@ ipcMain.handle("price-check:get-trade-stat-catalog", (event) => {
   return loadBundledTradeStatCatalog();
 });
 
-ipcMain.handle("price-check:get-official-listings", (event, rawRequest) => {
-  assertTrustedSender(event);
-  if (
-    !canReadPriceCheckCapture(event.sender, {
-      mainWindow,
-      priceCheckWindow,
-    })
-  ) {
-    throw new Error("Only the dashboard and price-check overlay can request trade listings.");
-  }
-  return officialTradeListingService.lookup(rawRequest);
-});
-
 ipcMain.handle("settings:get", (event) => {
   assertSettingsSender(event);
   return settingsForRenderer();
@@ -6038,16 +5985,14 @@ ipcMain.handle("settings:save", (event, patch) => {
     if (!registration.ok) throw new Error(registration.error);
     priceCheckShortcutWarning = "";
   }
-  settings = nextSettings;
-  try {
-    persistSettings();
-  } catch (error) {
-    settings = previousSettings;
+  if (!tryPersistSettings(nextSettings)) {
     if (shortcutChanged) {
       applyShortcutRegistrationPlan(previousSettings, nextSettings);
     }
-    throw error;
+    broadcastSettings();
+    return settingsForRenderer();
   }
+  settings = nextSettings;
   if ("autoCheckUpdates" in sanitized) {
     updateService?.setAutoCheck(settings.autoCheckUpdates);
   }
@@ -6143,8 +6088,7 @@ ipcMain.handle("surface:action", async (event, rawAction) => {
             moved ? nextPanel : priceCheckPanelBounds,
           );
           if (!position) throw new Error("The overlay card position is unavailable.");
-          const previousSettings = settings;
-          settings = {
+          const nextSettings = {
             ...settings,
             priceCheckPanelPosition: position,
             priceCheck: {
@@ -6152,12 +6096,11 @@ ipcMain.handle("surface:action", async (event, rawAction) => {
               openNearCursor: false,
             },
           };
-          try {
-            persistSettings();
-          } catch (error) {
-            settings = previousSettings;
-            throw error;
+          if (!tryPersistSettings(nextSettings)) {
+            broadcastSettings();
+            break;
           }
+          settings = nextSettings;
           updateTrayMenu();
           broadcastSettings();
         }
@@ -6262,15 +6205,27 @@ ipcMain.handle("window:action", (event, action, payload) => {
       mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
       break;
     case "always-on-top":
-      settings.alwaysOnTop = Boolean(payload);
-      mainWindow.setAlwaysOnTop(settings.alwaysOnTop, "floating");
-      persistSettings();
+      if (typeof payload !== "boolean") throw new Error("Always-on-top must be a boolean.");
+      {
+        const previous = settings;
+        const next = { ...settings, alwaysOnTop: payload };
+        mainWindow.setAlwaysOnTop(next.alwaysOnTop, "floating");
+        if (tryPersistSettings(next)) settings = next;
+        else mainWindow.setAlwaysOnTop(previous.alwaysOnTop, "floating");
+      }
       updateTrayMenu();
       break;
     case "opacity":
-      settings.opacity = Math.max(0.65, Math.min(1, Number(payload)));
-      mainWindow.setOpacity(settings.opacity);
-      persistSettings();
+      if (typeof payload !== "number" || !Number.isFinite(payload)) {
+        throw new Error("Opacity must be a finite number.");
+      }
+      {
+        const previous = settings;
+        const next = { ...settings, opacity: Math.max(0.65, Math.min(1, payload)) };
+        mainWindow.setOpacity(next.opacity);
+        if (tryPersistSettings(next)) settings = next;
+        else mainWindow.setOpacity(previous.opacity);
+      }
       break;
     case "compact":
       setCompact(payload);

@@ -237,6 +237,8 @@ export function WatchlistPanel({
                   <div className="watch-price-guard">
                     {row.lowConfidence
                       ? "Unreliable estimate · target alerts paused"
+                      : entry.targetUnit === "divine" && row.divineValue == null
+                        ? "Divine conversion unavailable · target alerts paused"
                       : entry.marketStale
                         ? "Offline snapshot · target alerts paused"
                         : "Waiting for a fresh market check"}

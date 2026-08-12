@@ -608,9 +608,6 @@ try {
     if ($stateLabels -contains "QUALITY") {
       throw "Similar-mode crafted wand incorrectly exposed the Base/Exact quality control."
     }
-    if ($result.result.liveListings -or $result.result.text -match "\bLOADING\b") {
-      throw "Crafted wand started seller listings before the explicit Search action."
-    }
     if (-not $result.modifierInteraction.skipped) {
       throw "Crafted wand fabricated slider interaction without proven APT bounds: $($result.modifierInteraction | ConvertTo-Json -Compress)"
     }
@@ -644,7 +641,7 @@ try {
     if (-not $result.modifierInteraction.skipped) {
       throw "Rare editor fabricated slider interaction without proven APT bounds: $($result.modifierInteraction | ConvertTo-Json -Compress)"
     }
-    if ($result.result.sourceLabel -notmatch "^(TRADE FILTERS|SEARCHING|TRADE (LIVE|STALE|ERROR))$") {
+    if ($result.result.sourceLabel -ne "TRADE FILTERS") {
       throw "Rare overlay did not identify its filter source truthfully."
     }
     $headingMatch = [regex]::Match(
@@ -664,9 +661,6 @@ try {
       $result.result.matchModeSelects -ne 0
     ) {
       throw "Rare overlay did not render every ordinary stat without an optional-stat fold."
-    }
-    if ($result.result.liveListings -or $result.result.text -match "\bLOADING\b") {
-      throw "Rare overlay started seller listings before the explicit Awakened-style Search action."
     }
   } else {
     if (
@@ -706,29 +700,11 @@ try {
     ) {
       throw "Canonical Mageblood range input was not immediately usable: $($result.modifierInteraction | ConvertTo-Json -Compress)"
     }
-    if ($result.result.sourceLabel -notmatch "^(TRADE FILTERS|SEARCHING|TRADE (LIVE|STALE|ERROR))$") {
+    if ($result.result.sourceLabel -ne "TRADE FILTERS") {
       throw "Compact official Trade source labeling is missing."
     }
     if ([string]::IsNullOrWhiteSpace($result.result.estimateLabel)) {
       throw "The unique price headline was blank."
-    }
-    if ($result.result.estimateLabel -match '^NO PRICE$') {
-      $positiveListingPrice = [regex]::IsMatch(
-        [string]$result.result.text,
-        '\b(?:[1-9]\d*(?:\.\d+)?|0\.\d*[1-9]\d*)\s*(?:CHAOS|DIVINE)\b'
-      )
-      if (
-        -not $result.result.liveListings -or
-        $result.result.listingRows -lt 1 -or
-        -not $positiveListingPrice -or
-        $result.result.sourceLabel -match 'ERROR|STALE' -or
-        $result.result.text -match '(?m)^(?:TRADE|LISTINGS)\s+(?:ERROR|STALE)\b'
-      ) {
-        throw "NO PRICE was not backed by a live official listing with a positive finite price."
-      }
-    }
-    if (-not $result.result.liveListings) {
-      throw "The compact unique overlay did not mount the automatic seller-listing surface."
     }
     if ($result.result.matchModeSelects -ne 0) {
       throw "Unique compact overlay retained per-row match-mode controls."

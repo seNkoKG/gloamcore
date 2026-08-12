@@ -163,7 +163,7 @@ function compareVersions(left, right) {
 function normalizeTreeVersion(value) {
   const normalized = String(value || "").trim().replace(/\./g, "_").toLowerCase();
   if (!normalized) return "";
-  if (!/^\d+(?:_\d+)+(?:_(?:ruthless|alternate)){0,2}$/.test(normalized)) {
+  if (!/^[1-9]\d*(?:_\d+)+(?:_(?:ruthless|alternate)){0,2}$/.test(normalized)) {
     throw new Error("The requested Path of Building tree version is invalid.");
   }
   return normalized;
@@ -179,15 +179,10 @@ function requestedTreeVersion(options) {
 }
 
 function findTreeFile(options = {}) {
-  const game = options.game === "poe2" ? "poe2" : "poe1";
   const { requested, suffix } = requestedTreeVersion(options);
   const appData = process.env.APPDATA || "";
-  const roots = options.pobRoot ? [options.pobRoot] : game === "poe2"
-    ? [
-        path.join(appData, "Path of Building Community (PoE2)"),
-        path.join(appData, "Path of Building 2 Community"),
-        path.join(appData, "Path of Building 2"),
-      ]
+  const roots = options.pobRoot
+    ? [options.pobRoot]
     : [path.join(appData, "Path of Building Community")];
   for (const root of roots) {
     for (const treeRoot of [path.join(root, "TreeData"), path.join(root, "src", "TreeData")]) {
@@ -210,16 +205,14 @@ function findTreeFile(options = {}) {
           .reverse();
       for (const version of versions) {
         const filePath = path.join(treeRoot, version, "tree.lua");
-        if (fs.existsSync(filePath)) return { filePath, version, root, game };
+        if (fs.existsSync(filePath)) return { filePath, version, root, game: "poe1" };
       }
     }
   }
   if (requested) {
     throw new Error(`Path of Building tree ${requested.replace(/_/g, ".")} was not found. Update PoB Community before importing this build; GloamCore will not display its hashes on a different tree.`);
   }
-  throw new Error(game === "poe2"
-    ? "Path of Building Community (PoE2) tree data was not found. Install or update PoB2 Community first. GloamCore will never substitute the PoE1 tree."
-    : "Path of Building Community tree data was not found. Install or update PoB Community first.");
+  throw new Error("Path of Building Community tree data was not found. Install or update PoB Community first.");
 }
 
 function orbitAngles(nodesInOrbit) {
@@ -352,7 +345,6 @@ function sanitizeTree(
   raw,
   version,
   sourcePath,
-  game = "poe1",
   rawSprites = null,
   rawClusterJewels = null,
   rawTattooPassives = null,
@@ -479,7 +471,7 @@ function sanitizeTree(
     maxY: Number(raw.max_y) || 11000,
   };
 
-  const cluster = rawClusterJewels && game === "poe1" ? (() => {
+  const cluster = rawClusterJewels ? (() => {
     const wantedDefinitions = new Set([
       ...Object.keys(rawClusterJewels.notableSortOrder || {}),
       ...(Array.isArray(rawClusterJewels.keystones) ? rawClusterJewels.keystones.map(String) : []),
@@ -610,7 +602,7 @@ function sanitizeTree(
     };
   })() : undefined;
   return {
-    game,
+    game: "poe1",
     version,
     sourcePath,
     bounds,
@@ -728,7 +720,7 @@ function loadPassiveTreeSnapshot(options = {}) {
     : null;
   const rawClusterJewels = clusterStat ? parseLuaTable(fs.readFileSync(clusterPath, "utf8")) : null;
   const rawTattooPassives = tattooStat ? parseLuaTable(fs.readFileSync(tattooPath, "utf8")) : null;
-  const data = sanitizeTree(raw, located.version, located.filePath, located.game, rawSprites, rawClusterJewels, rawTattooPassives);
+  const data = sanitizeTree(raw, located.version, located.filePath, rawSprites, rawClusterJewels, rawTattooPassives);
   const current = describePassiveTree(options);
   if (current.cacheKey !== descriptor.cacheKey) {
     const error = new Error("Path of Building passive-tree files changed while they were loading. Retry after its update finishes.");

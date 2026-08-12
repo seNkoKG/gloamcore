@@ -20,7 +20,7 @@ const fixture: RegexDataPack = {
   generatedAt: "2026-08-08T00:00:00.000Z",
   update: {
     command: "node scripts/build-regex-data.mjs",
-    officialRetrievedAt: "2026-08-08T00:00:00.000Z",
+    sourceUpdatedAt: "2026-08-08T00:00:00.000Z",
   },
   coverage: {
     mapModifiers: {
@@ -31,12 +31,18 @@ const fixture: RegexDataPack = {
       discardedRewardOnlyRows: 0,
       spawnTagCounts: { low_tier_map: 1 },
     },
-    officialTrade: { itemGroups: 1, statGroups: 1, staticGroups: 1 },
+    bundledSources: {
+      baseTypes: 1,
+      itemProfiles: 1,
+      uniqueProfiles: 1,
+      gemProfiles: 1,
+      statPatterns: 1,
+    },
   },
   sources: [{
     id: "source",
     label: "Fixture",
-    kind: "official-endpoint",
+    kind: "bundled-pack",
     inputSha256: HASH,
   }],
   limitations: ["Fixture coverage is intentionally small."],
@@ -83,6 +89,43 @@ function renderedTemplate(value: string) {
     .replace(/#/g, "42");
 }
 
+function normalized(value: string) {
+  return value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function numericSkeleton(value: string) {
+  return normalized(value)
+    .replace(/[+-]?\d[\d,]*(?:\.\d+)?/g, "#")
+    .replace(/[+-]?#/g, "#");
+}
+
+function templateWitnesses(value: string) {
+  const clean = normalized(value);
+  return [0, 1, 42, 999].map((number) => clean
+    .replace(/\+#/g, `+${number}`)
+    .replace(/-#/g, `-${number}`)
+    .replace(/#/g, String(number)));
+}
+
+const FIXED_TOOLTIP_TEMPLATES = [
+  "Item Class: Maps", "Item Class: Currency", "Rarity: Normal", "Rarity: Magic",
+  "Rarity: Rare", "Rarity: Unique", "Map Tier: #", "Item Level: #", "Level: #",
+  "Quality: +#%", "Quality: +#% (augmented)", "Armour: #", "Armour: # (augmented)",
+  "Evasion Rating: #", "Evasion Rating: # (augmented)", "Energy Shield: #",
+  "Energy Shield: # (augmented)", "Ward: #", "Ward: # (augmented)",
+  "Physical Damage: #-#", "Physical Damage: #-# (augmented)", "Elemental Damage: #-#",
+  "Elemental Damage: #-# (augmented)", "Chaos Damage: #-#", "Chaos Damage: #-# (augmented)",
+  "Critical Strike Chance: #%", "Critical Strike Chance: #% (augmented)",
+  "Attacks per Second: #", "Attacks per Second: # (augmented)", "Weapon Range: #",
+  "Chance to Block: #%", "Chance to Block: #% (augmented)", "Item Quantity: +#%",
+  "Item Quantity: +#% (augmented)", "Item Rarity: +#%", "Item Rarity: +#% (augmented)",
+  "Monster Pack Size: +#%", "Monster Pack Size: +#% (augmented)", "More Maps: +#%",
+  "Stack Size: #/#", "Experience: #/#", "Str: #", "Dex: #", "Int: #", "Radius: Small",
+  "Radius: Medium", "Radius: Large", "Radius: Variable", "Sockets: R-R-R", "Requirements:", "Corrupted",
+  "Unidentified", "Mirrored", "Split", "Fractured Item", "Synthesised Item", "Scourged",
+  "Foulborn", "Vestigial", "Blighted", "Blight-ravaged",
+];
+
 describe("regex data pack", () => {
   it("validates references and materializes engine entries", () => {
     expect(isValidRegexDataPack(fixture)).toBe(true);
@@ -96,11 +139,15 @@ describe("regex data pack", () => {
       label: "Monsters are Hexproof",
       text: "Monsters are Hexproof",
       exactToken: "^monsters are hexproof$",
-      optimizedToken: "hex",
+      compactToken: "hex",
       selected: true,
       mode: "avoid",
     }]);
-    expect(buildPoeRegex(materialized).expression).toBe('"!hex"');
+    expect(buildPoeRegex(materialized).expression).toBe('"!^monsters are hexproof$"');
+    expect(buildPoeRegex(materialized, {
+      optimization: "compact",
+      universe: materialized,
+    }).expression).toBe('"!hex"');
     expect(isValidRegexDataPack({
       ...fixture,
       categories: [{ ...fixture.categories[0], entries: [{ entryId: "missing", optimized: "x" }] }],
@@ -124,50 +171,59 @@ describe("regex data pack", () => {
     })).toBe(false);
   });
 
+  it("exposes only v2 full-tooltip-proven fragments to the safe engine path", () => {
+    const category = fixture.categories[0];
+    const v2: RegexDataPack = {
+      ...fixture,
+      categories: [{
+        ...category,
+        optimization: {
+          algorithm: "shortest-full-tooltip-literal-v2",
+          corpusSha256: HASH,
+          corpusLines: 123,
+          verified: true,
+          exactFallbacks: 0,
+        },
+      }],
+    };
+    expect(isValidRegexDataPack(v2)).toBe(true);
+    const materialized = regexCategoryEntries(v2, "map-modifiers", new Set(["entry:one"]));
+    expect(materialized[0]).toMatchObject({ optimizedToken: "hex" });
+    expect(materialized[0]).not.toHaveProperty("compactToken");
+    expect(buildPoeRegex(materialized).expression).toBe('"!hex"');
+  });
+
   it("searches labels, text, and tags within a category", () => {
     expect(searchRegexCategory(fixture, "map-modifiers", "HEX")).toHaveLength(1);
     expect(searchRegexCategory(fixture, "map-modifiers", "reflect")).toEqual([]);
   });
 
-  it("pins the audited 2026-08-09 official Trade drift in generated provenance", () => {
+  it("pins one local Awakened source snapshot and excludes undocumented endpoint provenance", () => {
     const data = JSON.parse(readFileSync(
       resolve(process.cwd(), "public/data/toolkit/regex-v1.json"),
       "utf8",
     )) as RegexDataPack;
-    expect(data.entries).toHaveLength(19_672);
-    expect(data.sources.find((source) => source.id === "ggg-trade-stats"))
-      .toMatchObject({
-        inputSha256: "53b7100397d5297bd887df9aadfec7b3bfc5305e41b4292580ef9b03c849aeb7",
-        upstream: { lastModified: "Sun, 09 Aug 2026 04:34:19 GMT" },
-      });
-    expect(data.entries.find((entry) =>
-      entry.sourceRefs?.includes("implicit.stat_689723685")
-    )).toMatchObject({
-      label: "While a Pinnacle Atlas Boss is in your Presence, Bone Offering has #% increased Effect",
-      sourceIds: ["ggg-trade-stats"],
-      sourceRefs: ["implicit.stat_689723685"],
-      tags: ["implicit"],
-    });
-    const barrelOrder = [
-      "explicit.stat_2343561786",
-      "fractured.stat_2343561786",
-      "enchant.stat_1207515735",
-      "enchant.stat_4019701925",
-      "enchant.stat_1669553893",
-      "enchant.stat_1080470148",
-    ];
-    for (const label of [
-      "Area contains # additional Clusters of Mysterious Barrels",
-      "Your Maps contain # additional Clusters of Mysterious Barrels",
-    ]) {
-      expect(data.entries.find((entry) => entry.label === label)?.sourceRefs)
-        .toEqual(barrelOrder);
-    }
+    const bundled = data.sources.filter((source) => source.kind === "bundled-pack");
+    expect(bundled.map((source) => source.id).sort()).toEqual([
+      "price-check-base-types",
+      "price-check-stats",
+    ]);
+    expect(new Set(bundled.map((source) => source.upstream?.project)))
+      .toEqual(new Set(["Awakened PoE Trade"]));
+    expect(new Set(bundled.map((source) => source.upstream?.repository)))
+      .toEqual(new Set(["https://github.com/SnosMe/awakened-poe-trade"]));
+    expect(new Set(bundled.map((source) => source.upstream?.commit)).size).toBe(1);
+    expect(JSON.stringify(data)).not.toMatch(/\/api\/trade\/data\//i);
+    expect(JSON.stringify(data)).not.toMatch(/ggg-trade-(?:items|stats|static)/i);
   });
 
   it("ships current core categories whose exact and optimized tokens have no category false positives", { timeout: 120_000 }, () => {
     const bytes = readFileSync(resolve(process.cwd(), "public/data/toolkit/regex-v1.json"));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(EXPECTED_REGEX_PACK_SHA256);
+    const electronMain = readFileSync(resolve(process.cwd(), "electron/main.cjs"), "utf8");
+    expect(electronMain).toContain(
+      `const REGEX_DATA_SHA256 = "${EXPECTED_REGEX_PACK_SHA256}";`,
+    );
     const pack = JSON.parse(bytes.toString("utf8")) as unknown;
     expect(isValidRegexDataPack(pack)).toBe(true);
     const data = pack as RegexDataPack;
@@ -191,6 +247,43 @@ describe("regex data pack", () => {
           ), `${categoryId}: ${current.entry.label} -> ${pattern}`).toBe(false);
         }
       }
+    }
+  });
+
+  it("pins the v2 corpus hash and prevents map-modifier collisions across full tooltip lines", { timeout: 120_000 }, () => {
+    const data = JSON.parse(readFileSync(
+      resolve(process.cwd(), "public/data/toolkit/regex-v1.json"),
+      "utf8",
+    )) as RegexDataPack;
+    const rows = [
+      ...data.entries.flatMap((entry) => templateWitnesses(entry.searchText).map((text) => ({
+        family: numericSkeleton(entry.searchText),
+        text,
+      }))),
+      ...FIXED_TOOLTIP_TEMPLATES.flatMap((template) => templateWitnesses(template).map((text) => ({
+        family: numericSkeleton(template),
+        text,
+      }))),
+    ];
+    const corpus = [...new Map(rows.map((row) => [`${row.family}\0${row.text}`, row])).values()]
+      .sort((left, right) => left.family.localeCompare(right.family) || left.text.localeCompare(right.text));
+    const corpusHash = createHash("sha256").update(
+      corpus.map((row) => `${row.family}\0${row.text}`).join("\n"),
+    ).digest("hex");
+    const category = data.categories.find((entry) => entry.id === "map-modifiers")!;
+    expect(category.optimization).toMatchObject({
+      algorithm: "shortest-full-tooltip-literal-v2",
+      corpusSha256: corpusHash,
+      corpusLines: corpus.length,
+      verified: true,
+    });
+    const byId = new Map(data.entries.map((entry) => [entry.id, entry]));
+    for (const reference of category.entries) {
+      const entry = byId.get(reference.entryId)!;
+      const family = numericSkeleton(entry.searchText);
+      const expression = new RegExp(reference.optimized, "iu");
+      expect(templateWitnesses(entry.searchText).some((line) => expression.test(line))).toBe(true);
+      expect(corpus.some((line) => line.family !== family && expression.test(line.text)), `${entry.label} -> ${reference.optimized}`).toBe(false);
     }
   });
 });

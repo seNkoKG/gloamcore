@@ -3,23 +3,32 @@
 ## Toolkit safety and defaults
 
 Macros, stash scrolling, pinned sheets, and plugin permissions start disabled.
-Macros send one configured chat line only while the selected Path of Exile
-process is foreground. Overlay windows are separate transparent windows; they
-do not inject into or read memory from the game.
+Macro scope uses the exact Path of Exile executable-and-window-title pair.
+A macro sends one configured chat line only when both parts match the foreground
+window, and the same window is revalidated immediately before input. Overlay
+windows are separate transparent windows; they do not inject into or read
+memory from the game.
 
 Filter sync replays explicit block edits by block identity and tier onto a new
 source. The source can be an HTTPS filter or an in-game `OnlineFilters` file.
-The edited local file remains the save target, and a checkpoint can be restored
-before overwriting it.
+Normal mode uses `.filter` files and permits `Show`/`Hide`; Ruthless mode uses
+`.ruthlessfilter`, permits `Show`/`Minimal`, and enforces text alpha of at least
+80. Changing mode never rewrites the loaded text. If its extension does not
+match the selected mode, Save becomes Save As and leaves the original untouched;
+a same-mode overwrite creates a restorable checkpoint.
 
-The regex workbench starts with no filters selected. Its PoE 1 pack exposes 69
-searchable categories and records the source, retrieval time, hashes, coverage,
-and limitations used to build each data family. AVOID and WANT are mutually
-exclusive per entry; wanted terms support Any or All, while map yield, state,
-rarity, and six quality constraints remain independent required clauses.
-Optimized tokens are used only after an exhaustive category-universe check;
-otherwise the exact copied wording is retained. A split over PoE's 250-character
-limit is labelled lossless only when every chunk preserves the original logic.
+The regex workbench starts with no filters selected. Its PoE 1 pack contains
+15,854 entries in 20 searchable categories from three declared sources: pinned
+Awakened PoE Trade base and stat packs plus PoE Wiki map-modifier data. It
+records each source, retrieval time, hash, coverage, and limitation. AVOID and
+WANT are mutually exclusive per entry; wanted terms support Any or All, while
+map yield, state, rarity, and six quality constraints remain independent
+required clauses. Safe full-tooltip output is the default and uses exact
+wording or a shorter fragment proven against the complete copied-tooltip
+corpus. Compact category-only output is explicitly experimental, shows a
+warning, and disables automatic copy; legacy optimized/exact profiles migrate
+to Safe. A split over PoE's 250-character limit is labelled lossless only when
+every chunk preserves the original logic.
 
 ## Map Mod Check
 
@@ -44,12 +53,14 @@ presentation controls only and never trigger game actions.
 
 Cluster Back is limited to current, non-legacy, 8-passive Large Cluster Jewels.
 It combines the installed PoB notable order with current Wiki spawn weights,
-mod groups and prefix/suffix generation, plus official Trade stat IDs. A result
-must lie strictly between the two requested front notables, share a valid base,
-have positive spawn weight, avoid mod-group conflicts, and fit PoE's two-prefix
-and two-suffix limit. The generated Trade query requires both requested
-notables, exactly eight passives, and at least one eligible back notable. The
-copied-jewel verifier independently reports the middle PoB-order notable.
+mod groups and prefix/suffix generation, plus pinned Awakened stat selectors.
+A result must lie strictly between the two requested front notables, share a
+valid base, have positive spawn weight, avoid mod-group conflicts, and fit
+PoE's two-prefix and two-suffix limit. The generated Trade query requires both
+requested notables, exactly eight passives, and at least one eligible back
+notable. **Open Official Trade** hands that encoded query to the browser; it
+does not scan or fetch sellers. The copied-jewel verifier independently reports
+the middle PoB-order notable.
 
 ## Sandboxed plugin protocol
 
@@ -66,31 +77,29 @@ parent.postMessage({
 ```
 
 The reply uses the same `protocol` and `id`, plus `ok`, `result`, and `error`.
-Supported request types are:
+Request types available to plugins are:
 
-- `hello` / `get-context`: host, API version, plugin ID, selected game, league,
+- `hello` / `get-context`: host, API version, plugin ID, PoE version 1, league,
   capabilities, and current permission flags;
-- `get-leagues`: the host's current league list;
 - `storage:get`, `storage:set`, `storage:delete`: private string key/value data;
-- `get-current-item`: the already copied clipboard item and parsed fields;
-- `capture-game`: one focused-game-only image capture;
-- `open-external`: an allowlisted external HTTPS handoff.
+- `get-leagues`;
+- `get-current-item` for the already copied clipboard item and parsed fields;
+- `capture-game` for one focused-game-only image capture;
+- `open-external` for an allowlisted external HTTPS handoff.
 
-The final three actions require their corresponding per-plugin permission.
+Current-item, game-capture, and external-handoff actions require their
+corresponding per-plugin permission.
 Storage is limited to 64 keys, 16 KiB per value, and 128 KiB total. This is a
 small secure host API, not binary compatibility with Scalpel's local ES-module
 SDK or registry packages.
 
 ## Build Lab accuracy boundary
 
-PoE 1 tree data comes from the newest installed
-`Path of Building Community/TreeData/<version>/tree.lua`. PoE 2 searches the
-standard `Path of Building Community (PoE2)` locations and understands PoB2's
-different radians, connection records, shared class starts, and class IDs. If
-PoB2 is absent, the app reports that requirement and keeps the valid PoE 1 tree
-loaded.
+Path of Exile 1 tree data comes from the newest installed
+`Path of Building Community/TreeData/<version>/tree.lua`. Build and tree
+versions outside the supported Path of Exile 1 family fail closed.
 
-PoB/PoB2 XML and code imports preserve tree specs and their PoB-only child XML,
+PoB XML and code imports preserve tree specs and their PoB-only child XML,
 active item, skill and config sets, items, gems, config, notes, and `PlayerStat`
 snapshots. Tree rendering and editing use the matching installed PoB tree
 version, including deterministic Cluster Jewel graphs, shortest paths,
@@ -105,18 +114,10 @@ one; a right-click changes an allocated mastery. Effects already used by other
 allocated masteries are unavailable; if that exhausts the choices, the chooser
 explains why instead of rendering an unexplained empty panel.
 
-PoE 1 public and OAuth character-profile imports send the raw official response
-through Path of Building Community 2.67.2's own importer inside the verified
-local engine, then load the PoB XML it produces. This keeps PoB's item-slot,
-socket-group, gem-variant, passive-jewel, class, bandit, pantheon, and nested
-Cluster Jewel semantics instead of duplicating them approximately in the app.
-Authenticated character lists and payloads are never cached. Missing, modified,
-or unrecognized engine files make the import fail closed.
-
-PoE 2 account-profile import is intentionally unavailable. The current Build
-Lab model cannot yet preserve PoE 2 skills, weapon-set specialisations, and
-quest statistics losslessly, so generating a partial build would be unsafe.
-PoB2 XML/code import, installed-tree editing, and PoB2 export remain supported.
+Build Lab does not request Path of Exile account access and does not import
+public or private account profiles. Builds enter through PoB XML, codes,
+supported build links, or local XML files. This keeps the imported PoB schema
+as the source of truth and avoids generating partial account-derived builds.
 
 On Windows, the explicit **Recalculate in PoB** action can evaluate the current
 PoE 1 workspace with the separately installed, exactly verified Path of
@@ -127,6 +128,6 @@ configuration catalogs. The bridge refuses unknown version, source, or runtime
 fingerprints; a new PoB release therefore requires an app update and fresh
 regression proof rather than silently running an untested engine. Item text is
 validated by PoB before assignment. Item, skill, and configuration sets remain
-editable, including weapon sets, main socket group, main active skill, Full DPS,
-gem variants, enabled state, level, quality, and every configuration control
-eligible for the loaded build. PoE 2 calculation still requires export to PoB2.
+editable, including equipment weapon sets, main socket group, main active skill,
+Full DPS, gem variants, enabled state, level, quality, and every configuration
+control eligible for the loaded build.

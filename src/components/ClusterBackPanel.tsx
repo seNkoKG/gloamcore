@@ -1,4 +1,4 @@
-import { ChevronDown, ClipboardCheck, ExternalLink, LoaderCircle, Search, Waypoints } from "lucide-react";
+import { ChevronDown, ClipboardCheck, ExternalLink, Search, Waypoints } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import clusterBackPayload from "../../public/data/toolkit/cluster-back-v1.json";
@@ -12,7 +12,6 @@ import {
   type ClusterBackData,
   type ClusterBackNotable,
 } from "../lib/toolkit/cluster-back";
-import type { OfficialTradeListingsResult } from "../lib/price-check/types";
 import "../cluster-back.css";
 
 function notableIcon(notable: ClusterBackNotable | null | undefined) {
@@ -79,10 +78,8 @@ export function ClusterBackPanel({ league }: { league: string }) {
   const [first, setFirst] = useState("");
   const [second, setSecond] = useState("");
   const [baseTag, setBaseTag] = useState("");
-  const [trade, setTrade] = useState<OfficialTradeListingsResult | null>(null);
   const [verification, setVerification] = useState<ReturnType<typeof inspectCopiedClusterBack> | null>(null);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
   const firstPicker = useRef<HTMLDetailsElement>(null);
   const secondPicker = useRef<HTMLDetailsElement>(null);
 
@@ -113,31 +110,13 @@ export function ClusterBackPanel({ league }: { league: string }) {
 
   useEffect(() => {
     if (baseTag && !validBaseTags.has(baseTag)) setBaseTag("");
-    setTrade(null);
   }, [baseTag, first, second, validBaseTags]);
-
-  const findListings = async () => {
-    if (!data) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      if (!bridge.getOfficialTradeListings) throw new Error("Official Trade search is available in the Windows app.");
-      const tradeQuery = buildClusterBackTradeQuery(data, first, second, candidates, baseTag);
-      const result = await bridge.getOfficialTradeListings({ league, tradeQuery, api: "trade", force: true });
-      setTrade(result);
-      if (result.error) setMessage(result.error);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const openTrade = async () => {
     if (!data) return;
     try {
       const tradeQuery = buildClusterBackTradeQuery(data, first, second, candidates, baseTag);
-      await bridge.openExternal(buildOfficialTradeBrowserUrl({ league, tradeQuery, searchId: trade?.searchId }));
+      await bridge.openExternal(buildOfficialTradeBrowserUrl({ league, tradeQuery }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
@@ -183,12 +162,10 @@ export function ClusterBackPanel({ league }: { league: string }) {
         <label>Large Cluster Jewel type<select value={baseTag} onChange={(event) => setBaseTag(event.target.value)}><option value="">Any compatible type</option>{data.bases.map((base) => <option key={base.tag} value={base.tag} disabled={!validBaseTags.has(base.tag)}>{base.name}</option>)}</select></label>
       </div>
       <div className="cluster-back-actions">
-        <button type="button" className="is-primary" disabled={busy || !candidates.length} onClick={findListings}>{busy ? <LoaderCircle className="is-spinning" size={14}/> : <Search size={14}/>} Search official trade</button>
-        <button type="button" disabled={!candidates.length} onClick={openTrade}><ExternalLink size={14}/> Open query</button>
+        <button type="button" className="is-primary" disabled={!candidates.length} onClick={openTrade}><ExternalLink size={14}/> Open Official Trade</button>
         <button type="button" onClick={verifyClipboard}><ClipboardCheck size={14}/> Verify copied jewel</button>
       </div>
       {message && <p className="cluster-back-message" role="alert">{message}</p>}
-      {trade && <div className="cluster-back-trade"><strong>{trade.total.toLocaleString()} matches</strong><span>{trade.listings.length ? trade.listings.slice(0, 5).map((listing) => listing.price ? `${listing.price.amount} ${listing.price.currency}` : "unpriced").join(" · ") : "No priced online listings returned."}</span></div>}
       {verification && <div className={`cluster-back-verification ${verification.valid ? "is-valid" : "is-invalid"}`}>
         {verification.valid && verification.back && <img src={notableIcon(verification.back)} alt=""/>}
         <span><strong>{verification.valid ? `${verification.back?.name} is at the back` : "Jewel could not be verified"}</strong><span>{verification.valid ? `${verification.base?.name} · ${verification.notables.map((notable) => notable.name).join(" → ")}` : verification.errors.join(" ")}</span></span>

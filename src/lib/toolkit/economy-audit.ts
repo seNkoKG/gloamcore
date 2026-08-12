@@ -7,7 +7,7 @@ export interface FilterEconomyEntry {
   baseType: string;
   icon?: string;
   chaosValue: number;
-  divineValue: number;
+  divineValue: number | null;
   listingCount: number | null;
   sourceBlockId: string | null;
   sourceTier: string | null;
@@ -64,7 +64,10 @@ export function auditFilterEconomy(
         baseType,
         icon: row.icon,
         chaosValue: row.chaosValue,
-        divineValue: Number.isFinite(row.divineValue) ? row.divineValue : 0,
+        divineValue:
+          row.divineValue != null && Number.isFinite(row.divineValue)
+            ? row.divineValue
+            : null,
         listingCount: row.listingCount != null && Number.isFinite(row.listingCount) ? row.listingCount : null,
         sourceBlockId: block?.id || null,
         sourceTier: block?.tier || null,

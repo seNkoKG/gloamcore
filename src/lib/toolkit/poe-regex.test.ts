@@ -5,6 +5,7 @@ import {
   chunkPoeRegexQuery,
   escapePoeRegex,
   isMacroPreset,
+  migrateRegexTokenMode,
   normalizePoeSearchText,
   shortestDistinctToken,
 } from "./poe-regex";
@@ -133,6 +134,38 @@ describe("PoE regex generator", () => {
     }], { universe });
     expect(result.expression).toBe('"^increased quantity of items found$"');
     expect(result.optimizationFallbacks).toEqual(["quantity"]);
+  });
+
+  it("defaults to exact/full-tooltip-safe output and quarantines category-only compact mode", () => {
+    const entry = {
+      id: "bur",
+      label: "Players have reduced Burden recovery",
+      selected: true,
+      mode: "avoid" as const,
+      compactToken: "bur",
+    };
+    const safe = buildPoeRegex([entry], {
+      universe: [entry.label, "Other map modifier"],
+    });
+    expect(safe.expression).toBe('"!^players have reduced burden recovery$"');
+    expect(safe.fullTooltipSafe).toBe(true);
+    expect(safe.optimizationScope).toBe("full-tooltip");
+
+    const compact = buildPoeRegex([entry], {
+      optimization: "compact",
+      universe: [entry.label, "Other map modifier"],
+    });
+    expect(compact.expression).toBe('"!bur"');
+    expect(compact.fullTooltipSafe).toBe(false);
+    expect(compact.optimizationScope).toBe("category-only");
+    expect(new RegExp(compact.tokens[0].token, "iu").test("burial chambers map")).toBe(true);
+  });
+
+  it("migrates every legacy optimized/exact profile away from the unsafe default", () => {
+    expect(migrateRegexTokenMode("optimized")).toBe("safe");
+    expect(migrateRegexTokenMode("exact")).toBe("safe");
+    expect(migrateRegexTokenMode(undefined)).toBe("safe");
+    expect(migrateRegexTokenMode("compact")).toBe("compact");
   });
 
   it("reports the in-game 250 character limit and chunks at term boundaries", () => {

@@ -3,6 +3,7 @@ import type { AppPreferences, WatchEntry } from "../types";
 import { migrateStoredPreferences } from "./preference-migration";
 import {
   decodePreferencesRecord,
+  normalizeStoredPreferences,
   selectNewestPreferencesRecord,
 } from "./preferences";
 
@@ -38,7 +39,7 @@ function storedWatch(source: WatchEntry["row"]["source"]): WatchEntry {
 }
 
 describe("stored preference migrations", () => {
-  it("remaps disabled Faustus sources and preserves recoverable watches as stale", () => {
+  it("preserves valid Faustus sources and watches while repairing incompatible selections", () => {
     const exchangeWatch = storedWatch("exchange");
     const faustusWatch = storedWatch("faustus");
     const result = migrateStoredPreferences({
@@ -54,32 +55,22 @@ describe("stored preference migrations", () => {
 
     expect(result.migrated).toBe(true);
     expect(result.stored.sourceByCategory).toEqual({
-      currency: "exchange",
+      currency: "faustus",
       incubators: "stash-item",
       fossils: "exchange",
     });
-    expect(result.stored.watchlist).toEqual([exchangeWatch]);
+    expect(result.stored.watchlist).toEqual([faustusWatch, exchangeWatch]);
   });
 
-  it("keeps a recoverable disabled-source watch pending a live refresh", () => {
+  it("keeps a valid Faustus watch unchanged", () => {
     const faustusWatch = storedWatch("faustus");
     const result = migrateStoredPreferences({ watchlist: [faustusWatch] });
 
-    expect(result.stored.watchlist).toEqual([{
-      ...faustusWatch,
-      key: "currency:exchange:divine",
-      marketFetchedAt: undefined,
-      marketStale: true,
-      row: {
-        ...faustusWatch.row,
-        key: "currency:exchange:divine",
-        source: "exchange",
-        faustus: undefined,
-      },
-    }]);
+    expect(result.migrated).toBe(false);
+    expect(result.stored.watchlist).toEqual([faustusWatch]);
   });
 
-  it("drops only an unmappable disabled-source watch", () => {
+  it("drops only a malformed Faustus watch", () => {
     const watch = storedWatch("faustus");
     watch.row.categoryId = "removed-category";
 
@@ -99,6 +90,21 @@ describe("stored preference migrations", () => {
     expect(result.migrated).toBe(false);
     expect(result.stored.sourceByCategory.currency).toBe("exchange");
     expect(result.stored.watchlist).toEqual([exchangeWatch]);
+  });
+
+  it("invalidates legacy derived Divine prices until a live refresh", () => {
+    const exchangeWatch = storedWatch("exchange");
+    const result = migrateStoredPreferences(
+      { watchlist: [exchangeWatch] },
+      { invalidateLegacyDivineValues: true },
+    );
+
+    expect(result.migrated).toBe(true);
+    expect(result.stored.watchlist[0]).toMatchObject({
+      marketFetchedAt: undefined,
+      marketStale: true,
+      row: { chaosValue: 180, divineValue: null },
+    });
   });
 });
 
@@ -140,6 +146,99 @@ describe("durable mobile preference records", () => {
       updatedAt: 0,
       legacy: true,
       preferences: { categoryId: "currency" },
+    });
+  });
+
+  it("recognizes current schema records without a migration flag", () => {
+    expect(decodePreferencesRecord(JSON.stringify({
+      schema: 3,
+      revision: 1,
+      updatedAt: 2,
+      preferences: { categoryId: "currency" },
+    }))).toMatchObject({ schema: 3, legacy: false });
+  });
+
+  it.each([2, 3] as const)(
+    "preserves Faustus selections and watch identity from schema %s",
+    (schema) => {
+      const faustusWatch = storedWatch("faustus");
+      const decoded = decodePreferencesRecord(JSON.stringify({
+        schema,
+        revision: 4,
+        updatedAt: 5,
+        preferences: {
+          sourceByCategory: { currency: "faustus" },
+          watchlist: [faustusWatch],
+        },
+      }));
+      const normalized = normalizeStoredPreferences(
+        decoded?.preferences,
+        decoded?.schema !== 3,
+      );
+
+      expect(normalized.preferences.sourceByCategory.currency).toBe("faustus");
+      expect(normalized.preferences.watchlist).toHaveLength(1);
+      expect(normalized.preferences.watchlist[0]).toMatchObject({
+        key: faustusWatch.key,
+        row: { key: faustusWatch.row.key, source: "faustus" },
+      });
+      if (schema === 2) {
+        expect(normalized.preferences.watchlist[0]).toMatchObject({
+          marketStale: true,
+          row: { divineValue: null },
+        });
+      } else {
+        expect(normalized.preferences.watchlist[0]).toEqual(faustusWatch);
+      }
+    },
+  );
+
+  it("drops only corrupt current-schema watch rows and preserves valid preferences", () => {
+    const valid = storedWatch("exchange");
+    const result = normalizeStoredPreferences({
+      league: "Allflame",
+      categoryId: "fragments",
+      sourceByCategory: { fragments: "stash-currency", removed: "exchange" },
+      valueDisplay: "divine",
+      density: "comfortable",
+      sidebarCollapsed: true,
+      refreshMinutes: 10,
+      lastViewed: ["fragments", 42],
+      watchlist: [null, valid, { key: "broken", league: "Allflame", addedAt: 3, row: null }],
+    }, false);
+
+    expect(result.migrated).toBe(true);
+    expect(result.preferences).toMatchObject({
+      league: "Allflame",
+      categoryId: "fragments",
+      sourceByCategory: { fragments: "stash-currency" },
+      valueDisplay: "divine",
+      density: "comfortable",
+      sidebarCollapsed: true,
+      refreshMinutes: 10,
+      lastViewed: ["fragments"],
+    });
+    expect(result.preferences.watchlist).toEqual([valid]);
+  });
+
+  it("sanitizes corrupt legacy rows while preserving Divine invalidation", () => {
+    const valid = storedWatch("exchange");
+    const result = normalizeStoredPreferences({
+      categoryId: "currency",
+      valueDisplay: "chaos",
+      watchlist: [{ row: null }, valid, undefined],
+    }, true);
+
+    expect(result.migrated).toBe(true);
+    expect(result.preferences.categoryId).toBe("currency");
+    expect(result.preferences.valueDisplay).toBe("chaos");
+    expect(result.preferences.watchlist).toHaveLength(1);
+    expect(result.preferences.watchlist[0]).toMatchObject({
+      key: valid.key,
+      league: valid.league,
+      marketFetchedAt: undefined,
+      marketStale: true,
+      row: { key: valid.row.key, divineValue: null },
     });
   });
 });

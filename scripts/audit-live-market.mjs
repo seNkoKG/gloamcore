@@ -53,29 +53,54 @@ async function categories() {
   return result;
 }
 
-function overviewUrl(league, category) {
-  const path =
-    category.source === "item"
-      ? "stash/current/item/overview"
+function marketRoutes(catalog) {
+  return catalog.flatMap((category) => {
+    if (category.source === "dual") {
+      return [
+        { ...category, id: `${category.id}:exchange`, source: "exchange" },
+        { ...category, id: `${category.id}:stash-currency`, source: "stash-currency" },
+      ];
+    }
+    return [{
+      ...category,
+      source: category.source === "item" ? "stash-item" : "exchange",
+    }];
+  });
+}
+
+function overviewUrl(league, route) {
+  const path = route.source === "stash-item"
+    ? "stash/current/item/overview"
+    : route.source === "stash-currency"
+      ? "stash/current/currency/overview"
       : "exchange/current/overview";
-  const search = new URLSearchParams({ league, type: category.type });
+  const search = new URLSearchParams({ league, type: route.type });
   return `${ROOT}/poe1/api/economy/${path}?${search}`;
 }
 
-function inspect(category, response) {
+function inspect(route, response) {
   const lines = response.data?.lines;
   if (!Array.isArray(lines)) throw new Error("payload has no lines array");
-  const itemSource = category.source === "item";
+  const itemSource = route.source === "stash-item";
+  const stashCurrencySource = route.source === "stash-currency";
   const identifiers = new Set();
   let duplicateIds = 0;
   let invalidPrices = 0;
   let guardedEstimates = 0;
   let missingHistory = 0;
   for (const line of lines) {
-    const id = String(line?.id ?? "");
+    const id = String(
+      stashCurrencySource
+        ? line?.detailsId || line?.currencyTypeName || ""
+        : line?.id ?? "",
+    );
     if (!id || identifiers.has(id)) duplicateIds += 1;
     identifiers.add(id);
-    const price = itemSource ? line?.chaosValue : line?.primaryValue;
+    const price = itemSource
+      ? line?.chaosValue
+      : stashCurrencySource
+        ? line?.chaosEquivalent
+        : line?.primaryValue;
     if (!positive(price)) invalidPrices += 1;
     const sample = itemSource
       ? Math.min(
@@ -83,17 +108,26 @@ function inspect(category, response) {
             .map(Number)
             .filter((value) => Number.isFinite(value) && value > 0),
         )
-      : Number(line?.volumePrimaryValue);
-    if (Number.isFinite(sample) && sample > 0 && sample < 5) guardedEstimates += 1;
-    const history = itemSource ? line?.sparkLine?.data : line?.sparkline?.data;
+      : stashCurrencySource
+        ? Math.max(
+            Number(line?.pay?.count ?? Number.NaN),
+            Number(line?.receive?.count ?? Number.NaN),
+          )
+        : Number(line?.volumePrimaryValue);
+    if (!Number.isFinite(sample) || sample < 5) guardedEstimates += 1;
+    const history = itemSource
+      ? line?.sparkLine?.data
+      : stashCurrencySource
+        ? line?.receiveSparkLine?.data || line?.paySparkLine?.data
+        : line?.sparkline?.data;
     if (!Array.isArray(history) || history.filter((point) => Number.isFinite(Number(point))).length < 2) {
       missingHistory += 1;
     }
   }
   const maxAge = cacheSeconds(response.cacheControl, "max-age");
   return {
-    id: category.id,
-    source: itemSource ? "stash" : "exchange",
+    id: route.id,
+    source: route.source,
     rows: lines.length,
     guardedEstimates,
     invalidPrices,
@@ -124,7 +158,7 @@ async function mapLimited(values, worker) {
 const packageJson = JSON.parse(
   await fs.readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
-const userAgent = `GloamCore/${packageJson.version} live-market-audit`;
+const userAgent = `GloamCore/${packageJson.version} live-market-audit (contact: https://github.com/seNkoKG/gloamcore)`;
 const leagueEnvelope = await requestJson(`${ROOT}/poe1/api/economy/leagues`, userAgent);
 if (!Array.isArray(leagueEnvelope.data) || leagueEnvelope.data.length === 0) {
   throw new Error("poe.ninja returned no active leagues.");
@@ -136,12 +170,16 @@ if (!leagueEnvelope.data.some((entry) => entry.id === league)) {
 }
 
 const catalog = await categories();
+const routes = marketRoutes(catalog);
+if (catalog.length !== 44 || routes.length !== 46 || !catalog.some((entry) => entry.type === "Flask")) {
+  throw new Error(`Configured poe.ninja matrix drifted: ${catalog.length} types / ${routes.length} routes.`);
+}
 const failures = [];
-const results = await mapLimited(catalog, async (category) => {
+const results = await mapLimited(routes, async (route) => {
   try {
-    return inspect(category, await requestJson(overviewUrl(league, category), userAgent));
+    return inspect(route, await requestJson(overviewUrl(league, route), userAgent));
   } catch (error) {
-    failures.push({ id: category.id, error: error instanceof Error ? error.message : String(error) });
+    failures.push({ id: route.id, error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 });
@@ -158,7 +196,7 @@ const totals = valid.reduce(
 );
 
 console.log(`Live market audit · ${league}`);
-console.log(`Categories ${valid.length}/${catalog.length} · Rows ${totals.rows.toLocaleString()} · Download ${(totals.bytes / 1024 / 1024).toFixed(1)} MiB`);
+console.log(`Routes ${valid.length}/${routes.length} · Types ${catalog.length} · Rows ${totals.rows.toLocaleString()} · Download ${(totals.bytes / 1024 / 1024).toFixed(1)} MiB`);
 console.log(`Guarded estimates ${totals.guarded.toLocaleString()} · Invalid prices safely dropped ${totals.invalid.toLocaleString()} · Rows without usable history ${totals.missingHistory.toLocaleString()}`);
 console.table(
   [...valid]

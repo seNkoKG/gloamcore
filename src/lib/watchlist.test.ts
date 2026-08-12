@@ -71,6 +71,13 @@ describe("watchlist identity", () => {
     expect(
       isWatchTargetHit({ ...entry, marketFetchedAt: now + 1 }, now),
     ).toBe(false);
+    expect(
+      isWatchTargetHit({
+        ...entry,
+        targetUnit: "divine",
+        row: { ...entry.row, divineValue: null },
+      }, now),
+    ).toBe(false);
   });
 });
 

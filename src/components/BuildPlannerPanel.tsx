@@ -45,7 +45,6 @@ import {
 import { bridge } from "../lib/bridge";
 import {
   emptyPobBuild,
-  enrichPobBuildWithCharacterAssets,
   importedPobGemArtworkKey,
   parsePobXml,
   pobStatCategory,
@@ -54,6 +53,7 @@ import {
   itemsWithPassiveSpecLoadout,
   serializePobXml,
   specsWithActiveJewelLoadout,
+  withPassiveSpecAllocation,
   type ImportedPassiveSpec,
   type ImportedPobBuild,
   type ImportedPobItem,
@@ -115,8 +115,6 @@ import type {
   PobTimelessAffectedNode,
   PobTimelessHuntResultEntry,
   PobTimelessModifierCatalogEntry,
-  PoeCharacterImportRequest,
-  PoeCharacterSummary,
   PlannerItemArtworkAsset,
   PlannerItemArtworkRequest,
 } from "../types";
@@ -133,7 +131,13 @@ import "../planner.css";
 type PlannerTab = PlannerWorkspaceTab;
 type Viewport = { x: number; y: number; scale: number };
 type TreeSelection = { classId: number; ascendancyId: number; secondaryAscendancyId: number };
-type TreeHistory = TreeSelection & { allocated: Set<number>; masteryEffects: Record<number, number>; label: string; at: number };
+type TreeHistory = TreeSelection & {
+  allocated: Set<number>;
+  nodes: Set<number>;
+  masteryEffects: Record<number, number>;
+  label: string;
+  at: number;
+};
 type TreeHover = { node: PassiveTreeNodeData; x: number; y: number; width: number; height: number };
 type MasteryPicker = { nodeId: number; path: number[] };
 type NodePowerMetric = "blend" | "offence" | "defence";
@@ -643,7 +647,7 @@ function normalizedSpecAllocation(
   const materialized = materializeImportedPassiveTree(tree, spec, items);
   const next = withSelectedPassiveStarts(
     materialized.tree,
-    source,
+    spec?.nodes || source,
     classId,
     ascendancyId,
     secondaryAscendancyId,
@@ -660,6 +664,14 @@ function normalizedSpecAllocation(
     secondaryName,
     buildPassiveAllocationContext(materialized.tree, spec, items),
   );
+}
+
+function passiveSpecWithoutNodes(spec: ImportedPassiveSpec, removed: ReadonlySet<number>) {
+  if (!removed.size) return spec;
+  return {
+    ...spec,
+    nodes: spec.nodes.filter((nodeId) => !removed.has(nodeId)),
+  };
 }
 
 function PassiveTreeCanvas({
@@ -1058,7 +1070,7 @@ function PassiveTreeCanvas({
     observer.observe(canvas);
     fit();
     return () => observer.disconnect();
-  }, [ascendancyName, classId, secondaryAscendancyName, timelessCircles, tree.game, tree.sourcePath, tree.version]);
+  }, [ascendancyName, classId, secondaryAscendancyName, timelessCircles, tree.sourcePath, tree.version]);
 
   useEffect(() => redraw(), [redraw, revision]);
 
@@ -1209,16 +1221,10 @@ export function BuildPlannerPanel() {
   const [tracePath, setTracePath] = useState<number[]>([]);
   const [masteryPicker, setMasteryPicker] = useState<MasteryPicker | null>(null);
   const [unsavedMasteryEffects, setUnsavedMasteryEffects] = useState<Record<number, number>>({});
+  const [unsavedNodes, setUnsavedNodes] = useState<Set<number>>(new Set());
   const [unsavedSecondaryAscendancyId, setUnsavedSecondaryAscendancyId] = useState(0);
   const [importText, setImportText] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [importMode, setImportMode] = useState<"pob" | "character">("pob");
-  const [characterMode, setCharacterMode] = useState<"public" | "oauth">("public");
-  const [accountName, setAccountName] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [realm, setRealm] = useState<PoeCharacterImportRequest["realm"]>("pc");
-  const [characters, setCharacters] = useState<PoeCharacterSummary[]>([]);
-  const [selectedCharacter, setSelectedCharacter] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(true);
   const [history, setHistory] = useState<TreeHistory[]>([]);
@@ -1326,6 +1332,7 @@ export function BuildPlannerPanel() {
     setSpecs([]);
     setActiveSpecId("");
     setUnsavedMasteryEffects({});
+    setUnsavedNodes(initial);
     setUnsavedSecondaryAscendancyId(0);
     setMasteryPicker(null);
     setTraceMode(false);
@@ -1333,14 +1340,11 @@ export function BuildPlannerPanel() {
     setClassId(initialClassId);
     setAscendancyId(0);
     setAllocated(initial);
-    setHistory([{ allocated: initial, masteryEffects: {}, classId: initialClassId, ascendancyId: 0, secondaryAscendancyId: 0, label, at: Date.now() }]);
+    setHistory([{ allocated: initial, nodes: initial, masteryEffects: {}, classId: initialClassId, ascendancyId: 0, secondaryAscendancyId: 0, label, at: Date.now() }]);
     setHistoryIndex(0);
     setEditedSinceImport(false);
     setActiveSavedId("");
     setBaselineId("");
-    setRealm(value.game === "poe2" ? "poe2" : "pc");
-    setImportMode("pob");
-    setCharacters([]);
   };
 
   useEffect(() => {
@@ -1358,10 +1362,6 @@ export function BuildPlannerPanel() {
       setMessage(`The local build library is locked: ${detail} Its original data was not changed. Open Builds to save an exact recovery copy and reset it.`);
     }
   }, []);
-
-  useEffect(() => {
-    if (tree?.game === "poe2" && importMode !== "pob") setImportMode("pob");
-  }, [importMode, tree?.game]);
 
   useEffect(() => {
     let active = true;
@@ -1412,7 +1412,7 @@ export function BuildPlannerPanel() {
     void (async () => {
       let defaultTree: PassiveTreeData | null = null;
       try {
-        defaultTree = await bridge.getPassiveTreeData({ game: "poe1" });
+        defaultTree = await bridge.getPassiveTreeData({});
         if (!active) return;
         const raw = localStorage.getItem(ACTIVE_PLANNER_WORKSPACE_KEY);
         if (!raw) {
@@ -1428,10 +1428,9 @@ export function BuildPlannerPanel() {
           throw error;
         }
         const snapshot = envelope.snapshot;
-        const targetTree = defaultTree.game === snapshot.game
-          && (!snapshot.treeVersion || normalizedTreeVersion(defaultTree.version) === normalizedTreeVersion(snapshot.treeVersion))
+        const targetTree = !snapshot.treeVersion || normalizedTreeVersion(defaultTree.version) === normalizedTreeVersion(snapshot.treeVersion)
           ? defaultTree
-          : await bridge.getPassiveTreeData({ game: snapshot.game, treeVersion: snapshot.treeVersion || undefined });
+          : await bridge.getPassiveTreeData({ treeVersion: snapshot.treeVersion || undefined });
         if (!active) return;
         const snapshotSpecs = snapshot.specs.map((spec) => materializeImportedPassiveSpec(targetTree, spec, snapshot.build?.items || []).spec);
         const snapshotSpec = snapshotSpecs.find((entry) => entry.id === snapshot.activeSpecId) || snapshotSpecs[0] || null;
@@ -1451,14 +1450,14 @@ export function BuildPlannerPanel() {
         setSpecs(snapshotSpecs);
         setActiveSpecId(snapshotSpec?.id || "");
         setUnsavedMasteryEffects({ ...(snapshotSpec?.masteryEffects || {}) });
+        setUnsavedNodes(new Set(snapshotSpec?.nodes || snapshot.allocated));
         setUnsavedSecondaryAscendancyId(snapshotSpec?.secondaryAscendClassId || 0);
         setClassId(snapshot.classId);
         setAscendancyId(snapshot.ascendancyId);
         setAllocated(restored);
-        setHistory([{ allocated: restored, masteryEffects: { ...(snapshotSpec?.masteryEffects || {}) }, classId: snapshot.classId, ascendancyId: snapshot.ascendancyId, secondaryAscendancyId: snapshotSpec?.secondaryAscendClassId || 0, label: "Restored session", at: Date.now() }]);
+        setHistory([{ allocated: restored, nodes: new Set(snapshotSpec?.nodes || snapshot.allocated), masteryEffects: { ...(snapshotSpec?.masteryEffects || {}) }, classId: snapshot.classId, ascendancyId: snapshot.ascendancyId, secondaryAscendancyId: snapshotSpec?.secondaryAscendClassId || 0, label: "Restored session", at: Date.now() }]);
         setHistoryIndex(0);
         setEditedSinceImport(snapshot.editedSinceImport);
-        setRealm(targetTree.game === "poe2" ? "poe2" : "pc");
         setTab(envelope.tab);
         setMessage(`Restored ${snapshot.name} from the last planner session.`);
       } catch (error) {
@@ -1485,13 +1484,13 @@ export function BuildPlannerPanel() {
         classId,
         ascendClassId: ascendancyId,
         secondaryAscendClassId: unsavedSecondaryAscendancyId,
-        nodes: [...allocated],
+        clusterHashFormatVersion: 2,
+        nodes: [...unsavedNodes],
         masteryEffects: { ...unsavedMasteryEffects },
       } satisfies ImportedPassiveSpec];
       const snapshot = createPlannerSnapshot({
         id: "active-workspace",
         name: build ? `${build.ascendancyName || build.className} · Level ${build.level}` : "Active planner workspace",
-        game: tree.game,
         treeVersion: tree.version,
         build,
         specs: effectiveSpecs,
@@ -1509,31 +1508,11 @@ export function BuildPlannerPanel() {
       }
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [activeSpecId, allocated, ascendancyId, build, classId, editedSinceImport, specs, tab, tree, unsavedMasteryEffects, unsavedSecondaryAscendancyId, workspaceHydrated]);
-
-  const changeGame = async (game: "poe1" | "poe2") => {
-    if (game === tree?.game) return;
-    const hasWorkspaceToReplace = Boolean(build || specs.length || editedSinceImport || historyIndex > 0);
-    if (hasWorkspaceToReplace && !window.confirm(
-      `Switch to ${game === "poe2" ? "PoE 2" : "PoE 1"}? The current unsaved workspace will be replaced. Save it first if you want to keep it.`,
-    )) return;
-    markPlannerChanged();
-    const request = beginReplacement();
-    setBusy(true);
-    setMessage("");
-    try {
-      const value = await bridge.getPassiveTreeData({ game });
-      if (!replacementCanApply(request, "the game tree was loading")) return;
-      initialiseTree(value, `New ${game === "poe2" ? "PoE 2" : "PoE 1"} build`);
-      setMessage(`${game === "poe2" ? "PoE 2" : "PoE 1"} tree ${value.version.replace("_", ".")} loaded.`);
-    } catch (error) {
-      reportReplacementError(request, "the game tree was loading", error);
-    } finally {
-      if (asyncGuardRef.current.isLatest(request)) setBusy(false);
-    }
-  };
+  }, [activeSpecId, allocated, ascendancyId, build, classId, editedSinceImport, specs, tab, tree, unsavedMasteryEffects, unsavedNodes, unsavedSecondaryAscendancyId, workspaceHydrated]);
 
   const activePassiveSpec = specs.find((entry) => entry.id === activeSpecId) || null;
+  const currentClass = tree?.classes.find((entry) => entry.id === classId) || tree?.classes[0];
+  const currentAscendancy = currentClass?.ascendancies.find((entry) => entry.id === ascendancyId);
   const secondaryAscendancyId = activePassiveSpec?.secondaryAscendClassId ?? unsavedSecondaryAscendancyId;
   const materializationSpec = useMemo(() => activePassiveSpec || (tree ? {
     id: "current",
@@ -1542,16 +1521,15 @@ export function BuildPlannerPanel() {
     classId,
     ascendClassId: ascendancyId,
     secondaryAscendClassId: unsavedSecondaryAscendancyId,
-    nodes: [...allocated],
+    clusterHashFormatVersion: 2,
+    nodes: [...unsavedNodes],
     masteryEffects: unsavedMasteryEffects,
-  } : null), [activePassiveSpec, allocated, ascendancyId, classId, tree, unsavedMasteryEffects, unsavedSecondaryAscendancyId]);
+  } : null), [activePassiveSpec, ascendancyId, classId, tree, unsavedMasteryEffects, unsavedNodes, unsavedSecondaryAscendancyId]);
   const treeMatchesActiveSpec = !materializationSpec?.treeVersion || normalizedTreeVersion(tree?.version) === normalizedTreeVersion(materializationSpec.treeVersion);
   const materializedTree = useMemo(
     () => tree && treeMatchesActiveSpec ? materializeImportedPassiveTree(tree, materializationSpec, build?.items || []).tree : null,
     [build?.items, materializationSpec, tree, treeMatchesActiveSpec],
   );
-  const currentClass = tree?.classes.find((entry) => entry.id === classId) || tree?.classes[0];
-  const currentAscendancy = currentClass?.ascendancies.find((entry) => entry.id === ascendancyId);
   const secondaryAscendancyName = tree?.alternateAscendancies?.find(
     (entry) => entry.id === secondaryAscendancyId,
   )?.internalId || "";
@@ -1663,23 +1641,51 @@ export function BuildPlannerPanel() {
       .map(([, effectId]) => Number(effectId))),
     [allocated, currentMasteryEffects],
   );
-  const treeLinkUnsupported = tree?.game === "poe2"
-    || secondaryAscendancyId > 0
+  const treeLinkUnsupported = secondaryAscendancyId > 0
     || Object.keys(currentMasteryEffects).length > 0
     || [...allocated].some((id) => id >= 0x10000);
+
+  const replaceCurrentPassiveSpec = (nextSpec: ImportedPassiveSpec) => {
+    if (activeSpecId) {
+      setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? nextSpec : spec));
+    } else {
+      setUnsavedNodes(new Set(nextSpec.nodes));
+      setUnsavedMasteryEffects({ ...nextSpec.masteryEffects });
+      setUnsavedSecondaryAscendancyId(nextSpec.secondaryAscendClassId);
+    }
+  };
 
   const commitAllocated = (
     next: Set<number>,
     label: string,
     masteryEffects: Record<number, number> = currentMasteryEffects,
     selection: TreeSelection = { classId, ascendancyId, secondaryAscendancyId },
+    baseSpec?: ImportedPassiveSpec,
   ) => {
+    if (!materializationSpec || !tree) return;
     markPlannerChanged();
+    const allocatedSpec = withPassiveSpecAllocation(baseSpec || materializationSpec, next);
+    const allocatedNodeIds = new Set(allocatedSpec.nodes);
+    const nextSpec = {
+      ...allocatedSpec,
+      classId: selection.classId,
+      ascendClassId: selection.ascendancyId,
+      secondaryAscendClassId: selection.secondaryAscendancyId,
+      masteryEffects: Object.fromEntries(Object.entries(masteryEffects)
+        .filter(([nodeId]) => allocatedNodeIds.has(Number(nodeId)))),
+    };
     setAllocated(next);
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? { ...spec, nodes: [...next] } : spec));
+    replaceCurrentPassiveSpec(nextSpec);
     setHistory((current) => {
       const trimmed = current.slice(0, historyIndex + 1);
-      return [...trimmed, { allocated: new Set(next), masteryEffects: { ...masteryEffects }, ...selection, label, at: Date.now() }].slice(-MAX_HISTORY);
+      return [...trimmed, {
+        allocated: new Set(next),
+        nodes: new Set(nextSpec.nodes),
+        masteryEffects: { ...nextSpec.masteryEffects },
+        ...selection,
+        label,
+        at: Date.now(),
+      }].slice(-MAX_HISTORY);
     });
     setHistoryIndex((current) => Math.min(current + 1, MAX_HISTORY - 1));
     setEditedSinceImport(true);
@@ -1719,16 +1725,6 @@ export function BuildPlannerPanel() {
         for (const nodeId of nodeIds) delete next[nodeId];
         return next;
       });
-    }
-  };
-
-  const replaceMasteryEffects = (masteryEffects: Record<number, number>) => {
-    if (activeSpecId) {
-      setSpecs((current) => current.map((spec) => (
-        spec.id === activeSpecId ? { ...spec, masteryEffects: { ...masteryEffects } } : spec
-      )));
-    } else {
-      setUnsavedMasteryEffects({ ...masteryEffects });
     }
   };
 
@@ -1786,11 +1782,9 @@ export function BuildPlannerPanel() {
       if (start) next.add(start.id);
       const path = shortestAllocationPath(materializedTree, next, node.id, classId, currentAscendancy?.internalId, target.internalId, allocationContext);
       if (!next.has(node.id) && path.length) next = allocatePassivePath(materializedTree, next, path, node.id);
+      const removedNodes = new Set(materializationSpec?.nodes.filter((id) => materializedNodeMap.get(id)?.bloodline) || []);
       setUnsavedSecondaryAscendancyId(target.id);
-      commitAllocated(next, `Selected ${target.name}${path.length ? ` and allocated ${node.name}` : ""}`, currentMasteryEffects, { classId, ascendancyId, secondaryAscendancyId: target.id });
-      setSpecs((current) => current.map((spec) => spec.id === activeSpecId
-        ? { ...spec, secondaryAscendClassId: target.id, nodes: [...next] }
-        : spec));
+      commitAllocated(next, `Selected ${target.name}${path.length ? ` and allocated ${node.name}` : ""}`, currentMasteryEffects, { classId, ascendancyId, secondaryAscendancyId: target.id }, materializationSpec ? passiveSpecWithoutNodes(materializationSpec, removedNodes) : undefined);
       return true;
     }
 
@@ -1833,12 +1827,13 @@ export function BuildPlannerPanel() {
       allocationContext,
     );
     if (!next.has(node.id) && path.length) next = allocatePassivePath(materializedTree, next, path, node.id);
+    const removedNodes = new Set(materializationSpec?.nodes.filter((id) => {
+      const candidate = materializedNodeMap.get(id);
+      return Boolean(candidate?.classStartIds.length || (candidate?.ascendancyName && !candidate.bloodline));
+    }) || []);
     setClassId(targetClass.id);
     setAscendancyId(targetAscendancy.id);
-    commitAllocated(next, `Switched to ${targetAscendancy.name}${path.length ? ` and allocated ${node.name}` : ""}`, currentMasteryEffects, { classId: targetClass.id, ascendancyId: targetAscendancy.id, secondaryAscendancyId });
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId
-      ? { ...spec, classId: targetClass.id, ascendClassId: targetAscendancy.id, nodes: [...next] }
-      : spec));
+    commitAllocated(next, `Switched to ${targetAscendancy.name}${path.length ? ` and allocated ${node.name}` : ""}`, currentMasteryEffects, { classId: targetClass.id, ascendancyId: targetAscendancy.id, secondaryAscendancyId }, materializationSpec ? passiveSpecWithoutNodes(materializationSpec, removedNodes) : undefined);
     return true;
   };
 
@@ -1894,8 +1889,7 @@ export function BuildPlannerPanel() {
     const start = classStartNode(tree, nextClassId);
     const next = new Set(start ? [start.id] : []);
     setUnsavedMasteryEffects({});
-    commitAllocated(next, `Changed class to ${tree.classes.find((entry) => entry.id === nextClassId)?.name}`, {}, { classId: nextClassId, ascendancyId: 0, secondaryAscendancyId: 0 });
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? { ...spec, classId: nextClassId, ascendClassId: 0, secondaryAscendClassId: 0, nodes: [...next], masteryEffects: {} } : spec));
+    commitAllocated(next, `Changed class to ${tree.classes.find((entry) => entry.id === nextClassId)?.name}`, {}, { classId: nextClassId, ascendancyId: 0, secondaryAscendancyId: 0 }, materializationSpec ? { ...materializationSpec, nodes: [], masteryEffects: {} } : undefined);
   };
 
   const changeAscendancy = (nextAscendancyId: number) => {
@@ -1911,9 +1905,12 @@ export function BuildPlannerPanel() {
       ));
       if (ascendancyStart) next.add(ascendancyStart.id);
     }
+    const removedNodes = new Set(materializationSpec?.nodes.filter((id) => {
+      const node = materializedNodeMap.get(id);
+      return Boolean(node?.ascendancyName && !node.bloodline);
+    }) || []);
     setAscendancyId(nextAscendancyId);
-    commitAllocated(next, `Changed ascendancy to ${selectedAscendancy?.name || "None"}`, currentMasteryEffects, { classId, ascendancyId: nextAscendancyId, secondaryAscendancyId });
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? { ...spec, ascendClassId: nextAscendancyId, nodes: [...next] } : spec));
+    commitAllocated(next, `Changed ascendancy to ${selectedAscendancy?.name || "None"}`, currentMasteryEffects, { classId, ascendancyId: nextAscendancyId, secondaryAscendancyId }, materializationSpec ? passiveSpecWithoutNodes(materializationSpec, removedNodes) : undefined);
   };
 
   const changeSecondaryAscendancy = (nextSecondaryId: number) => {
@@ -1926,11 +1923,9 @@ export function BuildPlannerPanel() {
       ));
       if (start) next.add(start.id);
     }
+    const removedNodes = new Set(materializationSpec?.nodes.filter((id) => materializedNodeMap.get(id)?.bloodline) || []);
     setUnsavedSecondaryAscendancyId(nextSecondaryId);
-    commitAllocated(next, `Changed bloodline to ${selected?.name || "None"}`, currentMasteryEffects, { classId, ascendancyId, secondaryAscendancyId: nextSecondaryId });
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId
-      ? { ...spec, secondaryAscendClassId: nextSecondaryId, nodes: [...next] }
-      : spec));
+    commitAllocated(next, `Changed bloodline to ${selected?.name || "None"}`, currentMasteryEffects, { classId, ascendancyId, secondaryAscendancyId: nextSecondaryId }, materializationSpec ? passiveSpecWithoutNodes(materializationSpec, removedNodes) : undefined);
   };
 
   const applyBuild = (nextBuild: ImportedPobBuild, targetTree: PassiveTreeData | null = tree, notice = "") => {
@@ -1951,17 +1946,17 @@ export function BuildPlannerPanel() {
       active.secondaryAscendClassId,
     );
     setTree(targetTree);
-    setRealm(targetTree.game === "poe2" ? "poe2" : "pc");
     setBuild(nextBuild);
     setSpecs(nextSpecs);
     setActiveSpecId(active.id);
     setUnsavedMasteryEffects({});
+    setUnsavedNodes(new Set(active.nodes));
     setUnsavedSecondaryAscendancyId(active.secondaryAscendClassId);
     setMasteryPicker(null);
     setClassId(active.classId);
     setAscendancyId(active.ascendClassId);
     setAllocated(nextAllocated);
-    setHistory([{ allocated: new Set(nextAllocated), masteryEffects: { ...active.masteryEffects }, classId: active.classId, ascendancyId: active.ascendClassId, secondaryAscendancyId: active.secondaryAscendClassId, label: "Imported build", at: Date.now() }]);
+    setHistory([{ allocated: new Set(nextAllocated), nodes: new Set(active.nodes), masteryEffects: { ...active.masteryEffects }, classId: active.classId, ascendancyId: active.ascendClassId, secondaryAscendancyId: active.secondaryAscendClassId, label: "Imported build", at: Date.now() }]);
     setHistoryIndex(0);
     setEditedSinceImport(false);
     setActiveSavedId("");
@@ -1985,9 +1980,9 @@ export function BuildPlannerPanel() {
         if (!workspace) {
           throw new Error("This JSON is not a supported build workspace.");
         }
-        const workspaceTree = tree.game === workspace.game && (!workspace.treeVersion || normalizedTreeVersion(tree.version) === normalizedTreeVersion(workspace.treeVersion))
+        const workspaceTree = !workspace.treeVersion || normalizedTreeVersion(tree.version) === normalizedTreeVersion(workspace.treeVersion)
           ? tree
-          : await bridge.getPassiveTreeData({ game: workspace.game, treeVersion: workspace.treeVersion || undefined });
+          : await bridge.getPassiveTreeData({ treeVersion: workspace.treeVersion || undefined });
         if (!replacementCanApply(request, "the build workspace was loading")) return;
         const workspaceSpecs = workspace.specs.map((spec) => (
           materializeImportedPassiveSpec(workspaceTree, spec, workspace.build?.items || []).spec
@@ -2004,17 +1999,18 @@ export function BuildPlannerPanel() {
         );
         markPlannerChanged();
         setTree(workspaceTree);
-        setRealm(workspaceTree.game === "poe2" ? "poe2" : "pc");
         setBuild(workspace.build ? { ...workspace.build, items: itemsWithPassiveSpecLoadout(workspace.build.items, workspaceSpec) } : null);
         setSpecs(workspaceSpecs);
-        setActiveSpecId(workspace.activeSpecId || "");
+        setActiveSpecId(workspaceSpec?.id || "");
+        setUnsavedMasteryEffects({ ...(workspaceSpec?.masteryEffects || {}) });
+        setUnsavedNodes(new Set(workspaceSpec?.nodes || workspace.allocated));
         setUnsavedSecondaryAscendancyId(workspaceSpec?.secondaryAscendClassId || 0);
         setClassId(Number(workspace.classId) || 0);
         setAscendancyId(Number(workspace.ascendancyId) || 0);
         setAllocated(next);
         setEditedSinceImport(workspace.editedSinceImport);
         setActiveSavedId(workspace.id);
-        setHistory([{ allocated: next, masteryEffects: { ...(workspaceSpec?.masteryEffects || {}) }, classId: Number(workspace.classId) || 0, ascendancyId: Number(workspace.ascendancyId) || 0, secondaryAscendancyId: workspaceSpec?.secondaryAscendClassId || 0, label: "Opened workspace", at: Date.now() }]);
+        setHistory([{ allocated: next, nodes: new Set(workspaceSpec?.nodes || workspace.allocated), masteryEffects: { ...(workspaceSpec?.masteryEffects || {}) }, classId: Number(workspace.classId) || 0, ascendancyId: Number(workspace.ascendancyId) || 0, secondaryAscendancyId: workspaceSpec?.secondaryAscendClassId || 0, label: "Opened workspace", at: Date.now() }]);
         setHistoryIndex(0);
         setImportOpen(false);
         setMessage("Build workspace opened.");
@@ -2024,26 +2020,23 @@ export function BuildPlannerPanel() {
       const parsed = parsePobXml(xml);
       const importedSpec = parsed.specs[Math.max(0, Math.min(parsed.specs.length - 1, parsed.activeSpec - 1))] || parsed.specs[0];
       const requestedVersion = importedSpec?.treeVersion.trim();
-      const requestedGame = requestedVersion ? (/^0_/.test(requestedVersion) ? "poe2" : "poe1") : tree.game;
-      const targetTree = requestedVersion && (normalizedTreeVersion(tree.version) !== normalizedTreeVersion(requestedVersion) || tree.game !== requestedGame)
-        ? await bridge.getPassiveTreeData({ game: requestedGame, treeVersion: requestedVersion })
+      const targetTree = requestedVersion && normalizedTreeVersion(tree.version) !== normalizedTreeVersion(requestedVersion)
+        ? await bridge.getPassiveTreeData({ treeVersion: requestedVersion })
         : tree;
       let importedBuild = parsed;
       let calculationNotice = "";
-      if (requestedGame === "poe1") {
-        const calculated = await bridge.calculatePobBuild({
-          xml,
-          name: `${parsed.ascendancyName || parsed.className || "Character"} · imported build`,
-        });
-        if (calculated.ok) {
-          importedBuild = buildWithEngineCalculation(parsed, calculated.calculation);
-          setGemCatalog(calculated.calculation.gemCatalog);
-          setConfigCatalog(calculated.calculation.configCatalog);
-          calculationNotice = `Verified and recalculated with Path of Building ${calculated.engine.version}.`;
-        } else {
-          calculationNotice = `${parsed.playerStats.length ? "The saved PoB snapshot was retained" : "No calculated snapshot is available"}; ${calculated.message}`;
-          setEngineCapability(await bridge.diagnosePobEngine());
-        }
+      const calculated = await bridge.calculatePobBuild({
+        xml,
+        name: `${parsed.ascendancyName || parsed.className || "Character"} · imported build`,
+      });
+      if (calculated.ok) {
+        importedBuild = buildWithEngineCalculation(parsed, calculated.calculation);
+        setGemCatalog(calculated.calculation.gemCatalog);
+        setConfigCatalog(calculated.calculation.configCatalog);
+        calculationNotice = `Verified and recalculated with Path of Building ${calculated.engine.version}.`;
+      } else {
+        calculationNotice = `${parsed.playerStats.length ? "The saved PoB snapshot was retained" : "No calculated snapshot is available"}; ${calculated.message}`;
+        setEngineCapability(await bridge.diagnosePobEngine());
       }
       if (!replacementCanApply(request, "the Path of Building import was loading")) return;
       applyBuild(importedBuild, targetTree, calculationNotice);
@@ -2075,122 +2068,43 @@ export function BuildPlannerPanel() {
     setImportOpen(true);
   };
 
-  const characterRequest = (character?: string): PoeCharacterImportRequest => ({
-    mode: characterMode,
-    realm,
-    accountName: characterMode === "public" ? accountName.trim() : undefined,
-    accessToken: characterMode === "oauth" ? accessToken.trim() : undefined,
-    character,
-  });
-
-  const loadCharacters = async () => {
-    if (tree?.game === "poe2") {
-      setMessage("Exact PoE 2 account import is disabled until a verified PoB2 importer can preserve skills, all weapon-set specialisations, and quest rewards. Import a PoB2 code or XML instead.");
-      return;
-    }
-    const request = beginReplacement();
-    setBusy(true);
-    setMessage("");
-    setGemCatalog([]);
-    setConfigCatalog([]);
-    try {
-      const result = await bridge.listPoeCharacters(characterRequest());
-      if (!asyncGuardRef.current.isLatest(request)) return;
-      setCharacters(result);
-      setSelectedCharacter(result[0]?.name || "");
-      setMessage(`${result.length} character${result.length === 1 ? "" : "s"} available to import.`);
-    } catch (error) {
-      if (asyncGuardRef.current.isLatest(request)) setMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      if (asyncGuardRef.current.isLatest(request)) setBusy(false);
-    }
-  };
-
-  const loadCharacter = async () => {
-    if (!selectedCharacter || !tree) return;
-    if (tree.game === "poe2") {
-      setMessage("Exact PoE 2 account import is disabled until a verified PoB2 importer can preserve skills, all weapon-set specialisations, and quest rewards. Import a PoB2 code or XML instead.");
-      return;
-    }
-    markPlannerChanged();
-    const request = beginReplacement();
-    setBusy(true);
-    setMessage("");
-    try {
-      const character = await bridge.getPoeCharacter(characterRequest(selectedCharacter));
-      const imported = await bridge.importPobCharacter({ character });
-      if (!imported.ok) {
-        throw new Error(`${imported.message}${imported.detail ? ` ${imported.detail}` : ""}`);
-      }
-      const parsed = enrichPobBuildWithCharacterAssets(parsePobXml(imported.xml), character);
-      const importedSpec = parsed.specs[Math.max(0, Math.min(parsed.specs.length - 1, parsed.activeSpec - 1))] || parsed.specs[0];
-      if (!importedSpec?.treeVersion) throw new Error("Path of Building returned no passive-tree version for this character.");
-      const targetTree = await bridge.getPassiveTreeData({ game: "poe1", treeVersion: importedSpec.treeVersion });
-      if (!replacementCanApply(request, "the character import was loading")) return;
-      const importedBuild: ImportedPobBuild = {
-        ...buildWithEngineCalculation(parsed, imported.calculation),
-        config: {
-          ...parsed.config,
-          league: String(character.league || parsed.config.league || ""),
-          realm: String(character.realm || parsed.config.realm || realm || "pc"),
-        },
-        statSource: "pob-engine",
-        notes: parsed.notes || `Imported through Path of Building ${imported.engine.version} from the official Path of Exile character API.`,
-      };
-      setGemCatalog(imported.calculation.gemCatalog);
-      setConfigCatalog(imported.calculation.configCatalog);
-      applyBuild(importedBuild, targetTree);
-      setAccessToken("");
-    } catch (error) {
-      reportReplacementError(request, "the character import was loading", error);
-    } finally {
-      if (asyncGuardRef.current.isLatest(request)) setBusy(false);
-    }
+  const applyHistoryEntry = (entry: TreeHistory, index: number) => {
+    if (!materializationSpec) return;
+    const next = new Set(entry.allocated);
+    const nextSpec: ImportedPassiveSpec = {
+      ...materializationSpec,
+      classId: entry.classId,
+      ascendClassId: entry.ascendancyId,
+      secondaryAscendClassId: entry.secondaryAscendancyId,
+      nodes: [...entry.nodes],
+      masteryEffects: { ...entry.masteryEffects },
+    };
+    setHistoryIndex(index);
+    setAllocated(next);
+    setClassId(entry.classId);
+    setAscendancyId(entry.ascendancyId);
+    setUnsavedSecondaryAscendancyId(entry.secondaryAscendancyId);
+    replaceCurrentPassiveSpec(nextSpec);
+    setEditedSinceImport(true);
   };
 
   const undo = () => {
     if (historyIndex <= 0) return;
     markPlannerChanged();
-    const index = historyIndex - 1;
-    const next = new Set(history[index].allocated);
-    setHistoryIndex(index);
-    setAllocated(next);
-    setClassId(history[index].classId);
-    setAscendancyId(history[index].ascendancyId);
-    setUnsavedSecondaryAscendancyId(history[index].secondaryAscendancyId);
-    replaceMasteryEffects(history[index].masteryEffects);
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? { ...spec, classId: history[index].classId, ascendClassId: history[index].ascendancyId, secondaryAscendClassId: history[index].secondaryAscendancyId, nodes: [...next] } : spec));
-    setEditedSinceImport(true);
+    applyHistoryEntry(history[historyIndex - 1], historyIndex - 1);
   };
 
   const redo = () => {
     if (historyIndex >= history.length - 1) return;
     markPlannerChanged();
-    const index = historyIndex + 1;
-    const next = new Set(history[index].allocated);
-    setHistoryIndex(index);
-    setAllocated(next);
-    setClassId(history[index].classId);
-    setAscendancyId(history[index].ascendancyId);
-    setUnsavedSecondaryAscendancyId(history[index].secondaryAscendancyId);
-    replaceMasteryEffects(history[index].masteryEffects);
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? { ...spec, classId: history[index].classId, ascendClassId: history[index].ascendancyId, secondaryAscendClassId: history[index].secondaryAscendancyId, nodes: [...next] } : spec));
-    setEditedSinceImport(true);
+    applyHistoryEntry(history[historyIndex + 1], historyIndex + 1);
   };
 
   const restoreHistory = (index: number) => {
     const entry = history[index];
     if (!entry) return;
     markPlannerChanged();
-    const next = new Set(entry.allocated);
-    setAllocated(next);
-    setClassId(entry.classId);
-    setAscendancyId(entry.ascendancyId);
-    setUnsavedSecondaryAscendancyId(entry.secondaryAscendancyId);
-    replaceMasteryEffects(entry.masteryEffects);
-    setHistoryIndex(index);
-    setSpecs((current) => current.map((spec) => spec.id === activeSpecId ? { ...spec, classId: entry.classId, ascendClassId: entry.ascendancyId, secondaryAscendClassId: entry.secondaryAscendancyId, nodes: [...next] } : spec));
-    setEditedSinceImport(true);
+    applyHistoryEntry(entry, index);
   };
 
   const selectSpec = async (id: string) => {
@@ -2202,9 +2116,8 @@ export function BuildPlannerPanel() {
     try {
       let targetTree = tree;
       const requestedVersion = spec.treeVersion.trim();
-      const requestedGame = requestedVersion ? (/^0_/.test(requestedVersion) ? "poe2" : "poe1") : tree.game;
-      if (requestedVersion && (normalizedTreeVersion(tree.version) !== normalizedTreeVersion(requestedVersion) || tree.game !== requestedGame)) {
-        targetTree = await bridge.getPassiveTreeData({ game: requestedGame, treeVersion: requestedVersion });
+      if (requestedVersion && normalizedTreeVersion(tree.version) !== normalizedTreeVersion(requestedVersion)) {
+        targetTree = await bridge.getPassiveTreeData({ treeVersion: requestedVersion });
       }
       if (!replacementCanApply(request, "the passive-tree spec was loading")) return;
       const next = normalizedSpecAllocation(
@@ -2219,7 +2132,6 @@ export function BuildPlannerPanel() {
       markPlannerChanged();
       if (targetTree !== tree) {
         setTree(targetTree);
-        setRealm(targetTree.game === "poe2" ? "poe2" : "pc");
       }
       setActiveSpecId(id);
       setBuild((current) => current ? { ...current, items: itemsWithPassiveSpecLoadout(current.items, spec) } : current);
@@ -2227,12 +2139,13 @@ export function BuildPlannerPanel() {
       setHover(null);
       setTraceMode(false);
       setTracePath([]);
+      setUnsavedMasteryEffects({ ...spec.masteryEffects });
+      setUnsavedNodes(new Set(spec.nodes));
       setUnsavedSecondaryAscendancyId(spec.secondaryAscendClassId);
       setClassId(spec.classId);
       setAscendancyId(spec.ascendClassId);
       setAllocated(next);
-      setSpecs((current) => current.map((entry) => entry.id === id ? { ...entry, nodes: [...next] } : entry));
-      setHistory([{ allocated: next, masteryEffects: { ...spec.masteryEffects }, classId: spec.classId, ascendancyId: spec.ascendClassId, secondaryAscendancyId: spec.secondaryAscendClassId, label: `Opened ${spec.title}`, at: Date.now() }]);
+      setHistory([{ allocated: next, nodes: new Set(spec.nodes), masteryEffects: { ...spec.masteryEffects }, classId: spec.classId, ascendancyId: spec.ascendClassId, secondaryAscendancyId: spec.secondaryAscendClassId, label: `Opened ${spec.title}`, at: Date.now() }]);
       setHistoryIndex(0);
       setEditedSinceImport(true);
     } catch (error) {
@@ -2245,15 +2158,16 @@ export function BuildPlannerPanel() {
   const addSpec = () => {
     markPlannerChanged();
     const spec: ImportedPassiveSpec = {
-      ...(activePassiveSpec || {} as ImportedPassiveSpec),
+      ...(materializationSpec || {} as ImportedPassiveSpec),
       id: `spec-${crypto.randomUUID()}`,
       title: `Tree ${specs.length + 1}`,
       treeVersion: tree?.version || "",
       classId,
       ascendClassId: ascendancyId,
       secondaryAscendClassId: secondaryAscendancyId,
-      nodes: [...allocated],
-      masteryEffects: { ...(activePassiveSpec?.masteryEffects || unsavedMasteryEffects) },
+      clusterHashFormatVersion: materializationSpec?.clusterHashFormatVersion || 2,
+      nodes: [...(materializationSpec?.nodes || unsavedNodes)],
+      masteryEffects: { ...(materializationSpec?.masteryEffects || unsavedMasteryEffects) },
     };
     setSpecs((current) => [...current, spec]);
     setActiveSpecId(spec.id);
@@ -2262,7 +2176,7 @@ export function BuildPlannerPanel() {
 
   const copyTreeUrl = async () => {
     if (!tree || treeLinkUnsupported) {
-      setMessage("Use Copy PoB for mastery, cluster-jewel, bloodline, or PoE 2 trees; the official compact tree URL cannot preserve those sections safely.");
+      setMessage("Use Copy PoB for mastery, cluster-jewel, or bloodline trees; the official compact tree URL cannot preserve those sections safely.");
       return;
     }
     const url = officialTreeUrl(tree, allocated, classId, ascendancyId, secondaryAscendancyId);
@@ -2277,7 +2191,8 @@ export function BuildPlannerPanel() {
     classId,
     ascendClassId: ascendancyId,
     secondaryAscendClassId: secondaryAscendancyId,
-    nodes: [...allocated],
+    clusterHashFormatVersion: 2,
+    nodes: [...unsavedNodes],
     masteryEffects: { ...unsavedMasteryEffects },
   } satisfies ImportedPassiveSpec];
 
@@ -2285,6 +2200,7 @@ export function BuildPlannerPanel() {
     ...source,
     className: currentClass?.name || source.className,
     ascendancyName: currentAscendancy?.name || "",
+    targetVersion: source.targetVersion || "3_0",
   });
 
   const saveWorkspace = async () => {
@@ -2292,7 +2208,6 @@ export function BuildPlannerPanel() {
     const effectiveSpecs = persistedSpecs();
     const snapshot = createPlannerSnapshot({
       id: activeSavedId || undefined,
-      game: tree.game,
       treeVersion: tree.version,
       build: build ? buildWithCurrentIdentity(build) : null,
       specs: effectiveSpecs,
@@ -2316,7 +2231,6 @@ export function BuildPlannerPanel() {
     setBuild(nextBuild);
     setEditedSinceImport(true);
     if (!tree || !materializationSpec || !specs.length) return;
-
     const loadoutSpecs = specsWithActiveJewelLoadout(nextBuild, specs, activeSpecId);
     const loadoutSpec = loadoutSpecs.find((spec) => spec.id === activeSpecId) || loadoutSpecs[0];
     if (!loadoutSpec) {
@@ -2334,19 +2248,27 @@ export function BuildPlannerPanel() {
       nextContext,
     );
     const nextNodeMap = new Map(nextTree.nodes.map((node) => [node.id, node]));
-    const nextMasteryEffects = Object.fromEntries(Object.entries(loadoutSpec.masteryEffects)
+    const mergedSpec = withPassiveSpecAllocation(loadoutSpec, nextAllocated);
+    const validMasteryEffects = (
+      spec: ImportedPassiveSpec,
+      activeAllocation: ReadonlySet<number>,
+      source: Record<number, number>,
+    ) => Object.fromEntries(Object.entries(source)
       .filter(([rawNodeId, rawEffectId]) => {
-        const node = nextNodeMap.get(Number(rawNodeId));
-        if (!node?.mastery || !nextAllocated.has(Number(rawNodeId))) return false;
+        const nodeId = Number(rawNodeId);
+        if (!spec.nodes.includes(nodeId)) return false;
+        const node = nextNodeMap.get(nodeId);
+        if (!node?.mastery || !activeAllocation.has(nodeId)) return false;
         return orderedMasteryEffects(node).some(({ id }) => id === Number(rawEffectId));
       })
       .map(([rawNodeId, rawEffectId]) => [Number(rawNodeId), Number(rawEffectId)]));
+    const nextMasteryEffects = validMasteryEffects(mergedSpec, nextAllocated, loadoutSpec.masteryEffects);
     const allocationChanged = nextAllocated.size !== allocated.size
       || [...nextAllocated].some((id) => !allocated.has(id));
     const masteryChanged = Object.keys(nextMasteryEffects).length !== Object.keys(loadoutSpec.masteryEffects).length
       || Object.entries(nextMasteryEffects).some(([nodeId, effectId]) => loadoutSpec.masteryEffects[Number(nodeId)] !== effectId);
     const nextSpecs = loadoutSpecs.map((spec) => spec.id === loadoutSpec.id
-      ? { ...spec, nodes: [...nextAllocated], masteryEffects: nextMasteryEffects }
+      ? { ...mergedSpec, masteryEffects: nextMasteryEffects }
       : spec);
     setSpecs(nextSpecs);
     if (!allocationChanged && !masteryChanged) return;
@@ -2358,20 +2280,28 @@ export function BuildPlannerPanel() {
         const entryClass = tree.classes.find((candidate) => candidate.id === entry.classId);
         const entryAscendancyName = entryClass?.ascendancies.find((candidate) => candidate.id === entry.ascendancyId)?.internalId;
         const entrySecondaryName = tree.alternateAscendancies?.find((candidate) => candidate.id === entry.secondaryAscendancyId)?.internalId;
+        const entryBase: ImportedPassiveSpec = {
+          ...loadoutSpec,
+          nodes: [...entry.nodes],
+          masteryEffects: { ...entry.masteryEffects },
+        };
+        const entryContext = buildPassiveAllocationContext(nextTree, entryBase, nextBuild.items);
         const entryAllocated = retainConnectedAllocatedPassives(
           nextTree,
           entry.allocated,
           entry.classId,
           entryAscendancyName,
           entrySecondaryName,
-          nextContext,
+          entryContext,
         );
-        const masteryEffects = Object.fromEntries(Object.entries(entry.masteryEffects).filter(([rawNodeId, rawEffectId]) => {
-          const node = nextNodeMap.get(Number(rawNodeId));
-          if (!node?.mastery || !entryAllocated.has(Number(rawNodeId))) return false;
-          return orderedMasteryEffects(node).some(({ id }) => id === Number(rawEffectId));
-        }));
-        return { ...entry, allocated: entryAllocated, masteryEffects };
+        const entrySpec = withPassiveSpecAllocation(entryBase, entryAllocated);
+        const masteryEffects = validMasteryEffects(entrySpec, entryAllocated, entry.masteryEffects);
+        return {
+          ...entry,
+          allocated: entryAllocated,
+          nodes: new Set(entrySpec.nodes),
+          masteryEffects,
+        };
       });
     });
     if (allocationChanged) {
@@ -2396,7 +2326,6 @@ export function BuildPlannerPanel() {
       id,
       name: name || existing?.name,
       tags: tags.length ? tags : existing?.tags,
-      game: tree.game,
       treeVersion: tree.version,
       build: build ? buildWithCurrentIdentity(build) : null,
       specs: effectiveSpecs,
@@ -2478,8 +2407,8 @@ export function BuildPlannerPanel() {
     setBusy(true);
     try {
       let targetTree = tree;
-      if (!targetTree || targetTree.game !== snapshot.game || (snapshot.treeVersion && normalizedTreeVersion(targetTree.version) !== normalizedTreeVersion(snapshot.treeVersion))) {
-        targetTree = await bridge.getPassiveTreeData({ game: snapshot.game, treeVersion: snapshot.treeVersion || undefined });
+      if (!targetTree || (snapshot.treeVersion && normalizedTreeVersion(targetTree.version) !== normalizedTreeVersion(snapshot.treeVersion))) {
+        targetTree = await bridge.getPassiveTreeData({ treeVersion: snapshot.treeVersion || undefined });
       }
       if (!replacementCanApply(request, `the ${snapshot.name} workspace was loading`)) return;
       const snapshotSpecs = snapshot.specs.map((spec) => (
@@ -2497,17 +2426,18 @@ export function BuildPlannerPanel() {
       );
       markPlannerChanged();
       setTree(targetTree);
-      setRealm(targetTree.game === "poe2" ? "poe2" : "pc");
       setBuild(snapshot.build ? { ...snapshot.build, items: itemsWithPassiveSpecLoadout(snapshot.build.items, snapshotSpec) } : null);
       setGemCatalog([]);
       setConfigCatalog([]);
       setSpecs(snapshotSpecs);
-      setActiveSpecId(snapshot.activeSpecId);
+      setActiveSpecId(snapshotSpec?.id || "");
+      setUnsavedMasteryEffects({ ...(snapshotSpec?.masteryEffects || {}) });
+      setUnsavedNodes(new Set(snapshotSpec?.nodes || snapshot.allocated));
       setUnsavedSecondaryAscendancyId(snapshotSpec?.secondaryAscendClassId || 0);
       setClassId(snapshot.classId);
       setAscendancyId(snapshot.ascendancyId);
       setAllocated(next);
-      setHistory([{ allocated: next, masteryEffects: { ...(snapshotSpec?.masteryEffects || {}) }, classId: snapshot.classId, ascendancyId: snapshot.ascendancyId, secondaryAscendancyId: snapshotSpec?.secondaryAscendClassId || 0, label: `Opened ${snapshot.name}`, at: Date.now() }]);
+      setHistory([{ allocated: next, nodes: new Set(snapshotSpec?.nodes || snapshot.allocated), masteryEffects: { ...(snapshotSpec?.masteryEffects || {}) }, classId: snapshot.classId, ascendancyId: snapshot.ascendancyId, secondaryAscendancyId: snapshotSpec?.secondaryAscendClassId || 0, label: `Opened ${snapshot.name}`, at: Date.now() }]);
       setHistoryIndex(0);
       setEditedSinceImport(snapshot.editedSinceImport);
       setActiveSavedId(snapshot.id);
@@ -2535,7 +2465,7 @@ export function BuildPlannerPanel() {
     if (!tree) return;
     const effectiveBuild = buildWithCurrentIdentity(build || emptyPobBuild(currentClass?.name || "Scion"));
     const sourceSpecs = persistedSpecs();
-    // Official character payloads use opaque hashes_ex. Materialize again at
+    // Imported PoB specs can use opaque hashes_ex. Materialize again at
     // the export boundary so Copy PoB is lossless even before any user edit.
     const effectiveSpecs = sourceSpecs.map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
     const xml = serializePobXml(effectiveBuild, effectiveSpecs, activeSpecId || effectiveSpecs[0].id);
@@ -2545,7 +2475,7 @@ export function BuildPlannerPanel() {
   };
 
   const recalculateWithPob = async () => {
-    if (!tree || tree.game !== "poe1") return;
+    if (!tree) return;
     const request = asyncGuardRef.current.begin("calculation");
     const sourceIdentity = plannerIdentityRef.current;
     let changedMessageShown = false;
@@ -2611,7 +2541,7 @@ export function BuildPlannerPanel() {
   };
 
   const commitValidatedItemBuild = async (candidate: ImportedPobBuild) => {
-    if (!tree || tree.game !== "poe1") return { ok: false, message: "Path of Building item validation is available for PoE 1 builds only." };
+    if (!tree) return { ok: false, message: "The Path of Building tree is unavailable." };
     if (engineCapability?.ok !== true) return { ok: false, message: engineCapability?.message || "The verified local Path of Building engine is unavailable." };
     const request = asyncGuardRef.current.begin("calculation");
     const effectiveBuild = buildWithCurrentIdentity(candidate);
@@ -2656,7 +2586,7 @@ export function BuildPlannerPanel() {
   };
 
   const analyzePassivePower = async () => {
-    if (!tree || tree.game !== "poe1" || engineCapability?.ok !== true) return;
+    if (!tree || engineCapability?.ok !== true) return;
     const effectiveBuild = buildWithCurrentIdentity(build || emptyPobBuild(currentClass?.name || "Scion"));
     const sourceSpecs = persistedSpecs();
     const effectiveSpecs = sourceSpecs.map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
@@ -2690,19 +2620,19 @@ export function BuildPlannerPanel() {
   if (busy && !tree) return <div className="planner-loading"><LoaderCircle className="is-spinning" /><strong>Loading authoritative Path of Building tree…</strong></div>;
   if (!tree) return <div className="toolkit-empty"><Network size={34} /><h2>Passive tree unavailable</h2><p>{message}</p></div>;
   let timelessXml = "";
-  if (timelessOpen && tree.game === "poe1") {
+  if (timelessOpen) {
     const effectiveBuild = buildWithCurrentIdentity(build || emptyPobBuild(currentClass?.name || "Scion"));
     const effectiveSpecs = persistedSpecs().map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
     timelessXml = serializePobXml(effectiveBuild, effectiveSpecs, activeSpecId || effectiveSpecs[0]?.id || "");
   }
 
   return (
-    <section className="planner-shell" data-game={tree.game}>
+    <section className="planner-shell">
       <header className="planner-commandbar">
         <div className="planner-build-context">
           <span className="planner-orbit-mark"><Network size={17}/></span>
           <div className="planner-file-menu">
-            <button type="button" className={actionsOpen ? "is-open" : ""} onClick={() => setActionsOpen((value) => !value)}><span><small>{tree.game === "poe2" ? "POE 2" : "POE 1"} · POB {tree.version.replace("_", ".")}</small><strong>{build ? `${build.ascendancyName || build.className} · Level ${build.level}` : "Local build"}</strong></span><ChevronDown size={12}/></button>
+            <button type="button" className={actionsOpen ? "is-open" : ""} onClick={() => setActionsOpen((value) => !value)}><span><small>POE 1 · POB {tree.version.replace("_", ".")}</small><strong>{build ? `${build.ascendancyName || build.className} · Level ${build.level}` : "Local build"}</strong></span><ChevronDown size={12}/></button>
             {actionsOpen && <div className="planner-file-dropdown">
               <button type="button" onClick={() => { setActionsOpen(false); void saveWorkspace(); }}><Save size={13}/><span>Save as file</span><kbd>Ctrl+S</kbd></button>
               <button type="button" onClick={() => { setActionsOpen(false); void openBuild(); }}><FolderOpen size={13}/><span>Open build</span></button>
@@ -2719,10 +2649,9 @@ export function BuildPlannerPanel() {
         </div>
         <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">{PLANNER_TABS.slice(0, 6).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}><PlannerTabGlyph tab={value}/><span>{value}</span></button>)}</nav>
         <div className="planner-command-actions">
-          <label className="planner-game-select"><select aria-label="Game" value={tree.game} disabled={busy} onChange={(event) => { void changeGame(event.target.value as "poe1" | "poe2"); }}><option value="poe1">PoE 1</option><option value="poe2">PoE 2</option></select></label>
           {Boolean(tree.alternateAscendancies?.length) && <label className="planner-bloodline-select"><select aria-label="Bloodline" value={secondaryAscendancyId} onChange={(event) => changeSecondaryAscendancy(Number(event.target.value))}><option value={0}>No bloodline</option>{tree.alternateAscendancies?.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
-          <button type="button" onClick={recalculateWithPob} disabled={calculating || tree.game !== "poe1" || engineCapability?.ok !== true} title="Recalculate with the verified local Path of Building engine">{calculating ? <LoaderCircle className="is-spinning" size={14}/> : <RefreshCw size={14}/>}<span>Recalculate</span></button>
-          <button type="button" className="is-primary" onClick={() => { if (tree.game === "poe2") setImportMode("pob"); setImportOpen(true); }}><Upload size={14}/><span>Import</span></button>
+          <button type="button" onClick={recalculateWithPob} disabled={calculating || engineCapability?.ok !== true} title="Recalculate with the verified local Path of Building engine">{calculating ? <LoaderCircle className="is-spinning" size={14}/> : <RefreshCw size={14}/>}<span>Recalculate</span></button>
+          <button type="button" className="is-primary" onClick={() => setImportOpen(true)}><Upload size={14}/><span>Import</span></button>
           <button type="button" aria-label="More planner actions" onClick={() => setActionsOpen((value) => !value)}><MoreHorizontal size={15}/></button>
         </div>
       </header>
@@ -2748,7 +2677,7 @@ export function BuildPlannerPanel() {
             <div className="tree-spec-float"><GitBranch size={12}/><span>{activePassiveSpec?.title || "Current tree"}</span><b>{passiveCount}/{tree.points.total}</b></div>
             <div className="tree-power-dock">
               <div className="tree-power-mode"><span><CircleGauge size={13}/> Node power</span>{(["blend", "offence", "defence"] as NodePowerMetric[]).map((metric) => <button type="button" key={metric} className={powerMetric === metric ? "is-active" : ""} onClick={() => setPowerMetric(metric)}>{metric === "blend" ? "Blend" : metric === "offence" ? "DPS" : "Defence"}</button>)}</div>
-              <div className="tree-power-run"><span>Path</span>{[3, 5, 10, 15].map((depth) => <button type="button" key={depth} className={powerDepth === depth ? "is-active" : ""} onClick={() => setPowerDepth(depth)}>{depth}</button>)}<button type="button" className="is-run" disabled={analyzingNodes || tree.game !== "poe1" || engineCapability?.ok !== true} onClick={analyzePassivePower}>{analyzingNodes ? <LoaderCircle className="is-spinning" size={12}/> : <Activity size={12}/>} Analyze</button></div>
+              <div className="tree-power-run"><span>Path</span>{[3, 5, 10, 15].map((depth) => <button type="button" key={depth} className={powerDepth === depth ? "is-active" : ""} onClick={() => setPowerDepth(depth)}>{depth}</button>)}<button type="button" className="is-run" disabled={analyzingNodes || engineCapability?.ok !== true} onClick={analyzePassivePower}>{analyzingNodes ? <LoaderCircle className="is-spinning" size={12}/> : <Activity size={12}/>} Analyze</button></div>
               <button type="button" className="tree-timeless-trigger" onClick={() => setTimelessOpen(true)}><Gem size={13}/> Timeless lens</button>
             </div>
             <div className="tree-points-dock"><strong>{passiveCount}</strong><span>/{tree.points.total} passive</span><i/>
@@ -2799,7 +2728,7 @@ export function BuildPlannerPanel() {
             tree={materializedTree}
             allocated={allocated}
             xml={timelessXml}
-            engineReady={engineCapability?.ok === true && tree.game === "poe1"}
+            engineReady={engineCapability?.ok === true}
             artwork={timelessArtwork}
             onClose={() => setTimelessOpen(false)}
             onFocus={(nodeId) => { setTimelessOpen(false); setQuery(`#${nodeId}`); setViewCommand({ action: "focus", nodeId, nonce: Date.now() }); }}
@@ -2807,7 +2736,16 @@ export function BuildPlannerPanel() {
         </div>
       </div>
 
-      {importOpen && <div className="planner-import-scrim" onMouseDown={(event) => event.target === event.currentTarget && setImportOpen(false)}><section className="planner-import" role="dialog" aria-modal="true" aria-labelledby="planner-import-title"><header><span><Clipboard size={17} /><strong id="planner-import-title">Import character or build</strong></span><button type="button" aria-label="Close build import" onClick={() => setImportOpen(false)}><X size={16} /></button></header><nav><button type="button" className={importMode === "pob" ? "is-active" : ""} onClick={() => setImportMode("pob")}>PoB / build link</button><button type="button" className={importMode === "character" ? "is-active" : ""} onClick={() => setImportMode("character")}>My character</button></nav>{importMode === "pob" ? <><p>Paste a {tree.game === "poe2" ? "PoB2" : "PoB"} code/XML, pobb.in or Pastebin link. You can also open an XML file. Full build imports retain tree specs, items, gems, config, and notes.</p><textarea aria-label="PoB build code or XML" autoFocus value={importText} onChange={(event) => setImportText(event.target.value)} placeholder={`${tree.game === "poe2" ? "PoB2" : "PoB"} code, XML, or supported build URL…`} /><div><button type="button" onClick={clipboardBuild}><Clipboard size={14} /> Read clipboard</button><button type="button" onClick={openBuild}><FolderOpen size={14} /> Open XML</button><button type="button" className="is-primary" onClick={() => importBuild()} disabled={!importText.trim() || busy}>{busy ? <LoaderCircle className="is-spinning" size={14} /> : <Upload size={14} />} Import</button></div></> : <div className="character-import"><p>Public profiles work with an account name. Private profiles use a temporary official OAuth token with the <code>account:characters</code> scope; the token is never saved. Character nodes are matched only against the selected game’s installed PoB tree.</p><div className="character-import-mode"><button type="button" className={characterMode === "public" ? "is-active" : ""} onClick={() => { setCharacterMode("public"); setCharacters([]); }}>Public profile</button><button type="button" className={characterMode === "oauth" ? "is-active" : ""} onClick={() => { setCharacterMode("oauth"); setCharacters([]); }}>Official OAuth</button></div><label>Realm<select value={realm} onChange={(event) => { setRealm(event.target.value as PoeCharacterImportRequest["realm"]); setCharacters([]); }}>{tree.game === "poe2" ? <option value="poe2">PC (PoE 2)</option> : <><option value="pc">PC (PoE 1)</option><option value="xbox">Xbox</option><option value="sony">Sony</option></>}</select></label>{characterMode === "public" ? <label>Account name<input value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="AccountName#1234" /></label> : <label>OAuth access token<input type="password" value={accessToken} onChange={(event) => setAccessToken(event.target.value)} autoComplete="off" placeholder="Temporary account:characters token" /></label>}<button type="button" onClick={loadCharacters} disabled={busy || (characterMode === "public" ? !accountName.trim() : !accessToken.trim())}>{busy ? <LoaderCircle className="is-spinning" size={14} /> : <RefreshCw size={14} />} Load character list</button>{characters.length > 0 && <><label>Character<select value={selectedCharacter} onChange={(event) => setSelectedCharacter(event.target.value)}>{characters.map((character) => <option key={character.id || character.name} value={character.name}>{character.name} · {character.class} {character.level} · {character.league || "No league"}</option>)}</select></label><button type="button" className="is-primary" onClick={loadCharacter} disabled={busy || !selectedCharacter}><Upload size={14} /> Import selected character</button></>}</div>}</section></div>}
+      {importOpen && (
+        <div className="planner-import-scrim" onMouseDown={(event) => event.target === event.currentTarget && setImportOpen(false)}>
+          <section className="planner-import" role="dialog" aria-modal="true" aria-labelledby="planner-import-title">
+            <header><span><Clipboard size={17}/><strong id="planner-import-title">Import build</strong></span><button type="button" aria-label="Close build import" onClick={() => setImportOpen(false)}><X size={16}/></button></header>
+            <p>Paste a PoB code/XML, pobb.in or Pastebin link. You can also open an XML file. Full build imports retain tree specs, items, gems, config, and notes.</p>
+            <textarea aria-label="PoB build code or XML" autoFocus value={importText} onChange={(event) => setImportText(event.target.value)} placeholder="PoB code, XML, or supported build URL…"/>
+            <div><button type="button" onClick={clipboardBuild}><Clipboard size={14}/> Read clipboard</button><button type="button" onClick={openBuild}><FolderOpen size={14}/> Open XML</button><button type="button" className="is-primary" onClick={() => importBuild()} disabled={!importText.trim() || busy}>{busy ? <LoaderCircle className="is-spinning" size={14}/> : <Upload size={14}/>} Import</button></div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

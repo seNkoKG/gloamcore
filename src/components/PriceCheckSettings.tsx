@@ -186,7 +186,7 @@ export function PriceCheckSettings({
           </h2>
           <SettingSwitch
             checked={settings.defaultOnlineOnly}
-            title="Online sellers"
+            title="Online listings"
             icon={<ListFilter size={17} />}
             onChange={(defaultOnlineOnly) => onChange({ defaultOnlineOnly })}
           />

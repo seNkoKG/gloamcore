@@ -7,6 +7,12 @@ on:
     paths:
       - "Website/**"
       - ".github/workflows/pages.yml"
+      - "scripts/build-poe-ninja-mirror.mjs"
+      - "scripts/poe-ninja-mirror-core.mjs"
+      - "src/config/categories.ts"
+      - "package.json"
+  schedule:
+    - cron: "7,37 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -19,17 +25,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Node.js 24.14.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          path: Website
+          node-version: 24.14.0
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Stage website
+        run: |
+          mkdir -p "$RUNNER_TEMP/pages-site"
+          cp -a Website/. "$RUNNER_TEMP/pages-site/"
+      - name: Build validated poe.ninja mirror
+        timeout-minutes: 15
+        run: >-
+          node scripts/build-poe-ninja-mirror.mjs
+          --output "$RUNNER_TEMP/pages-site/data/poe-ninja/v1"
+          --site-root "$RUNNER_TEMP/pages-site"
+      - name: Upload site
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/pages-site
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

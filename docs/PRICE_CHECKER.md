@@ -5,22 +5,23 @@
 1. Hover an item in the English Path of Exile 1 client.
 2. Press `Ctrl+D`.
 3. For an economy item, review the current poe.ninja estimate and closest
-   identity matches. For a rare, magic, or roll-sensitive unique item, edit the
+   identity matches, plus documented Public Currency Exchange completed-hour
+   evidence from Faustus when the item supports it. For a rare, magic, or
+   roll-sensitive unique item, edit the
    visible modifier, calculated-property, and item-state filters directly in
    the compact overlay.
-4. On Windows, review the compact official Trade snapshot. It contains the
-   total result count and Awakened's first 20 grouped seller rows for the current
-   plan.
-5. Click `TRADE` to open the same mapped comparison on the full official Trade
-   site, then verify every relevant listing before pricing.
+4. Review the readable exact query plan. Copying an item, editing a filter, and
+   refreshing aggregate market context remain local to GloamCore's planner and
+   supported data sources.
+5. Click `TRADE` or **Open Trade** to open the complete encoded comparison on
+   the official Trade website, then verify current results there before pricing.
 
 The shortcut can be changed alongside every other app binding in desktop
 Settings. Conflicting or unavailable global keys leave the previous shortcut
 active. Mobile builds provide a
 manual paste field because mobile operating systems do not expose PoE's global
-desktop clipboard shortcut. Mobile uses the shared local planner and a
-user-clicked Trade handoff, but it has no global overlay or desktop live-listing
-bridge.
+desktop clipboard shortcut. Mobile uses the shared local planner and the same
+user-clicked Trade handoff, but it has no global overlay.
 
 Use Path of Exile in **Borderless** or **Windowed Fullscreen** mode. Windows
 cannot reliably place a normal desktop overlay above a game running in
@@ -34,16 +35,17 @@ click outside the card to return keyboard and mouse input to PoE.
 The compact card shows every query-relevant modifier by default, checked or
 unchecked. Rows that the pinned upstream data marks hidden, fixed, or
 advanced-only are omitted before rendering. The modifier list never gets its
-own scrollbar: the native card grows to fit the useful rows, while seller
-listings yield space first when the monitor work area is short. Closing the card
-also hides the native overlay host and background-throttles every hidden app
-surface.
+own scrollbar: the native card grows to fit the useful rows and constrains
+supporting market context first when the monitor work area is short. Closing
+the card also hides the native overlay host and background-throttles every
+hidden app surface.
 
 ## What the prices mean
 
 - The compact in-game panel shows the current poe.ninja identity-level market
-  estimate, close matches, aggregate listing counts, and source age for
-  supported economy items.
+  estimate, close matches, aggregate listing counts when supplied, and source
+  age for supported economy items. Missing or zero sample counts remain low
+  confidence and cannot drive market pulse or target alerts.
 - Local history is supporting evidence and always retains its original check
   time.
 - Rare and magic items never receive a final valuation from their base price
@@ -54,20 +56,17 @@ surface.
   Watcher's Eye aura effects, Split Personality rolls, corrupted jewel
   implicits, Forbidden Flame/Flesh choices, Thread of Hope ring variants, and
   exact Timeless Jewel seed/conqueror pseudo-stats.
-- The Windows checker runs the current mapped query against the public official
-  Trade website and displays up to 20 grouped result rows that include a
-  price. Ordinary searches fetch the first 20 IDs and, when needed, continue in
-  Awakened-style batches up to 100 IDs to avoid a misleading one-seller sample.
-  Exchangeable items use the legacy bulk route and display sanitized stock and
-  offer ratios. Sparse chaos results defer to the stable divine side like
-  Awakened, and the full Trade handoff opens the currency side that was actually
-  selected rather than reopening an ambiguous two-currency query. The displayed
-  total can be larger; use the full Trade page to inspect the rest.
-- Seller rows are current asking prices, not completed sales. Anonymous Trade
-  access can be rate-limited or temporarily unavailable, and a recent cached
-  result is labelled `STALE` if it is used after a failed refresh.
-- Aggregate prices are not completed sales. Thin, stale, fuzzy and conflicting
-  evidence lowers confidence and widens the displayed range.
+- The local planner does not value a rare or magic item by counting Trade
+  results. It builds the exact filters that the user can inspect and then open
+  on the official Trade website. GloamCore does not fetch or display Trade
+  result payloads, result totals, stock, or offers from that page.
+- Exchangeable items retain their exact item and result-currency side in the
+  encoded handoff instead of reopening an ambiguous two-currency query.
+- Aggregate poe.ninja prices are not completed sales. Thin, fuzzy, or
+  conflicting evidence can lower confidence and widen the displayed range.
+  Documented Public Currency Exchange completed-hour evidence from Faustus is
+  historical market context; evidence older than two hours remains labelled
+  and cannot change the estimate, range, or confidence.
 
 ## Modifier controls
 
@@ -76,7 +75,7 @@ surface.
   rows remain visible and are labelled `UNMAPPED`.
 - Numeric rows in the compact card expose only their minimum/maximum fields and
   synchronized dual slider; decimal and negative rolls are supported. The row
-  checkbox controls whether that stat is sent.
+  checkbox controls whether that stat is included in the encoded query.
 - Presence-only rows say `PRESENT` without showing meaningless number fields.
   The detailed dashboard exposes the expert `RANGE`, `EXACT`, and `PRESENT`
   selector when the planned matching mode needs to be changed.
@@ -159,21 +158,17 @@ set of otherwise unproven numeric lines.
 
 ## Performance
 
-Modifier checkboxes, number fields, modes, item-state toggles, and sliders
-rebuild the small local query plan immediately and mark it for review. Like
-Awakened, these edits do not silently send a new search; press `SEARCH` when the
-plan is ready. Seller availability, listed age, and result-currency changes are
-trade-only exceptions and refresh the current plan immediately. There is no
-periodic official Trade polling.
+Modifier checkboxes, number fields, modes, item-state toggles, sliders,
+availability, listed age, and result-currency choices rebuild the small local
+query plan immediately and mark it for review. These edits never send a Trade
+website request. Opening Trade is a separate user gesture that hands the encoded
+plan to the system browser.
 
-Equal requests are coalesced and successful exact-query results use Awakened's
-five-minute memory cache. Search and Exchange share the policy windows
-advertised by the Trade service, while result Fetch retains its own window.
-All routes reconcile named rules and honor `Retry-After` without imposing an
-artificial per-item cooldown. The compact editor has no modifier-list scroll:
-all query-relevant rows stay visible and the native card follows their content.
-On a short work area, seller listings contract before modifier controls do.
-Normal poe.ninja refreshes remain on their separate bounded cache schedule.
+The compact editor has no modifier-list scroll: all query-relevant rows stay
+visible and the native card follows their content. Supporting market context
+contracts before modifier controls on a short work area. poe.ninja mirror,
+Public Currency Exchange completed-hour, PoE Wiki, and local cache refreshes
+remain on their own bounded schedules; none polls the Trade website.
 
 ## Data and safety
 
@@ -182,18 +177,11 @@ action. Dashboard and mobile manual-paste checks generate none. GloamCore does
 not inspect game memory, automate gameplay, read account-session cookies, use
 `POESESSID`, or send whispers.
 
-The Windows desktop bridge may POST the sanitized query to the fixed public
-`pathofexile.com/api/trade/search` route and fetch bounded result-ID batches
-from the matching public `api/trade/fetch` route, or use the allowlisted public
-exchange endpoint for eligible bulk items. Requests omit credentials and
-referrer data, accept only bounded JSON from allowlisted official URLs, and
-expose only sanitized price, age, seller, item, grouping, stock, and ratio data
-to the renderer. This is
-anonymous access to the public Trade website, not an authenticated developer or
-account API. The service can change, reject, or rate-limit requests.
+GloamCore never calls the Trade website's undocumented search, exchange, or
+fetch APIs. It does not receive Trade result payloads, result IDs, stock,
+offers, or account data from that site.
 
-`TRADE` provides a separate user-clicked browser handoff with mapped filters
-prefilled for full verification. A server-issued result ID is preferred, while
-an edited plan retains its complete encoded query even when it is unusually
-large; it is never silently replaced by a bare league page. Mobile does not
-ship the desktop search/fetch bridge.
+`TRADE` and **Open Trade** are user-clicked browser handoffs with the complete
+mapped filters encoded for verification. An edited plan is not silently
+replaced by a bare league page. Windows, Android, iOS, and the browser preview
+share this boundary.

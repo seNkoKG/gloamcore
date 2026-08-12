@@ -250,6 +250,51 @@ describe("PoB cluster jewel subgraphs", () => {
     expect(new Set(rematerialized.spec.nodes)).toEqual(new Set(materialized.spec.nodes));
   });
 
+  it("ports PoB v1 cluster hashes to v2 orbit identities without changing explicit v2 specs", () => {
+    const conversionTree: PassiveTreeData = {
+      ...tree,
+      cluster: {
+        ...cluster,
+        orbitOffsets: {
+          ...cluster.orbitOffsets,
+          43989: { ...cluster.orbitOffsets[43989], 2: 0 },
+        },
+      },
+    };
+    const large = item(1, "Large Cluster Jewel", [
+      "Adds 8 Passive Skills",
+      "Added Small Passive Skills grant: 10% increased Attack Damage",
+      "2 Added Passive Skills are Jewel Sockets",
+    ].join("\n"));
+    const base: ImportedPassiveSpec = {
+      id: "legacy-cluster",
+      title: "Legacy cluster",
+      treeVersion: "3_29",
+      classId: 0,
+      ascendClassId: 0,
+      secondaryAscendClassId: 0,
+      nodes: [1, 7960, 65568, 65570],
+      masteryEffects: {},
+      sockets: { 7960: 1 },
+    };
+
+    const legacy = materializeImportedPassiveSpec(conversionTree, { ...base, clusterHashFormatVersion: 1 }, [large]);
+    expect([...legacy.legacyClusterNodeMap || []]).toEqual(expect.arrayContaining([
+      [65568, 65573],
+      [65570, 65575],
+      [65573, 65578],
+      [65575, 65568],
+    ]));
+    expect(legacy.spec.clusterHashFormatVersion).toBe(2);
+    expect(legacy.spec.nodes).toEqual([1, 7960, 65573, 65575]);
+
+    const current = materializeImportedPassiveSpec(conversionTree, { ...base, clusterHashFormatVersion: 2 }, [large]);
+    expect(current.legacyClusterNodeMap).toBeUndefined();
+    expect(current.spec.clusterHashFormatVersion).toBe(2);
+    expect(current.spec.nodes).toEqual(base.nodes);
+    expect(serializePobXml({ ...emptyPobBuild(), specs: [legacy.spec] }, [legacy.spec], legacy.spec.id)).toContain('clusterHashFormatVersion="2"');
+  });
+
   it("never maps a mixed-version spec against the currently loaded tree", () => {
     const wrongVersion = { ...tree, version: "3_28" };
     const spec: ImportedPassiveSpec = {

@@ -1,7 +1,6 @@
 import type {
   CacheEnvelope,
   DesktopSettings,
-  EconomyLeague,
   ItemTooltipRequest,
   KnowledgeSearchRequest,
   OverviewRequest,
@@ -16,22 +15,29 @@ import type {
   ToolkitWorkspace,
   UpdateState,
 } from "../types";
-import { mobileBridge } from "./mobile-bridge";
+import { isOverviewPayload, mobileBridge } from "./mobile-bridge";
+import { fetchBoundedToolkitText } from "./bounded-text-fetch";
 import {
   knowledgeImageQuery,
   knowledgeImageTitles,
   knowledgeSearchQueries,
 } from "./knowledge";
+import { trustedExternalUrl } from "./mobile-network";
 import {
-  responseMaxAge,
-  responseSourceTime,
-  trustedExternalUrl,
-} from "./mobile-network";
+  isPoeNinjaMirrorManifest,
+  mirrorEnvelopeTimes,
+  mirrorRouteForRequest,
+  mirrorRouteUrl,
+  POE_NINJA_MIRROR_MANIFEST_URL,
+  verifyMirrorPayloadBytes,
+} from "./poe-ninja-mirror";
+import type { PoeNinjaMirrorManifest } from "./poe-ninja-mirror";
 import { isNativeMobile } from "./platform";
 import { defaultPriceCheckSettings } from "./price-check/types";
 import {
   cloneDesktopSettings,
   mergeDesktopSettingsPatch,
+  sanitizeDesktopSettingsPatch,
 } from "./settings-sync";
 import { defaultDesktopShortcuts, validateShortcutDraft } from "./shortcuts";
 import {
@@ -87,7 +93,15 @@ const browserKnowledgeCache = new Map<
   CacheEnvelope<RawKnowledgeSearchResponse>
 >();
 
-const MARKET_CACHE_VERSION = "v2";
+const MARKET_CACHE_VERSION = "v3-mirror";
+const MAX_BROWSER_MIRROR_BYTES = 16 * 1024 * 1024;
+const MAX_BROWSER_MANIFEST_BYTES = 2 * 1024 * 1024;
+const BROWSER_MIRROR_DEADLINE_MS = 35_000;
+let browserMirrorManifestCache: CacheEnvelope<PoeNinjaMirrorManifest> | null = null;
+const browserMirrorManifestInflight = new Map<
+  string,
+  Promise<CacheEnvelope<PoeNinjaMirrorManifest>>
+>();
 
 function browserPreviewPriceCheckCapture() {
   if (!import.meta.env.DEV) return null;
@@ -253,16 +267,120 @@ async function searchBrowserKnowledge(request: KnowledgeSearchRequest) {
   return envelope;
 }
 
-function browserOverviewPath(request: OverviewRequest) {
-  const league = encodeURIComponent(request.league);
-  const type = encodeURIComponent(request.type);
-  if (request.source === "exchange") {
-    return `/poe-api/poe1/api/economy/exchange/current/overview?league=${league}&type=${type}`;
+async function browserMirrorBytes(
+  url: string,
+  maximumBytes: number,
+  force = false,
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new Error("The market mirror request exceeded its deadline.")),
+    BROWSER_MIRROR_DEADLINE_MS,
+  );
+  try {
+    const response = await fetch(url, {
+      cache: force ? "reload" : "default",
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (response.url !== url) throw new Error("The market mirror redirected unexpectedly.");
+    if (!response.ok) throw new Error(`Market mirror request failed: ${response.status}`);
+    const rawLength = response.headers.get("content-length");
+    if (rawLength != null && (!/^\d+$/.test(rawLength) || Number(rawLength) > maximumBytes)) {
+      throw new Error("The market mirror response exceeded the safe size limit.");
+    }
+    if (!response.body) throw new Error("The market mirror did not provide a bounded stream.");
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > maximumBytes) {
+          const error = new Error("The market mirror response exceeded the safe size limit.");
+          controller.abort(error);
+          await reader.cancel().catch(() => undefined);
+          throw error;
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (total === 0) throw new Error("The market mirror returned an empty response.");
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  } catch (error) {
+    if (controller.signal.aborted && controller.signal.reason instanceof Error) {
+      throw controller.signal.reason;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  if (request.source === "stash-currency") {
-    return `/poe-api/poe1/api/economy/stash/current/currency/overview?league=${league}&type=${type}`;
+}
+
+function decodeBrowserMirrorJson(bytes: Uint8Array) {
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    throw new Error("The market mirror returned invalid JSON.");
   }
-  return `/poe-api/poe1/api/economy/stash/current/item/overview?league=${league}&type=${type}`;
+}
+
+async function getBrowserMirrorManifest(
+  force = false,
+): Promise<CacheEnvelope<PoeNinjaMirrorManifest>> {
+  const now = Date.now();
+  const cached = browserMirrorManifestCache;
+  if (!force && cached && cached.expiresAt > now) {
+    return { ...cached, cache: "fresh" as const };
+  }
+  const inflightKey = force ? "force" : "normal";
+  const existing = force
+    ? browserMirrorManifestInflight.get("force")
+    : browserMirrorManifestInflight.get("force") ||
+      browserMirrorManifestInflight.get("normal");
+  if (existing) return existing;
+  const pending: Promise<CacheEnvelope<PoeNinjaMirrorManifest>> = (async () => {
+    const bytes = await browserMirrorBytes(
+      POE_NINJA_MIRROR_MANIFEST_URL,
+      MAX_BROWSER_MANIFEST_BYTES,
+      force,
+    );
+    const data = decodeBrowserMirrorJson(bytes);
+    if (!isPoeNinjaMirrorManifest(data)) {
+      throw new Error("The market mirror manifest is invalid.");
+    }
+    const checkedAt = Date.now();
+    const envelope: CacheEnvelope<PoeNinjaMirrorManifest> = {
+      data,
+      fetchedAt: data.generatedAt,
+      expiresAt: Math.min(
+        checkedAt + 10 * 60 * 1000,
+        Math.max(checkedAt + 60_000, data.generatedAt + data.cadenceMs),
+      ),
+      stale: false,
+      cache: "browser",
+    };
+    browserMirrorManifestCache = envelope;
+    return envelope;
+  })();
+  browserMirrorManifestInflight.set(inflightKey, pending);
+  try {
+    return await pending;
+  } finally {
+    if (browserMirrorManifestInflight.get(inflightKey) === pending) {
+      browserMirrorManifestInflight.delete(inflightKey);
+    }
+  }
 }
 
 const BROWSER_TOOLKIT_WORKSPACE_KEY = "gloamcore:toolkit-workspace:v1";
@@ -290,26 +408,11 @@ function assertBrowserToolkitWorkspaceBudget(value: ToolkitWorkspace) {
 
 const browserBridge: PoeWidgetBridge = {
   async getLeagues(options) {
-    const response = await fetch("/poe-api/poe1/api/economy/leagues", {
-      cache: options?.force ? "reload" : "default",
-    });
-    if (!response.ok) throw new Error(`League request failed: ${response.status}`);
-    const data = (await response.json()) as EconomyLeague[];
-    if (
-      !Array.isArray(data) ||
-      !data.every(
-        (entry) =>
-          entry && typeof entry.id === "string" && typeof entry.name === "string",
-      )
-    ) {
-      throw new Error("League source returned an invalid payload.");
-    }
-    const now = Date.now();
+    const manifest = await getBrowserMirrorManifest(Boolean(options?.force));
+    const times = mirrorEnvelopeTimes(manifest.data.leagueSnapshot);
     return {
-      data,
-      fetchedAt: responseSourceTime(Object.fromEntries(response.headers), now),
-      expiresAt:
-        now + responseMaxAge(Object.fromEntries(response.headers), 30 * 60 * 1000),
+      data: manifest.data.leagueSnapshot.data,
+      ...times,
       stale: false,
       cache: "browser",
     };
@@ -327,23 +430,20 @@ const browserBridge: PoeWidgetBridge = {
         browserOverviewInflight.get(normalKey);
     if (existing) return existing;
     const fetchOverview = async () => {
-      const response = await fetch(browserOverviewPath(request), {
-        cache: request.force ? "reload" : "default",
-      });
-      if (!response.ok) throw new Error(`Economy request failed: ${response.status}`);
-      const data = (await response.json()) as
-        | RawExchangeOverview
-        | RawItemOverview
-        | RawStashCurrencyOverview;
-      if (!data || typeof data !== "object" || !Array.isArray(data.lines)) {
-        throw new Error("Economy source returned an invalid payload.");
-      }
-      const headers = Object.fromEntries(response.headers);
-      const now = Date.now();
+      const manifest = await getBrowserMirrorManifest(Boolean(request.force));
+      const route = mirrorRouteForRequest(manifest.data, request);
+      const times = mirrorEnvelopeTimes(route);
+      const bytes = await browserMirrorBytes(
+        mirrorRouteUrl(route),
+        MAX_BROWSER_MIRROR_BYTES,
+        Boolean(request.force),
+      );
+      await verifyMirrorPayloadBytes(bytes, route);
+      const data = decodeBrowserMirrorJson(bytes);
+      if (!isOverviewPayload(data)) throw new Error("The market mirror payload is invalid.");
       const envelope = {
         data,
-        fetchedAt: responseSourceTime(headers, now),
-        expiresAt: now + responseMaxAge(headers, 15 * 60 * 1000),
+        ...times,
         stale: false,
         cache: "browser" as const,
       };
@@ -468,11 +568,7 @@ const browserBridge: PoeWidgetBridge = {
     throw new Error("Checkpoints require the desktop app.");
   },
   async fetchToolkitText(url) {
-    const parsed = trustedExternalUrl(url);
-    if (!parsed) throw new Error("Blocked an untrusted import URL.");
-    const response = await fetch(parsed);
-    if (!response.ok) throw new Error(`Import failed: ${response.status}`);
-    return response.text();
+    return fetchBoundedToolkitText(url);
   },
   async getPassiveTreeData() {
     throw new Error("The authoritative passive tree requires the desktop app and Path of Building Community.");
@@ -531,50 +627,11 @@ const browserBridge: PoeWidgetBridge = {
       recoverable: false,
     };
   },
-  async importPobCharacter() {
-    return {
-      ok: false as const,
-      authoritative: false as const,
-      code: "POB_ENGINE_UNAVAILABLE",
-      message: "Authoritative Path of Building character import requires the Windows desktop app.",
-      recoverable: false,
-    };
-  },
   async readPlannerClipboard() {
     return navigator.clipboard.readText();
   },
   async resolvePlannerItemArtwork() {
     return {};
-  },
-  async listPoeCharacters() {
-    throw new Error("Character account import requires the desktop app.");
-  },
-  async getPoeCharacter() {
-    throw new Error("Character account import requires the desktop app.");
-  },
-  async getPoeStashLeagues() {
-    throw new Error("Stash wealth tracking requires the desktop app.");
-  },
-  async listPoeStashTabs() {
-    throw new Error("Stash wealth tracking requires the desktop app.");
-  },
-  async getPoeStashTab() {
-    throw new Error("Stash wealth tracking requires the desktop app.");
-  },
-  async syncPoeStash() {
-    throw new Error("Stash wealth tracking requires the desktop app.");
-  },
-  async connectPoeOAuth() {
-    throw new Error("Connecting your Path of Exile account requires the desktop app.");
-  },
-  async getPoeOAuthStatus() {
-    throw new Error("Connecting your Path of Exile account requires the desktop app.");
-  },
-  async disconnectPoeOAuth() {
-    throw new Error("Connecting your Path of Exile account requires the desktop app.");
-  },
-  onStashProgress() {
-    return () => undefined;
   },
   async getToolkitWorkspace() {
     const clean = (): ToolkitWorkspace => ({
@@ -617,7 +674,6 @@ const browserBridge: PoeWidgetBridge = {
             name: String(plugin.name || "Plugin"),
             url: String(plugin.url || ""),
             enabled: Boolean(plugin.enabled),
-            game: plugin.game === "poe2" ? "poe2" : "poe1",
             permissions: {
               currentItem: Boolean(plugin.permissions?.currentItem),
               gameCapture: Boolean(plugin.permissions?.gameCapture),
@@ -692,7 +748,10 @@ const browserBridge: PoeWidgetBridge = {
     return cloneDesktopSettings(browserSettings, browserSettingsRevision);
   },
   async saveSettings(patch) {
-    const next = mergeDesktopSettingsPatch(browserSettings, patch);
+    const next = mergeDesktopSettingsPatch(
+      browserSettings,
+      sanitizeDesktopSettingsPatch(patch, browserSettings),
+    );
     const errors = validateShortcutDraft({
       ...next.shortcuts,
       priceCheck: next.priceCheck.hotkey,
@@ -704,22 +763,33 @@ const browserBridge: PoeWidgetBridge = {
     return cloneDesktopSettings(browserSettings, browserSettingsRevision);
   },
   async windowAction(action, payload) {
-    if (action === "always-on-top") {
-      browserSettings.alwaysOnTop = Boolean(payload);
+    switch (action) {
+      case "always-on-top":
+      case "compact":
+      case "click-through":
+        if (typeof payload !== "boolean") {
+          throw new Error(`${action} must be a boolean.`);
+        }
+        if (action === "always-on-top") browserSettings.alwaysOnTop = payload;
+        if (action === "compact") browserSettings.compact = payload;
+        if (action === "click-through") browserSettings.clickThrough = payload;
+        browserSettingsRevision += 1;
+        break;
+      case "opacity":
+        if (typeof payload !== "number" || !Number.isFinite(payload)) {
+          throw new Error("Opacity must be a finite number.");
+        }
+        browserSettings.opacity = Math.max(0.65, Math.min(1, payload));
+        browserSettingsRevision += 1;
+        break;
+      case "minimize":
+      case "hide":
+      case "close":
+      case "toggle-maximize":
+        break;
+      default:
+        throw new Error(`Unknown window action: ${action}`);
     }
-    if (action === "compact") {
-      browserSettings.compact = Boolean(payload);
-    }
-    if (action === "click-through") {
-      browserSettings.clickThrough = Boolean(payload);
-    }
-    if (action === "opacity") {
-      browserSettings.opacity = Math.max(
-        0.65,
-        Math.min(1, Number(payload) || 1),
-      );
-    }
-    browserSettingsRevision += 1;
     return cloneDesktopSettings(browserSettings, browserSettingsRevision);
   },
   async publishSurfaceState(state) {

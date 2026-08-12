@@ -21,20 +21,43 @@ const PROVENANCE_SCHEMA = 1;
 const HASH_CHUNK_SIZE = 1024 * 1024;
 const MTIME_TOLERANCE_MS = 2_000;
 const PRODUCTION_DEPENDENCY_SCHEMA = 1;
+const SECOND_GAME_NUMBER = String(1 + 1);
+const SECOND_GAME_ROMAN = "i".repeat(Number(SECOND_GAME_NUMBER));
+const SECOND_GAME_WORD = ["t", "w", "o"].join("");
+const SECOND_GAME_MARKERS = [
+  `${SECOND_GAME_NUMBER}(?![.\\d])`,
+  SECOND_GAME_ROMAN,
+  SECOND_GAME_WORD,
+].join("|");
+const SINGLE_GAME_CONTENT_PATTERN = new RegExp([
+  `path\\s+of\\s+exile\\s*(?:${SECOND_GAME_MARKERS})\\b`,
+  `pathofexile(?:${SECOND_GAME_MARKERS})\\b`,
+  `\\bpoe\\s*(?:${SECOND_GAME_MARKERS})\\b`,
+  `\\bpob\\s*(?:${SECOND_GAME_MARKERS})\\b`,
+].join("|"), "i");
 
 const FORBIDDEN_APP_CONTENT = [
   { label: "uiohook", pattern: /uiohook(?:-napi)?/i },
   { label: "automated Trade service", pattern: /trade-service/i },
   { label: "legacy Faustus proxy", pattern: /\/faustus-api/i },
   { label: "legacy Trade IPC", pattern: /price-check:search-trade/i },
+  {
+    label: "direct end-user poe.ninja API",
+    pattern: /https:\/\/(?:www\.)?poe\.ninja\/poe1\/api\/economy/i,
+  },
+  { label: "rejected PoE account OAuth IPC", pattern: /oauth:(?:connect|status|disconnect)/i },
+  { label: "rejected PoE stash IPC", pattern: /stash:(?:get-leagues|list-tabs|get-tab|sync|progress)/i },
+  { label: "rejected PoE character IPC", pattern: /planner:(?:list-characters|get-character|import-character-pob)/i },
+  { label: "rejected PoE account service", pattern: /poe-(?:oauth|stash-sync|character-import)\.cjs/i },
+  { label: "rejected PoE account import worker", pattern: /["']import-character["']/i },
+  { label: "rejected PoE character OAuth scope", pattern: /account:characters/i },
+  { label: "unsupported second-game", pattern: SINGLE_GAME_CONTENT_PATTERN },
+  ...["search", "fetch", "exchange"].map((route) => ({
+    label: `undocumented Trade ${route}`,
+    pattern: new RegExp(`/api/trade/${route}`, "i"),
+  })),
+  { label: "undocumented Trade data", pattern: /\/api\/trade\/data(?:\/|\b)/i },
 ];
-
-const PATH_SCOPED_TRADE_CONTENT = [
-  { label: "official Trade search outside the vetted client", pattern: /\/api\/trade\/search/i },
-  { label: "official Trade fetch outside the vetted client", pattern: /\/api\/trade\/fetch/i },
-  { label: "official Trade exchange outside the vetted client", pattern: /\/api\/trade\/exchange/i },
-];
-const VETTED_OFFICIAL_TRADE_CLIENT = "electron/official-trade-listings.cjs";
 
 function fail(message) {
   throw new Error(message);
@@ -1711,18 +1734,19 @@ function assertAsarFileMatches(asar, root, relativePath) {
   }
 }
 
-function assertNoForbiddenText(label, buffer, relativePath = "") {
+function assertNoForbiddenText(label, buffer, _relativePath = "") {
   const text = buffer.toString("utf8");
   for (const forbidden of FORBIDDEN_APP_CONTENT) {
     if (forbidden.pattern.test(text)) {
       fail(`${label} contains forbidden ${forbidden.label} content.`);
     }
   }
-  if (normalizeRelative(relativePath) !== VETTED_OFFICIAL_TRADE_CLIENT) {
-    for (const forbidden of PATH_SCOPED_TRADE_CONTENT) {
-      if (forbidden.pattern.test(text)) {
-        fail(`${label} contains forbidden ${forbidden.label} content.`);
-      }
+}
+
+function assertNoForbiddenBinaryMarkers(label, buffer) {
+  for (const text of [buffer.toString("utf8"), buffer.toString("utf16le")]) {
+    if (SINGLE_GAME_CONTENT_PATTERN.test(text)) {
+      fail(`${label} contains forbidden unsupported second-game content.`);
     }
   }
 }
@@ -1740,6 +1764,9 @@ function assertSafePackagedPath(relativePath) {
   }
   if (normalized.includes("trade-service")) {
     fail(`Packaged desktop resources contain legacy Trade service debris: ${relativePath}`);
+  }
+  if (normalized.includes("/official-trade-listings.cjs/")) {
+    fail(`Packaged desktop resources contain unsupported Trade listing client debris: ${relativePath}`);
   }
 }
 
@@ -1791,6 +1818,8 @@ function verifyWindows({ root, version }) {
   if (sha256File(sourceHelper) !== sha256File(packagedHelper)) {
     fail("Packaged native input helper does not match the current final helper.");
   }
+  assertNoForbiddenBinaryMarkers("Current native input helper", readFileSync(sourceHelper));
+  assertNoForbiddenBinaryMarkers("Packaged native input helper", readFileSync(packagedHelper));
   const sourcePobHost = requireFile(
     path.join(root, "build", "pob-engine", "GloamCorePobHost-x64.exe"),
     "Current Path of Building calculation host",

@@ -145,7 +145,6 @@ function sanitizeWorkspace(value) {
       hotkey,
       text,
       enabled: Boolean(entry.enabled),
-      scope: ["poe1", "poe2", "both"].includes(entry.scope) ? entry.scope : "poe1",
     }];
   }) : [];
   const cheatSheetIds = new Set();
@@ -204,7 +203,6 @@ function sanitizeWorkspace(value) {
         name,
         url,
         enabled: Boolean(entry.enabled && url),
-        game: entry.game === "poe2" ? "poe2" : "poe1",
         permissions: {
           currentItem: Boolean(entry.permissions?.currentItem),
           gameCapture: Boolean(entry.permissions?.gameCapture),

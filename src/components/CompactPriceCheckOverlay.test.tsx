@@ -24,12 +24,9 @@ import {
 import type { PriceCheckSession } from "../lib/price-check/types";
 import type { EconomyRow } from "../types";
 import {
-  AWAKENED_VISIBLE_TRADE_RESULTS,
   COMPACT_PRICE_CHECK_WIDTH,
   CompactPriceCheckOverlay,
-  compactOfficialListingRowLimit,
   compactPriceCheckPanelHeight,
-  compactPriceCheckReservesOfficialListings,
   compactPriceCheckUsesConstrainedModifierRows,
   shortNumber,
 } from "./CompactPriceCheckOverlay";
@@ -146,7 +143,6 @@ describe("compact overlay sizing", () => {
       estimate: null,
       query: buildPriceCheckQueryPlan(item, "Allflame"),
       sourceStale: false,
-      officialTradeNeedsSearch: true,
     };
     expect(compactPriceCheckPanelHeight(base)).toBe(175);
     expect(compactPriceCheckPanelHeight({
@@ -163,102 +159,6 @@ describe("compact overlay sizing", () => {
       })),
     })).toBe(175);
     expect(compactPriceCheckPanelHeight({ ...base, status: "resolving" })).toBe(72);
-  });
-
-  it("reserves native overlay space for live zero-result and seller-row states", () => {
-    const item = marketOnlyUnique();
-    const base: PriceCheckSession = {
-      id: "official-sizing",
-      capturedAt: Date.now(),
-      league: "Allflame",
-      status: "ready",
-      item,
-      matches: [],
-      estimate: null,
-      query: buildPriceCheckQueryPlan(item, "Allflame"),
-      sourceStale: false,
-      officialTrade: {
-        listings: [],
-        total: 0,
-        searchId: "empty-search",
-        fetchedAt: Date.now(),
-        stale: false,
-        error: "",
-      },
-    };
-
-    expect(compactPriceCheckPanelHeight(base)).toBe(720);
-    const emptyMarkup = renderCompact(base);
-    expect(emptyMarkup).toContain('aria-label="Live seller listings"');
-    expect(emptyMarkup).toContain("NO RESULTS");
-
-    const withRows: PriceCheckSession = {
-      ...base,
-      officialTrade: {
-        ...base.officialTrade!,
-        total: 3,
-        listings: Array.from({ length: 3 }, (_value, index) => ({
-          id: `seller-${index}`,
-          price: { amount: index + 1, currency: "divine" },
-          indexed: new Date().toISOString(),
-          seller: { account: `Account${index}`, character: `Character${index}` },
-          item: { name: "Mageblood", baseType: "Heavy Belt", icon: "" },
-          whisper: "",
-        })),
-      },
-    };
-    expect(compactPriceCheckPanelHeight(withRows)).toBe(720);
-  });
-
-  it("reserves and renders the loading viewport on the first auto-search ready frame", () => {
-    const item = marketOnlyUnique();
-    const initial: PriceCheckSession = {
-      id: "official-first-frame",
-      capturedAt: Date.now(),
-      league: "Allflame",
-      status: "ready",
-      item,
-      matches: [],
-      estimate: null,
-      query: buildPriceCheckQueryPlan(item, "Allflame"),
-      sourceStale: false,
-      officialTradeNeedsSearch: false,
-    };
-    const loading = { ...initial, officialTradeLoading: true };
-
-    expect(compactPriceCheckReservesOfficialListings(initial)).toBe(true);
-    expect(compactPriceCheckPanelHeight(initial)).toBe(
-      compactPriceCheckPanelHeight(loading),
-    );
-    expect(renderCompact(initial)).toContain('aria-label="Live seller listings"');
-    expect(renderCompact(initial)).toContain(">LOADING<");
-  });
-
-  it("renders Awakened's twenty grouped price rows instead of stopping at three", () => {
-    const item = marketOnlyUnique();
-    const listings = Array.from({ length: 25 }, (_value, index) => ({
-      id: `visible-seller-${index}`,
-      price: { amount: index + 1, currency: "chaos" },
-      indexed: new Date().toISOString(),
-      seller: { account: `Account${index}`, character: `VisibleCharacter${index}` },
-      item: { name: "Mageblood", baseType: "Heavy Belt", icon: "" },
-      whisper: "",
-    }));
-    const markup = renderCompact({
-      id: "twenty-results",
-      capturedAt: Date.now(),
-      league: "Allflame",
-      status: "ready",
-      item,
-      matches: [],
-      estimate: null,
-      query: buildPriceCheckQueryPlan(item, "Allflame"),
-      sourceStale: false,
-      officialTrade: { listings, total: listings.length, searchId: "twenty", fetchedAt: Date.now(), stale: false, error: "" },
-    });
-    expect(AWAKENED_VISIBLE_TRADE_RESULTS).toBe(20);
-    expect(markup).toContain("VisibleCharacter19");
-    expect(markup).not.toContain("VisibleCharacter20");
   });
 
   it("opens every non-hidden stat across representative item families", () => {
@@ -398,11 +298,11 @@ describe("compact overlay sizing", () => {
       expect(markup, mapCase.label).toContain(">TIER<");
       expect(markup, mapCase.label).toContain(">NOT CORRUPTED<");
       expect(markup, mapCase.label).not.toContain('class="crme-list"');
-      expect(compactPriceCheckReservesOfficialListings(session), mapCase.label)
-        .toBe(true);
-      expect(markup, mapCase.label).toContain(">LOADING<");
+      expect(markup, mapCase.label).toContain('aria-label="Refresh market data"');
+      expect(markup, mapCase.label).toContain(">TRADE</button>");
+      expect(markup, mapCase.label).not.toContain(">LOADING<");
       expect(compactPriceCheckPanelHeight(session, mapCase.mode), mapCase.label)
-        .toBe(720);
+        .toBeLessThan(720);
     }
   });
 
@@ -422,7 +322,6 @@ describe("compact overlay sizing", () => {
         estimate: null,
         query: buildPriceCheckQueryPlan(item, "Allflame"),
         sourceStale: false,
-        officialTradeNeedsSearch: true,
       };
     };
     const malachaiMarkup = renderCompact(planned(malachaisLoopVestigialFixture));
@@ -462,7 +361,6 @@ describe("compact overlay sizing", () => {
       estimate: null,
       query,
       sourceStale: false,
-      officialTradeNeedsSearch: true,
     };
 
     const markup = renderCompact(session);
@@ -627,20 +525,10 @@ describe("compact overlay sizing", () => {
       230 + compactPriceCheckModifierRowsHeight(item, filters),
     );
 
-    const searching = { ...session, officialTradeLoading: true };
-    const editorOnlyHeight = compactPriceCheckPanelHeight(session);
-    expect(compactPriceCheckPanelHeight(searching)).toBe(editorOnlyHeight + 545);
-    expect(compactOfficialListingRowLimit(searching, 752)).toBe(0);
-    // These source-only rows have no canonical roll bounds, so Awakened does
-    // not render sliders for them. The shorter rows leave room for twelve
-    // seller entries on a 1080-class work area.
-    expect(compactOfficialListingRowLimit(searching, 1_064)).toBe(12);
-    expect(compactOfficialListingRowLimit(searching, 1_424)).toBe(20);
-    const constrainedMarkup = renderCompact(searching, 752);
+    const constrainedMarkup = renderCompact(session, 752);
     expect(constrainedMarkup.match(/class="crme-row/g)).toHaveLength(11);
-    expect(constrainedMarkup).not.toContain('aria-label="Live seller listings"');
-    expect(compactPriceCheckUsesConstrainedModifierRows(searching, 752)).toBe(false);
-    expect(compactPriceCheckUsesConstrainedModifierRows(searching, 1_064)).toBe(false);
+    expect(compactPriceCheckUsesConstrainedModifierRows(session, 752)).toBe(false);
+    expect(compactPriceCheckUsesConstrainedModifierRows(session, 1_064)).toBe(false);
     expect(constrainedMarkup).not.toContain('aria-label="Range slider for');
     expect(constrainedMarkup).toContain(
       'aria-label="Minimum value for Attacks per Second: 1.9"',
@@ -712,8 +600,7 @@ describe("compact empty market state", () => {
     expect(compactPriceCheckPanelHeight(session)).toBe(221 + filterHeight);
     expect(markup).toContain('data-rows="2"');
     expect(markup).toContain("TRADE FILTERS");
-    expect(markup).toContain('aria-label="Search official Trade"');
-    expect(markup).not.toContain('aria-label="Refresh price"');
+    expect(markup).toContain('aria-label="Refresh market data"');
     expect(markup).toContain('aria-label="Item modifier filters"');
     expect(markup).toContain('aria-label="Include Energy Shield: 812"');
     expect(markup).not.toContain("CALCULATED PROPERTY");
@@ -732,71 +619,6 @@ describe("compact empty market state", () => {
     expect(markup).not.toContain("CALCULATED PROPERTY");
     expect(markup).not.toContain('class="pco-row"');
     expect(markup).not.toContain("5 DIVINE");
-  });
-
-  it("keeps modifier controls and every adaptively fetched seller price available", () => {
-    const parsed = parsePoeItem(advancedRareFixture);
-    const item = {
-      ...parsed,
-      modifiers: parsed.modifiers.map((modifier, index) => ({
-        ...modifier,
-        tradeId: `explicit.stat_${3000 + index}`,
-      })),
-    };
-    const listings = Array.from({ length: 4 }, (_value, index) => ({
-      id: `official-${index}`,
-      price: { amount: 30 + index, currency: "divine" },
-      indexed: new Date(Date.now() - index * 60_000).toISOString(),
-      seller: { account: `Account${index}`, character: `Seller${index}` },
-      item: { name: item.name, baseType: item.baseType, icon: "" },
-      whisper: "",
-    }));
-    const session: PriceCheckSession = {
-      id: "rare-live-listings",
-      capturedAt: Date.now(),
-      league: "Allflame",
-      status: "ready",
-      item,
-      matches: [],
-      estimate: null,
-      query: buildPriceCheckQueryPlan(item, "Allflame", { identity: "exact" }),
-      sourceStale: false,
-      officialTrade: {
-        listings,
-        total: 34,
-        searchId: "search-id",
-        fetchedAt: Date.now(),
-        stale: false,
-        error: "",
-      },
-    };
-
-    const markup = renderCompact(session);
-    expect(markup).toContain("TRADE LIVE");
-    expect(markup).toContain("34 LISTED");
-    expect(markup).toContain('aria-label="Item modifier filters"');
-    expect(markup).toContain('aria-label="Live seller listings"');
-    expect(markup).toContain(">4/34<");
-    expect(markup).toContain(">Seller0<");
-    expect(markup).toContain(">Seller2<");
-    expect(markup).toContain(">Seller3<");
-    const filterHeight = compactPriceCheckModifierRowsHeight(
-      item,
-      session.query!.filters,
-    );
-    expect(compactPriceCheckPanelHeight(session)).toBe(766 + filterHeight);
-
-    const oneSellerSession = {
-      ...session,
-      officialTrade: {
-        ...session.officialTrade!,
-        listings: listings.slice(0, 1),
-        total: 1,
-      },
-    };
-    expect(compactPriceCheckPanelHeight(oneSellerSession)).toBe(
-      766 + filterHeight,
-    );
   });
 
   it("uses the trade-first editor for a unique state filter while hiding invariant fixed rolls", () => {
@@ -838,9 +660,9 @@ describe("compact empty market state", () => {
       session.query!.filters,
     );
     expect(filterHeight).toBe(0);
-    expect(compactPriceCheckPanelHeight(session)).toBe(720);
+    expect(compactPriceCheckPanelHeight(session)).toBe(175);
     expect(markup).toContain("TRADE FILTERS");
-    expect(markup).toContain('aria-label="Refresh price"');
+    expect(markup).toContain('aria-label="Refresh market data"');
     expect(markup).not.toContain("5 DIVINE");
     expect(markup).toContain('aria-label="Item modifier filters"');
     expect(markup).toContain("0 STATS");
@@ -849,12 +671,12 @@ describe("compact empty market state", () => {
     expect(markup).not.toContain("+39 to Dexterity");
     expect(markup).not.toContain("Magic Utility Flasks cannot be Used");
     expect(markup).not.toContain("SHOW");
-    expect(markup).toContain(">LOADING<");
+    expect(markup).not.toContain(">LOADING<");
     expect(markup).toContain(">AVAILABLE<");
     expect(markup).not.toContain('class="pco-row"');
   });
 
-  it("replaces Refresh with Search after a unique query is edited", () => {
+  it("keeps market refresh separate from the official Trade handoff", () => {
     const item = marketOnlyUnique();
     const session: PriceCheckSession = {
       id: "unique-dirty-query",
@@ -866,14 +688,12 @@ describe("compact empty market state", () => {
       estimate: null,
       query: buildPriceCheckQueryPlan(item, "Allflame", { mode: "similar" }),
       sourceStale: false,
-      officialTradeNeedsSearch: true,
     };
 
     const markup = renderCompact(session);
-    expect(markup).toContain('aria-label="Search official Trade"');
-    expect(markup).toContain('aria-label="Search official Trade with edited filters"');
-    expect(markup).toContain("SEARCH");
-    expect(markup).not.toContain('aria-label="Refresh price"');
+    expect(markup).toContain('aria-label="Refresh market data"');
+    expect(markup).toContain(">TRADE</button>");
+    expect(markup).not.toContain("SEARCH");
   });
 
   it("does not offer clipboard refresh after an invalid native capture", () => {
@@ -891,7 +711,7 @@ describe("compact empty market state", () => {
 
     const markup = renderCompact(session);
     expect(markup).toContain("NO ITEM");
-    expect(markup).not.toContain('aria-label="Refresh price"');
+    expect(markup).not.toContain('aria-label="Refresh market data"');
     expect(markup).toContain('aria-label="Close price check"');
   });
 
@@ -912,7 +732,6 @@ describe("compact empty market state", () => {
       estimate: null,
       query: buildPriceCheckQueryPlan(item, "Allflame"),
       sourceStale: false,
-      officialTradeNeedsSearch: true,
     };
     const markup = renderCompact(session);
 
@@ -924,7 +743,7 @@ describe("compact empty market state", () => {
     expect(markup).toContain(">6 LINKS<");
     expect(markup).toContain(">DETAILS<");
     expect(markup).toContain(">TRADE<");
-    expect(markup).toContain('aria-label="Search official Trade"');
+    expect(markup).toContain('aria-label="Refresh market data"');
     expect(markup).toContain('aria-label="Pin overlay"');
     expect(markup).toContain('aria-label="Close price check"');
     expect(markup).not.toContain("·");
@@ -943,7 +762,6 @@ describe("compact empty market state", () => {
       query: buildPriceCheckQueryPlan(item, "Allflame"),
       sourceFetchedAt: Date.now() - 3 * 60 * 60 * 1_000,
       sourceStale: true,
-      officialTradeNeedsSearch: true,
     };
 
     const markup = renderCompact(session);
@@ -973,7 +791,6 @@ describe("compact empty market state", () => {
       estimate: null,
       query: buildPriceCheckQueryPlan(item, "Allflame"),
       sourceStale: false,
-      officialTradeNeedsSearch: true,
     };
 
     const markup = renderCompact(session);
@@ -1017,7 +834,7 @@ describe("compact empty market state", () => {
     );
   });
 
-  it("keeps the direct-match fallback bounded while edited Trade awaits Search", () => {
+  it("keeps the direct-match fallback bounded behind the Trade filter editor", () => {
     const item = marketOnlyUnique();
     const matches = Array.from({ length: 10 }, (_value, index) => ({
       row: marketRow({
@@ -1039,12 +856,11 @@ describe("compact empty market state", () => {
       estimate: null,
       query: buildPriceCheckQueryPlan(item, "Allflame"),
       sourceStale: false,
-      officialTradeNeedsSearch: true,
     };
 
     const markup = renderCompact(session);
     expect(markup).not.toContain('class="pco-row"');
     expect(markup).toContain('aria-label="Item modifier filters"');
-    expect(markup).toContain('aria-label="Search official Trade"');
+    expect(markup).toContain('aria-label="Refresh market data"');
   });
 });

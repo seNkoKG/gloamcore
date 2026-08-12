@@ -2,7 +2,6 @@ import type {
   CacheEnvelope,
   FaustusOverviewRequest,
   ItemTooltipRequest,
-  OverviewRequest,
 } from "../types";
 
 export const MOBILE_HTTP_DEADLINE_MS = 35_000;
@@ -21,6 +20,7 @@ const CACHE_KINDS = new Set<CacheEnvelope<unknown>["cache"]>([
 export interface MobileStoredResponse<T> {
   envelope: CacheEnvelope<T>;
   etag?: string;
+  integritySha256?: string;
 }
 
 const TRUSTED_EXTERNAL_HOSTS = new Set([
@@ -34,6 +34,9 @@ const TRUSTED_EXTERNAL_HOSTS = new Set([
   "craftofexile.com",
   "poedb.tw",
   "www.poedb.tw",
+  "pobb.in",
+  "pastebin.com",
+  "www.pastebin.com",
 ]);
 
 export function responseHeader(
@@ -78,6 +81,7 @@ export function isValidMobileStoredResponse<T>(
     CACHE_KINDS.has(envelope.cache as CacheEnvelope<unknown>["cache"]) &&
     (envelope.error == null || typeof envelope.error === "string") &&
     (value.etag == null || typeof value.etag === "string") &&
+    (value.integritySha256 == null || typeof value.integritySha256 === "string") &&
     validate(envelope.data)
   );
 }
@@ -214,20 +218,6 @@ export function responseSourceTime(
       ? responseDate
       : now;
   return Math.min(now, Math.max(0, responseTime - age));
-}
-
-export function mobileOverviewUrl(request: OverviewRequest) {
-  const search = new URLSearchParams({
-    league: request.league,
-    type: request.type,
-  });
-  const path =
-    request.source === "exchange"
-      ? "exchange/current/overview"
-      : request.source === "stash-currency"
-        ? "stash/current/currency/overview"
-        : "stash/current/item/overview";
-  return `https://poe.ninja/poe1/api/economy/${path}?${search}`;
 }
 
 export function mobileWikiTooltipUrl(

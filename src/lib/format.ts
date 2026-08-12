@@ -1,4 +1,5 @@
 import type { EconomyRow, ValueDisplay } from "../types";
+import { forbiddenPassiveTradeOptions } from "../data/forbidden-trade-options";
 import {
   buildOfficialTradeBrowserUrl,
   buildOfficialTradeExchangeQuery,
@@ -19,8 +20,8 @@ export function formatCompact(value: number | null | undefined) {
   return compactFormatter.format(value);
 }
 
-export function formatPrice(value: number) {
-  if (!Number.isFinite(value)) return "—";
+export function formatPrice(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "—";
   if (value >= 1000) return compactFormatter.format(value);
   if (value >= 100) return value.toFixed(0);
   if (value >= 10) return value.toFixed(1);
@@ -36,7 +37,7 @@ export function displayPrice(row: EconomyRow, display: ValueDisplay) {
   if (display === "divine") {
     return { value: row.divineValue, unit: "divine" as const };
   }
-  if (row.divineValue >= 1) {
+  if (row.divineValue != null && row.divineValue >= 1) {
     return { value: row.divineValue, unit: "divine" as const };
   }
   return { value: row.chaosValue, unit: "chaos" as const };
@@ -156,16 +157,44 @@ export function buildTradeQuery(row: EconomyRow) {
     ...(row.categoryId === "base-types"
       ? influenceFilters(row.variant)
       : {}),
+    ...(/^Foulborn\s/i.test(row.name)
+      ? { mutated: { option: true } }
+      : {}),
   };
 
-  const stats = (row.tradeInfo || [])
+  const forbiddenVariant =
+    row.categoryId === "forbidden-jewels" &&
+    (row.variant === "Forbidden Flame" || row.variant === "Forbidden Flesh")
+      ? row.variant
+      : null;
+  const forbiddenPassive =
+    typeof row.metadata?.passiveName === "string"
+      ? row.metadata.passiveName
+      : row.name;
+  const forbiddenOption = forbiddenVariant
+    ? forbiddenPassiveTradeOptions[forbiddenPassive]
+    : undefined;
+  if (forbiddenVariant && !forbiddenOption) return null;
+  const forbiddenStat = forbiddenVariant && forbiddenOption
+    ? forbiddenVariant === "Forbidden Flame"
+      ? `explicit.stat_1190333629|${forbiddenOption}`
+      : `explicit.stat_2460506030|${forbiddenOption}`
+    : null;
+
+  const stats = [
+    ...(row.tradeInfo || []),
+    ...(forbiddenStat ? [{ mod: forbiddenStat }] : []),
+  ]
     .filter((entry) => entry.mod)
     .map((entry) => {
       const hasUsefulRange =
         (entry.min != null && entry.min !== 0) ||
         (entry.max != null && entry.max !== 0);
       return {
-        id: entry.mod!,
+        id:
+          entry.option && !entry.mod!.includes("|")
+            ? `${entry.mod}|${entry.option}`
+            : entry.mod!,
         ...(hasUsefulRange
           ? {
               value: {
@@ -178,7 +207,9 @@ export function buildTradeQuery(row: EconomyRow) {
     });
 
   const identity =
-    row.categoryId === "base-types"
+    forbiddenVariant
+      ? { name: forbiddenVariant, ...(row.baseType ? { type: row.baseType } : {}) }
+      : row.categoryId === "base-types"
       ? { type: row.name }
       : mapCategories.has(row.categoryId)
         ? { term: row.name }
@@ -236,8 +267,10 @@ export function tradeUrl(row: EconomyRow, league: string) {
     }
   }
 
+  const tradeQuery = buildTradeQuery(row);
+  if (!tradeQuery) return null;
   return buildOfficialTradeBrowserUrl({
     league,
-    tradeQuery: buildTradeQuery(row),
+    tradeQuery,
   });
 }

@@ -149,12 +149,11 @@ modifier editor with checkboxes, exact min/max fields, dual sliders, and
 item-state controls. Watcher's Eye effects and exact Timeless Jewel seeds are
 included, alongside Forbidden Flame/Flesh choices, Thread of Hope rings,
 Chronicle rooms, Veiled state, calculated equipment properties, and
-direction-aware unique roll ranges. The desktop checker can anonymously query
-the public official Trade website and show bounded current seller rows plus
-the total result count. Filter edits wait for an explicit Search; equal requests
-are coalesced and cached for five minutes; there is no background Trade polling
-or artificial per-item cooldown. Trade opens the full
-official league page with mapped filters prefilled for final verification.
+direction-aware unique roll ranges. The desktop checker builds an exact local
+Trade plan without contacting the Trade website. Filter edits remain local. A
+deliberate Trade click opens the official league page in the user's browser
+with mapped filters prefilled for final verification. GloamCore does not call
+the site's undocumented search, exchange, or fetch APIs.
 No account session, POESESSID, game memory, DLL injection, whisper automation,
 or automated gameplay is used.
 
@@ -169,8 +168,7 @@ WHY IT IS FASTER THAN USING THE WEBSITE
 - Cached live data, so reopening markets is fast and temporary outages are safe.
 - Item descriptions and modifiers appear beside the current market data.
 - Current league markets refresh with source-age and stale-data guards.
-- Compact official seller rows for the current item query, subject to the
-  Trade website's availability and rate limits.
+- Exact editable Trade filters with a user-clicked official-site handoff.
 
 INSTALL
 Recommended: run $setupName
@@ -186,12 +184,12 @@ This personal build is not code-signed, so SmartScreen may appear. Only continue
 if you received this archive from someone you trust.
 
 DATA AND SAFETY
-The widget reads public poe.ninja, PoE Wiki, Path of Exile, and PoE CDN web
-resources. Desktop price checks can also use fixed public pathofexile.com Trade
-search/fetch endpoints with credentials omitted. It does not read game memory,
-send whispers, or automate gameplay. Each price-check shortcut generates one
-item-copy action. The in-app rows are a small live snapshot, not completed-sale
-data or a replacement for final review on the full Trade page.
+The widget reads GloamCore's poe.ninja mirror, PoE Wiki, and documented Public
+Currency Exchange completed-hour evidence from Faustus. It does not read game
+memory, send whispers, or automate gameplay. Each price-check shortcut
+generates one item-copy action. Trade filters are built locally; only a user
+click opens the encoded query on the official Trade website. GloamCore never
+receives Trade results from that page.
 "@
 Set-Content -LiteralPath (Join-Path $stageFull "README-FRIENDS.txt") -Value $friendReadme -Encoding utf8
 

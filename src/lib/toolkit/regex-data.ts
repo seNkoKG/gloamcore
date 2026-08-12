@@ -11,7 +11,7 @@ export type RegexDataCategoryKind =
 export interface RegexDataSource {
   id: string;
   label: string;
-  kind: "bundled-pack" | "official-endpoint" | "path-of-building" | "wiki-cargo";
+  kind: "bundled-pack" | "path-of-building" | "wiki-cargo";
   inputSha256: string;
   url?: string;
   repository?: string;
@@ -36,11 +36,26 @@ export interface RegexDataCategoryEntry {
   optimized: string;
 }
 
+export type RegexDataOptimization = {
+  /** Legacy data: fragments were checked only against their own category. */
+  algorithm: "shortest-unique-literal-v1";
+  universeSha256: string;
+  verified: boolean;
+  exactFallbacks: number;
+} | {
+  /** Safe data: fragments were checked against rendered full-tooltip lines. */
+  algorithm: "shortest-full-tooltip-literal-v2";
+  corpusSha256: string;
+  corpusLines: number;
+  verified: boolean;
+  exactFallbacks: number;
+};
+
 export interface RegexDataCategory {
   id: string;
   label: string;
   kind: RegexDataCategoryKind;
-  section: "core" | "official-items" | "official-stats" | "official-static" | "mechanic";
+  section: "core" | "bundled-items" | "bundled-stats" | "mechanic";
   description: string;
   sourceIds: string[];
   search: {
@@ -54,12 +69,7 @@ export interface RegexDataCategory {
     supportsExact: boolean;
     supportsOptimized: boolean;
   };
-  optimization: {
-    algorithm: "shortest-unique-literal-v1";
-    universeSha256: string;
-    verified: boolean;
-    exactFallbacks: number;
-  };
+  optimization: RegexDataOptimization;
   entries: RegexDataCategoryEntry[];
 }
 
@@ -69,7 +79,7 @@ export interface RegexDataPack {
   generatedAt: string;
   update: {
     command: string;
-    officialRetrievedAt: string;
+    sourceUpdatedAt: string;
   };
   coverage: {
     mapModifiers: {
@@ -81,10 +91,12 @@ export interface RegexDataPack {
       spawnTagCounts: Record<string, number>;
       pobCorroboratedLines?: number;
     };
-    officialTrade: {
-      itemGroups: number;
-      statGroups: number;
-      staticGroups: number;
+    bundledSources: {
+      baseTypes: number;
+      itemProfiles: number;
+      uniqueProfiles: number;
+      gemProfiles: number;
+      statPatterns: number;
     };
   };
   sources: RegexDataSource[];
@@ -96,7 +108,7 @@ export interface RegexDataPack {
 const MAX_ENTRIES = 30_000;
 const MAX_CATEGORIES = 100;
 const MAX_CATEGORY_ENTRIES = 30_000;
-export const EXPECTED_REGEX_PACK_SHA256 = "ea0b93a6498a2af2f9f467e6945c392f7aee89b7344de27e8c64434a2e9e57cc";
+export const EXPECTED_REGEX_PACK_SHA256 = "758707fb396138c3aca8ac8246192103e0ac1ecce3ebaae8ecf9bcd14d01f8e0";
 let packPromise: Promise<RegexDataPack | null> | null = null;
 let packDiagnostic = "idle";
 const packIndexes = new WeakMap<RegexDataPack, ReadonlyMap<string, RegexDataEntry>>();
@@ -133,11 +145,11 @@ function uniqueIds(values: unknown[]): values is Array<{ id: string }> {
 }
 
 function validCoverage(value: unknown) {
-  if (!record(value) || !record(value.mapModifiers) || !record(value.officialTrade)) {
+  if (!record(value) || !record(value.mapModifiers) || !record(value.bundledSources)) {
     return false;
   }
   const maps = value.mapModifiers;
-  const trade = value.officialTrade;
+  const bundled = value.bundledSources;
   const counts = [
     maps.positiveSpawnWeightRows,
     maps.matchedPages,
@@ -145,9 +157,11 @@ function validCoverage(value: unknown) {
     maps.searchableEffectLines,
     maps.discardedRewardOnlyRows,
     ...(maps.pobCorroboratedLines == null ? [] : [maps.pobCorroboratedLines]),
-    trade.itemGroups,
-    trade.statGroups,
-    trade.staticGroups,
+    bundled.baseTypes,
+    bundled.itemProfiles,
+    bundled.uniqueProfiles,
+    bundled.gemProfiles,
+    bundled.statPatterns,
   ];
   return counts.every((entry) => Number.isInteger(entry) && (entry as number) >= 0) &&
     record(maps.spawnTagCounts) &&
@@ -163,7 +177,7 @@ export function isValidRegexDataPack(value: unknown): value is RegexDataPack {
     pack.schema !== 1 ||
     pack.game !== "poe1" ||
     !validDate(pack.generatedAt) ||
-    !validDate(pack.update?.officialRetrievedAt) ||
+    !validDate(pack.update?.sourceUpdatedAt) ||
     typeof pack.update?.command !== "string" ||
     !validCoverage(pack.coverage) ||
     !Array.isArray(pack.limitations) ||
@@ -180,7 +194,7 @@ export function isValidRegexDataPack(value: unknown): value is RegexDataPack {
     record(source) &&
     validId(source.id) &&
     typeof source.label === "string" &&
-    ["bundled-pack", "official-endpoint", "path-of-building", "wiki-cargo"].includes(source.kind) &&
+    ["bundled-pack", "path-of-building", "wiki-cargo"].includes(source.kind) &&
     validHash(source.inputSha256) &&
     (source.retrievedAt == null || validDate(source.retrievedAt))
   )) return false;
@@ -224,7 +238,7 @@ export function isValidRegexDataPack(value: unknown): value is RegexDataPack {
     typeof category.label === "string" &&
     category.label.length > 0 &&
     ["modifier", "item", "map-name", "gem", "mechanic"].includes(category.kind) &&
-    ["core", "official-items", "official-stats", "official-static", "mechanic"].includes(category.section) &&
+    ["core", "bundled-items", "bundled-stats", "mechanic"].includes(category.section) &&
     typeof category.description === "string" &&
     Array.isArray(category.sourceIds) &&
     category.sourceIds.length > 0 &&
@@ -246,8 +260,12 @@ export function isValidRegexDataPack(value: unknown): value is RegexDataPack {
       : category.search.supportsAvoid) &&
     (category.search.supportsExact || category.search.supportsOptimized) &&
     (!category.search.supportsWant || category.search.supportsMatchAny || category.search.supportsMatchAll) &&
-    category.optimization?.algorithm === "shortest-unique-literal-v1" &&
-    validHash(category.optimization.universeSha256) &&
+    (category.optimization?.algorithm === "shortest-unique-literal-v1"
+      ? validHash(category.optimization.universeSha256)
+      : category.optimization?.algorithm === "shortest-full-tooltip-literal-v2" &&
+        validHash(category.optimization.corpusSha256) &&
+        Number.isInteger(category.optimization.corpusLines) &&
+        category.optimization.corpusLines > 0) &&
     category.optimization.verified === true &&
     Number.isInteger(category.optimization.exactFallbacks) &&
     category.optimization.exactFallbacks >= 0 &&
@@ -335,6 +353,7 @@ export function regexCategoryEntries(
   const category = pack.categories.find((entry) => entry.id === categoryId);
   if (!category) return [];
   const byId = packIndex(pack);
+  const fullTooltipVerified = category.optimization.algorithm === "shortest-full-tooltip-literal-v2";
   return category.entries.flatMap(({ entryId, optimized }) => {
     const entry = byId.get(entryId);
     if (!entry) return [];
@@ -343,7 +362,9 @@ export function regexCategoryEntries(
       label: entry.label,
       text: entry.searchText,
       exactToken: entry.exact,
-      optimizedToken: optimized,
+      ...(fullTooltipVerified
+        ? { optimizedToken: optimized }
+        : { compactToken: optimized }),
       selected: selectedIds.has(entry.id),
       mode: mode || category.search.defaultMode,
     }];

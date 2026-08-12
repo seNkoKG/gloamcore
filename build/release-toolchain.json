@@ -1,6 +1,6 @@
 {
   "schema": 1,
   "platform": "win32-x64",
-  "pnpmVersion": "11.9.0",
+  "pnpmVersion": "11.16.0",
   "nodeVersion": "24.14.0"
 }

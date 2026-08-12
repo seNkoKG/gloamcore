@@ -3,7 +3,6 @@ import {
   chartFixture,
   unidentifiedChartFixture,
 } from "./fixtures/parser-fixtures";
-import { shouldAutoSearchOfficialTrade } from "./official-trade-policy";
 import {
   defaultPriceCheckModeForItem,
   isBulkChartPriceCheckMode,
@@ -18,10 +17,9 @@ describe("Awakened Chart preset workflow parity", () => {
     expect(defaultPriceCheckModeForItem(chart)).toBe("exact");
     expect(isBulkChartPriceCheckMode(chart, "exact")).toBe(false);
     expect(isBulkChartPriceCheckMode(chart, "bulk")).toBe(true);
-    expect(shouldAutoSearchOfficialTrade(chart)).toBe(false);
   });
 
-  it("uses only auto-searched Bulk for every other current non-unique Chart", () => {
+  it("uses only Bulk for every other current non-unique Chart", () => {
     const unidentified = parsePoeItem(unidentifiedChartFixture);
     const rare = parsePoeItem(chartFixture);
     for (const chart of [
@@ -34,7 +32,6 @@ describe("Awakened Chart preset workflow parity", () => {
       expect(defaultPriceCheckModeForItem(chart)).toBe("bulk");
       expect(isBulkChartPriceCheckMode(chart, "bulk")).toBe(true);
       expect(isBulkChartPriceCheckMode(chart, "exact")).toBe(true);
-      expect(shouldAutoSearchOfficialTrade(chart)).toBe(true);
     }
   });
 
@@ -45,6 +42,5 @@ describe("Awakened Chart preset workflow parity", () => {
     };
     expect(priceCheckModesForItem(unique)).toEqual(["exact"]);
     expect(isBulkChartPriceCheckMode(unique, "bulk")).toBe(false);
-    expect(shouldAutoSearchOfficialTrade(unique)).toBe(true);
   });
 });

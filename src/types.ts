@@ -139,7 +139,12 @@ export interface RawItemLine {
   mutatedModifiers?: ModifierLine[];
   flavourText?: string;
   metadata?: Record<string, unknown>;
-  tradeInfo?: Array<{ mod?: string; min?: number; max?: number }>;
+  tradeInfo?: Array<{
+    mod?: string;
+    min?: number;
+    max?: number;
+    option?: string;
+  }>;
   tradeFilter?: {
     query?: Record<string, unknown>;
   };
@@ -162,7 +167,7 @@ export interface EconomyRow {
   itemType?: string;
   variant?: string;
   chaosValue: number;
-  divineValue: number;
+  divineValue: number | null;
   exaltedValue?: number;
   change: number | null;
   sparkline: Array<number | null>;
@@ -184,7 +189,12 @@ export interface EconomyRow {
   explicitModifiers: ModifierLine[];
   mutatedModifiers: ModifierLine[];
   metadata?: Record<string, unknown>;
-  tradeInfo?: Array<{ mod?: string; min?: number; max?: number }>;
+  tradeInfo?: Array<{
+    mod?: string;
+    min?: number;
+    max?: number;
+    option?: string;
+  }>;
   tradeFilter?: {
     query?: Record<string, unknown>;
   };
@@ -465,7 +475,7 @@ export interface QuickSearchRow {
   source: DataSource;
   league: string;
   chaosValue: number;
-  divineValue: number;
+  divineValue: number | null;
   change: number | null;
   volume: number | null;
   listingCount: number | null;
@@ -686,7 +696,7 @@ export interface PassiveTreeClusterData {
 }
 
 export interface PassiveTreeData {
-  game: "poe1" | "poe2";
+  game: "poe1";
   version: string;
   sourcePath: string;
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
@@ -702,24 +712,6 @@ export interface PassiveTreeData {
   assets?: PassiveTreeVisualAssets;
   cluster?: PassiveTreeClusterData;
   nodes: PassiveTreeNodeData[];
-}
-
-export interface PoeCharacterImportRequest {
-  mode: "public" | "oauth";
-  realm: "pc" | "xbox" | "sony" | "poe2";
-  accountName?: string;
-  accessToken?: string;
-  character?: string;
-}
-
-export interface PoeCharacterSummary {
-  id?: string;
-  name: string;
-  realm?: string;
-  class: string;
-  league?: string;
-  level: number;
-  current?: boolean;
 }
 
 export interface PlannerItemArtworkRequest {
@@ -739,69 +731,6 @@ export interface PlannerItemArtworkAsset {
 
 export type PlannerItemArtworkResult = Record<number, PlannerItemArtworkAsset>;
 
-export type PoeStashRealm = "pc" | "xbox" | "sony";
-
-export interface StashSyncRequest {
-  realm: PoeStashRealm;
-  league: string;
-  accessToken?: string;
-}
-
-export interface PoeStashLeague {
-  id: string;
-  name: string;
-  realm: PoeStashRealm;
-}
-
-export interface PoeStashTabSummary {
-  id: string;
-  name: string;
-  type: string;
-  index: number;
-  /** Folder breadcrumb of parent stash tabs, when the tab lives inside one. */
-  path?: string[];
-}
-
-/** Minimal view of the GGG stash API item JSON used by stash valuation. */
-export interface GGGStashItem {
-  id?: string;
-  name?: string;
-  typeLine?: string;
-  baseType?: string;
-  ilvl?: number;
-  frameType?: number;
-  stackSize?: number;
-  maxStackSize?: number;
-  corrupted?: boolean;
-  support?: boolean;
-  inventoryId?: string;
-  properties?: Array<{
-    name?: string;
-    values?: Array<Array<string | number>>;
-    displayMode?: number;
-  }>;
-  category?: Record<string, string[]>;
-  note?: string;
-  icon?: string;
-}
-
-export interface PoeStashTabDetail {
-  id: string;
-  name: string;
-  type: string;
-  index: number;
-  items: GGGStashItem[];
-  /** Folder breadcrumb of parent stash tabs, when the tab lives inside one. */
-  path?: string[];
-}
-
-export interface StashProgressEvent {
-  index: number;
-  total: number;
-  tabName: string;
-  path?: string[];
-}
-
 export interface ToolkitWorkspace {
   version: 1;
   macros: Array<{
@@ -810,7 +739,6 @@ export interface ToolkitWorkspace {
     hotkey: string;
     text: string;
     enabled: boolean;
-    scope: "poe1" | "poe2" | "both";
   }>;
   cheatSheets: Array<{
     id: string;
@@ -888,7 +816,6 @@ export interface ToolkitPlugin {
   name: string;
   url: string;
   enabled: boolean;
-  game: "poe1" | "poe2";
   permissions: {
     currentItem: boolean;
     gameCapture: boolean;
@@ -1180,54 +1107,6 @@ export interface PobTimelessHuntSuccess {
 
 export type PobTimelessHuntResult = PobTimelessHuntSuccess | PobEngineFailure;
 
-export interface PobEngineCharacterImportSuccess {
-  ok: true;
-  authoritative: true;
-  xml: string;
-  engine: {
-    name: string;
-    version: string;
-    branch: string;
-    platform: string;
-    runtimeArchitecture: string;
-  };
-  warnings: string[];
-  calculation: {
-    scalarCount: number;
-    stats: Record<string, PobEngineScalar>;
-    mainSocketGroup: number | null;
-    mainSkillName: string | null;
-    skillGroups: PobEngineSkillGroup[];
-    items: PobEngineItem[];
-    gemCatalog: PobEngineGemCatalogEntry[];
-    configCatalog: PobEngineConfigInput[];
-    className: string | null;
-    ascendancyName: string | null;
-    targetVersion: string | null;
-  };
-  engineMilliseconds: number | null;
-  durationMilliseconds: number;
-  isolation: {
-    freshProcess: true;
-    installedPobReadOnly: true;
-    noGuiLaunch: true;
-  };
-}
-
-export type PobEngineCharacterImportResult = PobEngineCharacterImportSuccess | PobEngineFailure;
-
-export interface PoeOAuthStatus {
-  connected: boolean;
-  scope: string;
-  username?: string;
-}
-
-export interface PoeOAuthConnection {
-  scope: string;
-  username?: string;
-  expiresAt: number | null;
-}
-
 export interface EmbeddedViewBounds {
   x: number;
   y: number;
@@ -1257,9 +1136,6 @@ export interface PoeWidgetBridge {
   >;
   getPriceCheckOverlayState?(): Promise<PriceCheckOverlayState>;
   getTradeStatCatalog?(): Promise<string>;
-  getOfficialTradeListings?(
-    request: import("./lib/price-check/types").OfficialTradeListingsRequest,
-  ): Promise<import("./lib/price-check/types").OfficialTradeListingsResult>;
   openExternal(url: string): Promise<void>;
   openWealthyExile(bounds?: EmbeddedViewBounds): Promise<boolean>;
   hideWealthyExile(): Promise<boolean>;
@@ -1271,6 +1147,7 @@ export interface PoeWidgetBridge {
     text: string;
     suggestedName?: string;
     kind?: "filter" | "build" | "text";
+    filterMode?: "normal" | "ruthless";
   }): Promise<{ path: string; name: string } | null>;
   createToolkitCheckpoint(request: {
     path: string;
@@ -1284,7 +1161,6 @@ export interface PoeWidgetBridge {
   fetchToolkitText(url: string): Promise<string>;
   getRegexDataPack?(): Promise<string>;
   getPassiveTreeData(options?: {
-    game?: "poe1" | "poe2";
     treeVersion?: string;
     ruthless?: boolean;
     alternate?: boolean;
@@ -1320,28 +1196,8 @@ export interface PoeWidgetBridge {
     maxPoints?: number;
     maxResults?: number;
   }): Promise<PobTimelessHuntResult>;
-  importPobCharacter(request: {
-    character: Record<string, unknown>;
-  }): Promise<PobEngineCharacterImportResult>;
   readPlannerClipboard(): Promise<string>;
   resolvePlannerItemArtwork(request: PlannerItemArtworkRequest): Promise<PlannerItemArtworkResult>;
-  listPoeCharacters(request: PoeCharacterImportRequest): Promise<PoeCharacterSummary[]>;
-  getPoeCharacter(request: PoeCharacterImportRequest): Promise<Record<string, unknown>>;
-  getPoeStashLeagues(request: {
-    realm?: PoeStashRealm;
-  }): Promise<PoeStashLeague[]>;
-  listPoeStashTabs(request: StashSyncRequest): Promise<PoeStashTabSummary[]>;
-  getPoeStashTab(
-    request: StashSyncRequest,
-    tabId: string,
-  ): Promise<PoeStashTabDetail>;
-  syncPoeStash(request: StashSyncRequest): Promise<PoeStashTabDetail[]>;
-  connectPoeOAuth(options?: {
-    scope?: string;
-    port?: number;
-  }): Promise<PoeOAuthConnection>;
-  getPoeOAuthStatus(): Promise<PoeOAuthStatus>;
-  disconnectPoeOAuth(): Promise<boolean>;
   getToolkitWorkspace(): Promise<ToolkitWorkspace>;
   recoverToolkitWorkspace(): Promise<{ workspace: ToolkitWorkspace; backupName: string | null }>;
   saveToolkitWorkspace(value: ToolkitWorkspace): Promise<{
@@ -1357,7 +1213,7 @@ export interface PoeWidgetBridge {
   getMapModOverlayResult(): Promise<MapModCheckResult | null>;
   hideMapModOverlay(): Promise<void>;
   getPoeEventLog(): Promise<PoeEventLogState>;
-  startPoeEventLog(logPath?: string): Promise<PoeEventLogState>;
+  startPoeEventLog(): Promise<PoeEventLogState>;
   stopPoeEventLog(): Promise<PoeEventLogState>;
   clearPoeEventLog(): Promise<PoeEventLogState>;
   selectPoeEventLogPath(): Promise<PoeEventLogState | null>;
@@ -1383,7 +1239,6 @@ export interface PoeWidgetBridge {
     callback: (state: PriceCheckOverlayState) => void,
   ): () => void;
   onSurfaceState(callback: (state: SurfaceState) => void): () => void;
-  onStashProgress(callback: (event: StashProgressEvent) => void): () => void;
   onUpdateState(callback: (state: UpdateState) => void): () => void;
 }
 

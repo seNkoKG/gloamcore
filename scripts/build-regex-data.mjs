@@ -7,27 +7,20 @@ const packageJson = JSON.parse(
 );
 const USER_AGENT = `GloamCore/${packageJson.version} (local regex data builder)`;
 
-const OFFICIAL = {
-  items: "https://www.pathofexile.com/api/trade/data/items",
-  stats: "https://www.pathofexile.com/api/trade/data/stats",
-  static: "https://www.pathofexile.com/api/trade/data/static",
-};
 const NUMBER = "\\d[\\d,]*(?:\\.\\d+)?";
 const argv = process.argv.slice(2);
 const options = {
   basePack: "src/lib/price-check/base-types-v1.json",
   statPack: "public/data/price-check/stats-v1.json",
-  items: OFFICIAL.items,
-  stats: OFFICIAL.stats,
-  static: OFFICIAL.static,
   cargoUrl: "https://www.poewiki.net/w/api.php",
   output: "public/data/toolkit/regex-v1.json",
+  reoptimizeExisting: undefined,
 };
 
 for (let index = 0; index < argv.length; index += 1) {
   const name = argv[index];
   if (name === "--help") {
-    console.log("node scripts/build-regex-data.mjs [--base-pack FILE] [--stat-pack FILE] [--items FILE_OR_URL] [--stats FILE_OR_URL] [--static FILE_OR_URL] [--cargo-url URL] [--pob-data FILE_OR_URL] [--pob-version VERSION] [--output FILE]");
+    console.log("node scripts/build-regex-data.mjs [--base-pack FILE] [--stat-pack FILE] [--cargo-url URL] [--pob-data FILE] [--pob-version VERSION] [--reoptimize-existing PACK] [--output FILE]");
     process.exit(0);
   }
   if (!name.startsWith("--") || index + 1 >= argv.length) {
@@ -80,29 +73,12 @@ function slug(value) {
 }
 
 async function readSource(specification) {
-  if (/^https?:\/\//i.test(specification)) {
-    const response = await fetch(specification, {
-      headers: { "User-Agent": USER_AGENT },
-    });
-    if (!response.ok) {
-      throw new Error(`${specification} returned HTTP ${response.status}`);
-    }
-    const text = await response.text();
-    return {
-      text,
-      url: specification,
-      retrievedAt: new Date().toISOString(),
-      etag: response.headers.get("etag") || undefined,
-      lastModified: response.headers.get("last-modified") || undefined,
-    };
-  }
   return { text: await fs.readFile(path.resolve(specification), "utf8") };
 }
 
 async function cargoRows(cargoUrl, tables, fields, where) {
   const rows = [];
   const pages = [];
-  const retrievedAt = new Date().toISOString();
   for (let offset = 0;; offset += 500) {
     const url = new URL(cargoUrl);
     url.search = new URLSearchParams({
@@ -130,7 +106,7 @@ async function cargoRows(cargoUrl, tables, fields, where) {
     rows.push(...batch);
     if (batch.length < 500) break;
   }
-  return { rows, retrievedAt, source: pages.join("\n") };
+  return { rows, source: pages.join("\n") };
 }
 
 function parseJson(source, label) {
@@ -224,6 +200,7 @@ function candidatesAtLength(value, length) {
       candidate.startsWith(" ") ||
       candidate.endsWith(" ") ||
       candidate.includes("#") ||
+      /\p{N}/u.test(candidate) ||
       !/[\p{L}\p{N}]/u.test(candidate)
     ) continue;
     result.add(candidate);
@@ -245,28 +222,155 @@ function templateWitnesses(value) {
     .replace(/#/g, String(number)));
 }
 
-function verifyExactPatterns(entryIds, entriesById) {
-  const buckets = new Map();
+function verifyPinnedPoe1Packs(basePack, statPack) {
+  const expectedProject = "Awakened PoE Trade";
+  const expectedRepository = "https://github.com/SnosMe/awakened-poe-trade";
+  const sources = [basePack?.source, statPack?.source];
+  if (sources.some((source) =>
+    source?.project !== expectedProject ||
+    source?.repository !== expectedRepository ||
+    !/^[0-9a-f]{40}$/i.test(String(source?.commit || "")) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(String(source?.dataUpdatedAt || ""))
+  )) {
+    throw new Error("Bundled regex inputs must be pinned Awakened PoE Trade snapshots.");
+  }
+  if (sources[0].commit !== sources[1].commit ||
+      sources[0].dataUpdatedAt !== sources[1].dataUpdatedAt) {
+    throw new Error("Bundled base-type and stat packs come from different source snapshots.");
+  }
+  if (!Array.isArray(basePack.baseTypes) ||
+      !basePack.itemProfiles || typeof basePack.itemProfiles !== "object" ||
+      !basePack.uniqueProfiles || typeof basePack.uniqueProfiles !== "object" ||
+      !basePack.gemProfiles || typeof basePack.gemProfiles !== "object" ||
+      !Array.isArray(statPack.entries)) {
+    throw new Error("Bundled regex inputs do not have the expected PoE 1 schemas.");
+  }
+  return {
+    project: expectedProject,
+    repository: expectedRepository,
+    commit: sources[0].commit,
+    dataUpdatedAt: sources[0].dataUpdatedAt,
+  };
+}
+
+function verifyExistingPackProvenance(payload) {
+  if (payload?.game !== "poe1" || !Array.isArray(payload.sources)) {
+    throw new Error("Existing regex pack is not a Path of Exile 1 data pack.");
+  }
+  const allowedKinds = new Set(["bundled-pack", "path-of-building", "wiki-cargo"]);
+  if (payload.sources.some((source) => !allowedKinds.has(source?.kind))) {
+    throw new Error("Existing regex pack has unsupported source provenance.");
+  }
+  const bundled = payload.sources.filter((source) => source.kind === "bundled-pack");
+  const ids = new Set(bundled.map((source) => source.id));
+  if (bundled.length !== 2 ||
+      !ids.has("price-check-base-types") ||
+      !ids.has("price-check-stats") ||
+      new Set(bundled.map((source) => source.upstream?.project)).size !== 1 ||
+      new Set(bundled.map((source) => source.upstream?.repository)).size !== 1 ||
+      new Set(bundled.map((source) => source.upstream?.commit)).size !== 1 ||
+      new Set(bundled.map((source) => source.upstream?.dataUpdatedAt)).size !== 1 ||
+      bundled[0]?.upstream?.project !== "Awakened PoE Trade" ||
+      bundled[0]?.upstream?.repository !== "https://github.com/SnosMe/awakened-poe-trade" ||
+      !/^\d{4}-\d{2}-\d{2}T/.test(String(payload.update?.sourceUpdatedAt || "")) ||
+      !payload.coverage?.bundledSources) {
+    throw new Error("Existing regex pack does not contain one pinned bundled source family.");
+  }
+}
+
+const FULL_TOOLTIP_TEMPLATES = [
+  "Item Class: Maps",
+  "Item Class: Currency",
+  "Rarity: Normal",
+  "Rarity: Magic",
+  "Rarity: Rare",
+  "Rarity: Unique",
+  "Map Tier: #",
+  "Item Level: #",
+  "Level: #",
+  "Quality: +#%",
+  "Quality: +#% (augmented)",
+  "Armour: #",
+  "Armour: # (augmented)",
+  "Evasion Rating: #",
+  "Evasion Rating: # (augmented)",
+  "Energy Shield: #",
+  "Energy Shield: # (augmented)",
+  "Ward: #",
+  "Ward: # (augmented)",
+  "Physical Damage: #-#",
+  "Physical Damage: #-# (augmented)",
+  "Elemental Damage: #-#",
+  "Elemental Damage: #-# (augmented)",
+  "Chaos Damage: #-#",
+  "Chaos Damage: #-# (augmented)",
+  "Critical Strike Chance: #%",
+  "Critical Strike Chance: #% (augmented)",
+  "Attacks per Second: #",
+  "Attacks per Second: # (augmented)",
+  "Weapon Range: #",
+  "Chance to Block: #%",
+  "Chance to Block: #% (augmented)",
+  "Item Quantity: +#%",
+  "Item Quantity: +#% (augmented)",
+  "Item Rarity: +#%",
+  "Item Rarity: +#% (augmented)",
+  "Monster Pack Size: +#%",
+  "Monster Pack Size: +#% (augmented)",
+  "More Maps: +#%",
+  "Stack Size: #/#",
+  "Experience: #/#",
+  "Str: #",
+  "Dex: #",
+  "Int: #",
+  "Radius: Small",
+  "Radius: Medium",
+  "Radius: Large",
+  "Radius: Variable",
+  "Sockets: R-R-R",
+  "Requirements:",
+  "Corrupted",
+  "Unidentified",
+  "Mirrored",
+  "Split",
+  "Fractured Item",
+  "Synthesised Item",
+  "Scourged",
+  "Foulborn",
+  "Vestigial",
+  "Blighted",
+  "Blight-ravaged",
+];
+
+function buildFullTooltipCorpus(entriesById) {
+  const rows = [];
+  for (const entry of entriesById.values()) {
+    for (const text of templateWitnesses(entry.searchText)) {
+      rows.push({ family: numericSkeleton(entry.searchText), text });
+    }
+  }
+  FULL_TOOLTIP_TEMPLATES.forEach((template, index) => {
+    const family = numericSkeleton(template) || `tooltip:${index}`;
+    for (const text of templateWitnesses(template)) rows.push({ family, text });
+  });
+  return [...new Map(rows.map((row) => [`${row.family}\0${row.text}`, row])).values()]
+    .sort((left, right) => left.family.localeCompare(right.family) || left.text.localeCompare(right.text));
+}
+
+function verifyExactPatterns(entryIds, entriesById, corpus) {
   for (const entryId of entryIds) {
     const entry = entriesById.get(entryId);
-    const key = numericSkeleton(entry.searchText);
-    const bucket = buckets.get(key) || [];
-    bucket.push(entry);
-    buckets.set(key, bucket);
-  }
-  for (const bucket of buckets.values()) {
-    for (const entry of bucket) {
-      const expression = new RegExp(entry.exact, "iu");
-      const own = templateWitnesses(entry.searchText);
-      if (!own.some((value) => expression.test(value))) {
-        throw new Error(`Exact pattern does not match ${entry.label}: ${entry.exact}`);
-      }
-      for (const other of bucket) {
-        if (other.id === entry.id) continue;
-        if (templateWitnesses(other.searchText).some((value) => expression.test(value))) {
-          throw new Error(`Exact pattern collision in category: ${entry.label} / ${other.label}`);
-        }
-      }
+    const expression = new RegExp(entry.exact, "iu");
+    const own = templateWitnesses(entry.searchText);
+    if (!own.some((value) => expression.test(value))) {
+      throw new Error(`Exact pattern does not match ${entry.label}: ${entry.exact}`);
+    }
+    const family = numericSkeleton(entry.searchText);
+    const collision = corpus.find((row) =>
+      row.family !== family && expression.test(row.text)
+    );
+    if (collision) {
+      throw new Error(`Exact pattern collision in full tooltip corpus: ${entry.label} / ${collision.text}`);
     }
   }
 }
@@ -309,34 +413,100 @@ function deduplicateRenderedFamilies(entryIds, entriesById) {
   return result;
 }
 
-function optimizeCategory(entryIds, entriesById) {
+function optimizeFullTooltip(entryIds, entriesById, corpus) {
   const texts = entryIds.map((entryId) => normalized(entriesById.get(entryId).searchText));
   const unresolved = new Set(entryIds.map((_, index) => index));
   const patterns = new Array(entryIds.length);
   const longest = Math.min(32, Math.max(0, ...texts.map((text) => text.length)));
 
   for (let length = 3; length <= longest && unresolved.size; length += 1) {
-    const counts = new Map();
-    for (const text of texts) {
-      for (const candidate of candidatesAtLength(text, length)) {
-        counts.set(candidate, Math.min(2, (counts.get(candidate) || 0) + 1));
+    const wanted = new Set();
+    for (const index of unresolved) {
+      for (const candidate of candidatesAtLength(texts[index], length)) wanted.add(candidate);
+    }
+    const owners = new Map();
+    for (const row of corpus) {
+      for (const candidate of candidatesAtLength(row.text, length)) {
+        if (!wanted.has(candidate)) continue;
+        const owner = owners.get(candidate);
+        if (owner === undefined) owners.set(candidate, row.family);
+        else if (owner !== row.family) owners.set(candidate, null);
       }
     }
     for (const index of [...unresolved]) {
       const candidate = [...candidatesAtLength(texts[index], length)]
         .sort((left, right) => left.localeCompare(right))
-        .find((value) => counts.get(value) === 1);
+        .find((value) => owners.get(value) === numericSkeleton(entriesById.get(entryIds[index]).searchText));
       if (!candidate) continue;
       patterns[index] = escapeRegex(candidate);
       unresolved.delete(index);
     }
   }
   for (const index of unresolved) patterns[index] = entriesById.get(entryIds[index]).exact;
-  verifyExactPatterns(entryIds, entriesById);
+  verifyExactPatterns([...unresolved].map((index) => entryIds[index]), entriesById, corpus);
   return {
-    refs: entryIds.map((entryId, index) => ({ entryId, optimized: patterns[index] })),
-    exactFallbacks: unresolved.size,
+    patterns: new Map(entryIds.map((entryId, index) => [entryId, patterns[index]])),
+    exactFallbackIds: new Set([...unresolved].map((index) => entryIds[index])),
   };
+}
+
+if (options.reoptimizeExisting) {
+  const input = path.resolve(options.reoptimizeExisting);
+  const original = await fs.readFile(input, "utf8");
+  const payload = parseJson(original, input);
+  if (!Array.isArray(payload.entries) || !Array.isArray(payload.categories)) {
+    throw new Error("Existing regex pack does not contain entries and categories arrays.");
+  }
+  verifyExistingPackProvenance(payload);
+  const existingEntriesById = new Map(payload.entries.map((entry) => [entry.id, entry]));
+  const corpus = buildFullTooltipCorpus(existingEntriesById);
+  const corpusSha256 = sha256(corpus.map((row) => `${row.family}\0${row.text}`).join("\n"));
+  const optimization = optimizeFullTooltip(
+    [...existingEntriesById.keys()],
+    existingEntriesById,
+    corpus,
+  );
+  payload.categories = payload.categories.map((category) => ({
+    ...category,
+    optimization: {
+      algorithm: "shortest-full-tooltip-literal-v2",
+      corpusSha256,
+      corpusLines: corpus.length,
+      verified: true,
+      exactFallbacks: category.entries.filter((reference) =>
+        optimization.exactFallbackIds.has(reference.entryId)
+      ).length,
+    },
+    entries: category.entries.map((reference) => ({
+      entryId: reference.entryId,
+      optimized: optimization.patterns.get(reference.entryId) ||
+        existingEntriesById.get(reference.entryId)?.exact,
+    })),
+  }));
+  const limitation = `Optimized fragments were collision-checked against ${corpus.length} rendered full-tooltip corpus lines spanning names, bases, headers, properties, status flags, modifiers, and numeric template witnesses.`;
+  payload.limitations = [
+    ...(Array.isArray(payload.limitations) ? payload.limitations : []).filter((entry) =>
+      !String(entry).startsWith("Optimized fragments were collision-checked against ")
+    ),
+    limitation,
+  ];
+  payload.update = {
+    ...payload.update,
+    command: `node scripts/build-regex-data.mjs --reoptimize-existing ${options.reoptimizeExisting} --output ${options.output}`,
+  };
+  const output = path.resolve(options.output);
+  const serialized = `${JSON.stringify(payload)}\n`;
+  await fs.mkdir(path.dirname(output), { recursive: true });
+  await fs.writeFile(output, serialized, "utf8");
+  console.log(JSON.stringify({
+    output,
+    entries: payload.entries.length,
+    categories: payload.categories.length,
+    corpusLines: corpus.length,
+    bytes: Buffer.byteLength(serialized),
+    sha256: sha256(serialized),
+  }));
+  process.exit(0);
 }
 
 const MAP_SPAWN_TAGS = [
@@ -346,20 +516,25 @@ const MAP_SPAWN_TAGS = [
   "uber_tier_map",
   "primordial_map",
 ];
+if ([options.basePack, options.statPack, options.pobData].filter(Boolean).some((value) =>
+  /^https?:\/\//i.test(value)
+)) {
+  throw new Error("Bundled and optional Path of Building inputs must be local files.");
+}
+const cargoEndpoint = new URL(options.cargoUrl);
+if (cargoEndpoint.protocol !== "https:" ||
+    cargoEndpoint.hostname !== "www.poewiki.net" ||
+    cargoEndpoint.pathname !== "/w/api.php") {
+  throw new Error("Map modifier data must come from the PoE Wiki Cargo endpoint.");
+}
 const [
   baseSource,
   statSource,
-  itemsSource,
-  statsSource,
-  staticSource,
   cargoWeights,
   cargoMods,
 ] = await Promise.all([
   readSource(options.basePack),
   readSource(options.statPack),
-  readSource(options.items),
-  readSource(options.stats),
-  readSource(options.static),
   cargoRows(
     options.cargoUrl,
     "mod_spawn_weights",
@@ -375,19 +550,7 @@ const [
 ]);
 const basePack = parseJson(baseSource.text, options.basePack);
 const statPack = parseJson(statSource.text, options.statPack);
-const officialItems = parseJson(itemsSource.text, options.items);
-const officialStats = parseJson(statsSource.text, options.stats);
-const officialStatic = parseJson(staticSource.text, options.static);
-if (!Array.isArray(basePack.baseTypes) || !Array.isArray(statPack.entries)) {
-  throw new Error("Bundled price-check packs do not have the expected schema.");
-}
-for (const [label, value] of [
-  ["items", officialItems],
-  ["stats", officialStats],
-  ["static", officialStatic],
-]) {
-  if (!Array.isArray(value.result)) throw new Error(`Official ${label} response has no result array.`);
-}
+const sourceSnapshot = verifyPinnedPoe1Packs(basePack, statPack);
 
 const sources = [
   {
@@ -414,22 +577,6 @@ const sources = [
       dataUpdatedAt: String(statPack.source?.dataUpdatedAt || "unknown"),
     },
   },
-  ...[
-    ["ggg-trade-items", "GGG Trade item data", itemsSource],
-    ["ggg-trade-stats", "GGG Trade stat data", statsSource],
-    ["ggg-trade-static", "GGG Trade static data", staticSource],
-  ].map(([id, label, source]) => ({
-    id,
-    label,
-    kind: "official-endpoint",
-    inputSha256: sha256(source.text),
-    url: source.url,
-    retrievedAt: source.retrievedAt || new Date().toISOString(),
-    upstream: {
-      ...(source.etag ? { etag: source.etag } : {}),
-      ...(source.lastModified ? { lastModified: source.lastModified } : {}),
-    },
-  })),
 ];
 const cargoPages = new Set(cargoWeights.rows.map((entry) => String(entry.page || "")));
 const cargoMapMods = cargoMods.rows.filter((entry) =>
@@ -445,7 +592,6 @@ sources.push({
   kind: "wiki-cargo",
   inputSha256: sha256(`${cargoWeights.source}\n${cargoMods.source}`),
   url: options.cargoUrl,
-  retrievedAt: [cargoWeights.retrievedAt, cargoMods.retrievedAt].sort().at(-1),
   upstream: {
     tables: "mods,mod_spawn_weights",
     positiveSpawnWeightRows: cargoWeights.rows.length,
@@ -529,66 +675,49 @@ const mapAreaIds = Object.entries(basePack.mapAreaTradeDiscriminators || {}).map
   }),
 ).filter(Boolean);
 
-const itemGroups = new Map();
-for (const group of officialItems.result) {
+function registerProfileRecord(record, tagsForProfile) {
   const ids = [];
-  for (const item of Array.isArray(group.entries) ? group.entries : []) {
-    const text = String(item.name || item.text || item.type || "").trim();
-    const id = registerEntry(text, text, "ggg-trade-items", {
-      refs: [String(item.disc || item.type || text)],
-      tags: [String(group.id || "item"), item.flags?.unique ? "unique" : "base"],
-    });
+  for (const [name, rawProfiles] of Object.entries(record || {})) {
+    const profiles = Array.isArray(rawProfiles) ? rawProfiles : [rawProfiles];
+    const refs = profiles.flatMap((profile) => [profile?.tradeTag, profile?.baseType]).filter(Boolean);
+    const tags = profiles.flatMap((profile) => tagsForProfile(profile || {}));
+    const id = registerEntry(name, name, "price-check-base-types", { refs, tags });
     if (id) ids.push(id);
   }
-  itemGroups.set(String(group.id), [...new Set(ids)]);
+  return [...new Set(ids)];
 }
 
-const statPackPatternsById = new Map();
-for (const entry of statPack.entries) {
-  for (const candidate of Array.isArray(entry.candidates) ? entry.candidates : []) {
-    const values = statPackPatternsById.get(candidate.id) || [];
-    values.push(entry.pattern);
-    statPackPatternsById.set(candidate.id, values);
-  }
-}
+const itemProfileIds = registerProfileRecord(basePack.itemProfiles, (profile) => [
+  "item",
+  profile.exchangeable ? "exchangeable" : "",
+]);
+const uniqueProfileIds = registerProfileRecord(basePack.uniqueProfiles, (profile) => [
+  "item",
+  "unique",
+  profile.baseType || "",
+]);
+const gemProfileIds = registerProfileRecord(basePack.gemProfiles, (profile) => [
+  "gem",
+  profile.transfigured ? "transfigured" : "",
+]);
+
 const statGroups = new Map();
-for (const group of officialStats.result) {
-  if (group.id === "pseudo") continue;
-  const ids = [];
-  for (const stat of Array.isArray(group.entries) ? group.entries : []) {
-    const text = String(stat.text || "").trim();
-    if (!text) continue;
-    const variants = stat.option?.options?.length && text.includes("#")
-      ? stat.option.options.map((option) => text.replace("#", String(option.text || option.id)))
-      : [text];
-    for (const variant of variants) {
-      const bundled = statPackPatternsById.has(stat.id);
-      const id = registerEntry(variant, variant, "ggg-trade-stats", {
-        refs: [String(stat.id)],
-        tags: [String(group.id || stat.type || "stat"), String(stat.type || "stat")],
-      });
-      if (id && bundled) {
-        const entry = entriesById.get(id);
-        entry.sourceIds = [...new Set([...entry.sourceIds, "price-check-stats"])];
-      }
-      if (id) ids.push(id);
-    }
+for (const stat of statPack.entries) {
+  const candidates = (Array.isArray(stat.candidates) ? stat.candidates : [])
+    .filter((candidate) => candidate?.kind !== "pseudo");
+  if (!candidates.length) continue;
+  const text = String(candidates[0].matcherText || candidates[0].ref || stat.pattern || "").trim();
+  const kinds = [...new Set(candidates.map((candidate) => String(candidate.kind || "modifier")))];
+  const id = registerEntry(text, text, "price-check-stats", {
+    refs: candidates.map((candidate) => String(candidate.id || "")).filter(Boolean),
+    tags: kinds,
+  });
+  if (!id) continue;
+  for (const kind of kinds) {
+    const ids = statGroups.get(kind) || [];
+    ids.push(id);
+    statGroups.set(kind, ids);
   }
-  statGroups.set(String(group.id), [...new Set(ids)]);
-}
-
-const staticGroups = new Map();
-for (const group of officialStatic.result) {
-  const ids = [];
-  for (const item of Array.isArray(group.entries) ? group.entries : []) {
-    const text = String(item.text || "").trim();
-    const id = registerEntry(text, text, "ggg-trade-static", {
-      refs: [String(item.id || text)],
-      tags: [String(group.id || "static")],
-    });
-    if (id) ids.push(id);
-  }
-  staticGroups.set(String(group.id), [...new Set(ids)]);
 }
 
 const canonicalStatPatterns = new Map(statPack.entries.map((entry) => [
@@ -666,6 +795,16 @@ for (const mod of pobMods) {
   pobMatchedMapLines += 1;
 }
 
+const fullTooltipCorpus = buildFullTooltipCorpus(entriesById);
+const fullTooltipCorpusSha256 = sha256(fullTooltipCorpus.map((row) =>
+  `${row.family}\0${row.text}`
+).join("\n"));
+const fullTooltipOptimization = optimizeFullTooltip(
+  [...entriesById.keys()],
+  entriesById,
+  fullTooltipCorpus,
+);
+
 const categories = [];
 function addCategory({
   id,
@@ -687,7 +826,13 @@ function addCategory({
     return true;
   });
   const deduplicated = deduplicateRenderedFamilies(exactDeduplicated, entriesById);
-  const { refs, exactFallbacks } = optimizeCategory(deduplicated, entriesById);
+  const refs = deduplicated.map((entryId) => ({
+    entryId,
+    optimized: fullTooltipOptimization.patterns.get(entryId) || entriesById.get(entryId).exact,
+  }));
+  const exactFallbacks = deduplicated.filter((entryId) =>
+    fullTooltipOptimization.exactFallbackIds.has(entryId)
+  ).length;
   const sourceIds = [...new Set(deduplicated.flatMap((entryId) =>
     entriesById.get(entryId).sourceIds
   ))];
@@ -710,10 +855,9 @@ function addCategory({
       supportsOptimized: true,
     },
     optimization: {
-      algorithm: "shortest-unique-literal-v1",
-      universeSha256: sha256(deduplicated.map((entryId) =>
-        `${entryId}\0${normalized(entriesById.get(entryId).searchText)}`
-      ).join("\n")),
+      algorithm: "shortest-full-tooltip-literal-v2",
+      corpusSha256: fullTooltipCorpusSha256,
+      corpusLines: fullTooltipCorpus.length,
       verified: true,
       exactFallbacks,
     },
@@ -721,15 +865,11 @@ function addCategory({
   });
 }
 
-const allItemIds = [...baseTypeIds, ...itemGroups.values().flatMap((ids) => ids)];
+const allItemIds = [...baseTypeIds, ...itemProfileIds, ...uniqueProfileIds];
 const mapNameIds = [
   ...mapAreaIds,
-  ...(staticGroups.get("MapsSpecial") || []),
-  ...(staticGroups.get("MapsUnique") || []),
-  ...(itemGroups.get("map") || []).filter((entryId) => {
-    const entry = entriesById.get(entryId);
-    return entry.tags.includes("unique") && /\bmap\b/i.test(entry.searchText);
-  }),
+  ...baseTypeIds.filter((entryId) => /\bmap\b/i.test(entriesById.get(entryId).searchText)),
+  ...uniqueProfileIds.filter((entryId) => /\bmap\b/i.test(entriesById.get(entryId).tags.join(" "))),
 ];
 addCategory({
   id: "map-modifiers",
@@ -745,7 +885,7 @@ addCategory({
   label: "Items",
   kind: "item",
   section: "core",
-  description: "Item names and base types from the bundled base pack and official Trade item groups.",
+  description: "Item names and base types from the pinned Awakened PoE Trade base pack.",
   aliases: ["bases", "base types", "uniques"],
 }, allItemIds);
 addCategory({
@@ -753,7 +893,7 @@ addCategory({
   label: "Map names",
   kind: "map-name",
   section: "core",
-  description: "Current regular, special, and unique map names exposed by official Trade data.",
+  description: "Map names and discriminators from the pinned Awakened PoE Trade base pack.",
   aliases: ["maps", "atlas"],
 }, mapNameIds);
 addCategory({
@@ -761,27 +901,21 @@ addCategory({
   label: "Gems",
   kind: "gem",
   section: "core",
-  description: "Gem names exposed by the official Trade item endpoint.",
+  description: "Gem names from the pinned Awakened PoE Trade base pack.",
   aliases: ["skill gems", "support gems", "transfigured gems"],
-}, itemGroups.get("gem") || []);
+}, gemProfileIds);
 
-const ancestorIds = staticGroups.get("Ancestor") || [];
+const mechanicSourceIds = [...new Set([...itemProfileIds, ...uniqueProfileIds, ...baseTypeIds])];
 const convenience = [
-  ["beasts", "Beasts", "beast", staticGroups.get("Beasts") || []],
-  ["runegrafts", "Runegrafts", "runegraft", staticGroups.get("Runegrafts") || []],
-  ["tattoos", "Tattoos", "tattoo", ancestorIds.filter((id) => /tattoo/i.test(entriesById.get(id).searchText))],
-  ["omens", "Omens", "omen", ancestorIds.filter((id) => /^omen\b/i.test(entriesById.get(id).searchText))],
-  ["scarabs", "Scarabs", "scarab", (staticGroups.get("Fragments") || []).filter((id) => /scarab/i.test(entriesById.get(id).searchText))],
-  ["heist", "Heist", "contracts blueprints", [
-    ...(staticGroups.get("Heist") || []),
-    ...(itemGroups.get("heistmission") || []),
-    ...(itemGroups.get("heistequipment") || []),
-  ]],
-  ["expedition", "Expedition", "logbooks artifacts", [
-    ...(staticGroups.get("Expedition") || []),
-    ...(itemGroups.get("logbook") || []),
-  ]],
-  ["jewels", "Jewels", "jewel cluster abyss", itemGroups.get("jewel") || []],
+  ["runegrafts", "Runegrafts", "runegraft", mechanicSourceIds.filter((id) => /runegraft/i.test(entriesById.get(id).searchText))],
+  ["tattoos", "Tattoos", "tattoo", mechanicSourceIds.filter((id) => /tattoo/i.test(entriesById.get(id).searchText))],
+  ["omens", "Omens", "omen", mechanicSourceIds.filter((id) => /^omen\b/i.test(entriesById.get(id).searchText))],
+  ["scarabs", "Scarabs", "scarab", mechanicSourceIds.filter((id) => /scarab/i.test(entriesById.get(id).searchText))],
+  ["heist", "Heist", "contracts blueprints", mechanicSourceIds.filter((id) => /\b(?:contract|blueprint|heist)\b/i.test(entriesById.get(id).searchText))],
+  ["expedition", "Expedition", "logbooks artifacts", mechanicSourceIds.filter((id) => /\b(?:logbook|artifact)\b/i.test(entriesById.get(id).searchText))],
+  ["jewels", "Jewels", "jewel cluster abyss", mechanicSourceIds.filter((id) => /\bjewel\b/i.test(entriesById.get(id).searchText))],
+  ["exchangeable", "Exchangeable items", "currency bulk", itemProfileIds.filter((id) => entriesById.get(id).tags.includes("exchangeable"))],
+  ["uniques", "Unique items", "unique", uniqueProfileIds],
 ];
 for (const [id, label, aliases, ids] of convenience) {
   addCategory({
@@ -789,51 +923,36 @@ for (const [id, label, aliases, ids] of convenience) {
     label,
     kind: "mechanic",
     section: "mechanic",
-    description: `${label} names exposed by the relevant official Trade categories.`,
+    description: `${label} names from the pinned Awakened PoE Trade base pack.`,
     aliases: aliases.split(" "),
   }, ids);
 }
 
-for (const group of officialItems.result) {
+const statLabels = {
+  crafted: "Crafted",
+  enchant: "Enchant",
+  explicit: "Explicit",
+  fractured: "Fractured",
+  imbued: "Imbued",
+  implicit: "Implicit",
+  veiled: "Veiled",
+};
+for (const [kind, ids] of [...statGroups].sort(([left], [right]) => left.localeCompare(right))) {
   addCategory({
-    id: `trade-item-${slug(group.id)}`,
-    label: String(group.label || group.id),
-    kind: group.id === "gem" ? "gem" : "item",
-    section: "official-items",
-    description: `Official Trade item category ${group.id}.`,
-    aliases: [String(group.id)],
-  }, itemGroups.get(String(group.id)) || []);
-}
-for (const group of officialStats.result) {
-  if (group.id === "pseudo") continue;
-  addCategory({
-    id: `trade-stat-${slug(group.id)}`,
-    label: `${String(group.label || group.id)} modifiers`,
+    id: `bundled-stat-${slug(kind)}`,
+    label: `${statLabels[kind] || kind} modifiers`,
     kind: "modifier",
-    section: "official-stats",
-    description: `Display strings from the official Trade ${group.id} stat category.`,
-    aliases: [String(group.id), "modifiers", "stats"],
-  }, statGroups.get(String(group.id)) || []);
-}
-for (const group of officialStatic.result) {
-  const ids = staticGroups.get(String(group.id)) || [];
-  if (!ids.length) continue;
-  addCategory({
-    id: `trade-static-${slug(group.id)}`,
-    label: String(group.label || group.id),
-    kind: "mechanic",
-    section: "official-static",
-    description: `Official Trade static category ${group.id}.`,
-    aliases: [String(group.id)],
+    section: "bundled-stats",
+    description: `${statLabels[kind] || kind} modifier text from the pinned Awakened PoE Trade stat pack.`,
+    aliases: [kind, "modifiers", "stats"],
   }, ids);
 }
 
-const generatedAt = new Date().toISOString();
-const officialRetrievedAt = [itemsSource, statsSource, staticSource]
-  .map((source) => source.retrievedAt)
-  .filter(Boolean)
+const sourceUpdatedAt = `${sourceSnapshot.dataUpdatedAt}T00:00:00.000Z`;
+const generatedAt = [basePack.generatedAt, statPack.generatedAt]
+  .filter((value) => !Number.isNaN(Date.parse(value)))
   .sort()
-  .at(-1) || generatedAt;
+  .at(-1) || sourceUpdatedAt;
 const usedEntryIds = new Set(categories.flatMap((category) =>
   category.entries.map((entry) => entry.entryId)
 ));
@@ -852,7 +971,7 @@ const payload = {
   generatedAt,
   update: {
     command: "node scripts/build-regex-data.mjs [--pob-data <PathOfBuilding>/Data/ModMap.lua]",
-    officialRetrievedAt,
+    sourceUpdatedAt,
   },
   coverage: {
     mapModifiers: {
@@ -869,10 +988,14 @@ const payload = {
       ])),
       ...(options.pobData ? { pobCorroboratedLines: pobMatchedMapLines } : {}),
     },
-    officialTrade: {
-      itemGroups: officialItems.result.length,
-      statGroups: officialStats.result.length,
-      staticGroups: officialStatic.result.length,
+    bundledSources: {
+      baseTypes: basePack.baseTypes.length,
+      itemProfiles: Object.keys(basePack.itemProfiles).length,
+      uniqueProfiles: Object.keys(basePack.uniqueProfiles).length,
+      gemProfiles: Object.keys(basePack.gemProfiles).length,
+      statPatterns: statPack.entries.filter((entry) =>
+        (entry.candidates || []).some((candidate) => candidate.kind !== "pseudo")
+      ).length,
     },
   },
   sources,
@@ -882,8 +1005,9 @@ const payload = {
     options.pobData
       ? `${pobMatchedMapLines} Cargo map effect lines were independently corroborated by the supplied Path of Building ModMap file.`
       : "No optional Path of Building ModMap file was supplied for independent map-line corroboration.",
-    "Pseudo Trade stats are excluded because they are derived search filters rather than literal in-game item lines.",
-    "The pack targets Path of Exile 1. GGG documents only limited Path of Exile 2 API coverage.",
+    "Pseudo stats are excluded because they are derived search filters rather than literal in-game item lines.",
+    `Optimized fragments were collision-checked against ${fullTooltipCorpus.length} rendered full-tooltip corpus lines spanning names, bases, headers, properties, status flags, modifiers, and numeric template witnesses.`,
+    "The pack targets Path of Exile 1 and uses only pinned Awakened PoE Trade snapshots plus current PoE Wiki map-modifier records.",
   ],
   entries,
   categories,

@@ -7,48 +7,29 @@ import type {
 
 export type OfficialTradeApi = "trade" | "exchange";
 
-const SAFE_SEARCH_ID = /^[A-Za-z0-9_-]{1,128}$/;
-
 /**
- * Builds the same browser handoff used by Awakened PoE Trade.
- *
- * Ordinary searches prefer the server-issued search id. The Exchange page
- * does not consume the API POST body directly: its browser state is wrapped
- * as `{ exchange: query }`.
+ * Builds a browser-only handoff without calling GGG's internal Trade routes.
+ * Exchange browser state is wrapped as `{ exchange: query }`.
  */
 export function buildOfficialTradeBrowserUrl({
   league,
   tradeQuery,
   api = "trade",
-  searchId,
-  selectedExchangeHave,
 }: {
   league: string;
   tradeQuery: Record<string, unknown>;
   api?: OfficialTradeApi;
-  searchId?: string;
-  selectedExchangeHave?: string;
 }) {
   const endpoint = api === "exchange" ? "exchange" : "search";
   const base = `https://www.pathofexile.com/trade/${endpoint}/${encodeURIComponent(league)}`;
-  if (api === "trade" && searchId && SAFE_SEARCH_ID.test(searchId)) {
-    return `${base}/${encodeURIComponent(searchId)}`;
-  }
 
   const exchangeQuery = tradeQuery.query &&
     typeof tradeQuery.query === "object" &&
     !Array.isArray(tradeQuery.query)
     ? tradeQuery.query as Record<string, unknown>
     : undefined;
-  const availableHave = Array.isArray(exchangeQuery?.have)
-    ? exchangeQuery.have
-    : [];
-  const selectedExchangeQuery = selectedExchangeHave &&
-    availableHave.includes(selectedExchangeHave)
-    ? { ...exchangeQuery, have: [selectedExchangeHave] }
-    : exchangeQuery;
   const browserQuery = api === "exchange"
-    ? { exchange: selectedExchangeQuery }
+    ? { exchange: exchangeQuery }
     : tradeQuery;
   return `${base}?q=${encodeURIComponent(JSON.stringify(browserQuery))}`;
 }

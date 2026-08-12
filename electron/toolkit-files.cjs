@@ -19,11 +19,14 @@ const SAFE_REMOTE_HOSTS = new Set([
   "pobb.in",
   "pastebin.com",
   "poedb.tw",
-  "poe2db.tw",
   "maxroll.gg",
   "www.maxroll.gg",
   "raw.githubusercontent.com",
 ]);
+const FILTER_MODE_EXTENSIONS = Object.freeze({
+  normal: ".filter",
+  ruthless: ".ruthlessfilter",
+});
 
 function cleanText(value) {
   if (typeof value !== "string") throw new Error("Expected text content.");
@@ -36,7 +39,7 @@ function cleanText(value) {
 function extensionFilters(kind) {
   if (kind === "filter") {
     return [
-      { name: "Path of Exile filters", extensions: ["filter"] },
+      { name: "Path of Exile filters", extensions: ["filter", "ruthlessfilter"] },
       { name: "Text files", extensions: ["txt"] },
     ];
   }
@@ -50,7 +53,19 @@ function extensionFilters(kind) {
   if (kind === "image") {
     return [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }];
   }
-  return [{ name: "Text files", extensions: ["txt", "json", "xml", "filter"] }];
+  return [{ name: "Text files", extensions: ["txt", "json", "xml", "filter", "ruthlessfilter"] }];
+}
+
+function assertFilterSaveTarget(filePath, request) {
+  if (request?.kind !== "filter") return;
+  const expectedExtension = FILTER_MODE_EXTENSIONS[request?.filterMode];
+  if (!expectedExtension) {
+    throw new Error("Filter saves require a normal or ruthless mode.");
+  }
+  if (path.extname(filePath).toLowerCase() !== expectedExtension) {
+    const label = request.filterMode === "ruthless" ? "Ruthless" : "Normal";
+    throw new Error(`${label} filters must be saved as ${expectedExtension}.`);
+  }
 }
 
 function pathIdentity(filePath) {
@@ -119,6 +134,7 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
   async function saveText(window, request) {
     const content = cleanText(request?.text);
     let target = request?.path ? path.resolve(String(request.path)) : "";
+    let authoriseTarget = false;
     if (!target || !authorisedPaths.has(target)) {
       const result = await dialog.showSaveDialog(window, {
         defaultPath: request?.suggestedName || "document.txt",
@@ -126,8 +142,10 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
       });
       if (result.canceled || !result.filePath) return null;
       target = path.resolve(result.filePath);
-      authorisedPaths.add(target);
+      authoriseTarget = true;
     }
+    assertFilterSaveTarget(target, request);
+    if (authoriseTarget) authorisedPaths.add(target);
     if (fs.existsSync(target)) {
       const stat = fs.lstatSync(target);
       if (!stat.isFile() || stat.isSymbolicLink()) {

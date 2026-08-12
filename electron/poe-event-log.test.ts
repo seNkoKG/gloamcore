@@ -21,7 +21,8 @@ describe("PoE event log", () => {
     const logPath = path.join(root, "Client.txt");
     fs.writeFileSync(logPath, line("You have entered Lioneye's Watch", "01"), "utf8");
     const service = eventLog.createPoeEventLogService({ settingsPath: path.join(root, "settings.json"), pollMilliseconds: 10_000 });
-    expect(service.start(logPath).events).toHaveLength(1);
+    service.authorizePath(logPath);
+    expect(service.start().events).toHaveLength(1);
     const bytes = Buffer.from(line("@From Álvaro: čar", "02"), "utf8");
     fs.appendFileSync(logPath, bytes.subarray(0, bytes.length - 4)); service._poll();
     expect(service.getState().events).toHaveLength(1);
@@ -39,8 +40,23 @@ describe("PoE event log", () => {
     fs.writeFileSync(logPath, Array.from({ length: 520 }, (_, index) => line(`Trade accepted ${index}`)).join(""), "utf8");
     const settingsPath = path.join(root, "settings.json");
     const service = eventLog.createPoeEventLogService({ settingsPath });
-    expect(service.start(logPath).events).toHaveLength(500);
+    service.authorizePath(logPath);
+    expect(service.start().events).toHaveLength(500);
     expect(fs.readFileSync(settingsPath, "utf8")).not.toContain("Trade accepted");
+    service.dispose();
+  });
+
+  it("only starts the dialog-authorized regular Client.txt path", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-event-log-")); roots.push(root);
+    const configured = path.join(root, "Client.txt");
+    const otherRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-event-log-other-")); roots.push(otherRoot);
+    const other = path.join(otherRoot, "Client.txt");
+    fs.writeFileSync(configured, line("Trade accepted"), "utf8");
+    fs.writeFileSync(other, line("Trade cancelled"), "utf8");
+    const service = eventLog.createPoeEventLogService({ settingsPath: path.join(root, "settings.json") });
+    service.authorizePath(configured);
+    expect(() => service.start(other)).toThrow(/file picker/);
+    expect(service.start().status).toBe("watching");
     service.dispose();
   });
 });

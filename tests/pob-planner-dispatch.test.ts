@@ -12,7 +12,7 @@ const {
 
 type Descriptor = {
   cacheKey: string;
-  game: "poe1" | "poe2";
+  game: "poe1";
   version: string;
   sourcePath: string;
 };

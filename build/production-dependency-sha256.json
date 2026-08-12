@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.16.0",
   "platform": "win32-x64",
   "packageCount": 52,
   "fileCount": 5413,
-  "sha256": "4bf1e69a0cc839c6989c54c5ad78ef1a77ab292daa8ebc9925205c7b72678f93",
+  "sha256": "497456df0f68a69b613c82c1a357309704425c1a05bd0829847f10af2ab7da80",
   "packages": [
     {
       "name": "@electron-internal/extract-zip",
@@ -5651,8 +5651,8 @@
     },
     {
       "name": "electron",
-      "version": "43.2.0",
-      "resolved": "https://registry.npmjs.org/electron/-/electron-43.2.0.tgz",
+      "version": "43.3.0",
+      "resolved": "https://registry.npmjs.org/electron/-/electron-43.3.0.tgz",
       "packaged": false,
       "files": [
         {
@@ -5663,7 +5663,7 @@
         {
           "path": "checksums.json",
           "size": 8138,
-          "sha256": "1844612c80855107ccf38131d08f147bc04f031c7630fba7dc8fb115677395f1"
+          "sha256": "3cc7d8c0e3822e924b1c20ca300581a128c81f3ec846372063a8f7aa3625f1a9"
         },
         {
           "path": "cli.js",
@@ -5687,8 +5687,8 @@
         },
         {
           "path": "dist/dxcompiler.dll",
-          "size": 25616896,
-          "sha256": "41004dbf82da5dd2f70c92defe2f0e0fce030daf85c072bd7922917ec90a6c28"
+          "size": 25616384,
+          "sha256": "56a29f483555dddbefb491aa470b8c5c268d66a149892a8a40a582f3e92b1895"
         },
         {
           "path": "dist/dxil.dll",
@@ -5697,13 +5697,13 @@
         },
         {
           "path": "dist/electron.exe",
-          "size": 225613824,
-          "sha256": "8593db40c0c6e5e3c4b6b0a225b1dc9a549ecdf10f6cf2010cf5b6ce869ce07f"
+          "size": 225441792,
+          "sha256": "31a0176b7c1a81cf379e55e109c57a56493a4d4a9e9b0d2475a678fd7df234dc"
         },
         {
           "path": "dist/ffmpeg.dll",
           "size": 3067904,
-          "sha256": "d17c2a0ea5683ff02006676845b84ef2afe18b8f75a5fdcce2b364f85c37a34e"
+          "sha256": "afb4f083d34c470bdafc6d1d3801142ea2a71b76553329485d91a35534c086df"
         },
         {
           "path": "dist/icudtl.dat",
@@ -5713,12 +5713,12 @@
         {
           "path": "dist/libEGL.dll",
           "size": 474624,
-          "sha256": "7d6f4957a6c4d4cad4d717ebebbc9738acf4bfdf2d4ea1c0403d2c9a0661dc5d"
+          "sha256": "a3b40bb99acd821d955e4a26555b43efe12bd98056a8b7693be0e63b9ed53910"
         },
         {
           "path": "dist/libGLESv2.dll",
-          "size": 8024064,
-          "sha256": "5d6c94812ca1f6dc414d6166da1ed95e4f072a151c7e16952b0fd9a450192d8b"
+          "size": 8031744,
+          "sha256": "01eeec6f3451d5981ce883e9ec7a346c96173bb58854c5c3f3452e1637fb6d6f"
         },
         {
           "path": "dist/LICENSE",
@@ -5742,8 +5742,8 @@
         },
         {
           "path": "dist/locales/ar.pak",
-          "size": 1096193,
-          "sha256": "36f46452c3becb64e1034a6e69286cb5e91f98593c81511c79176f1cc560e159"
+          "size": 1096192,
+          "sha256": "ab4941fbb89fb14f045bd54edbff7158e2d7fd0b5f2687ada0b1df9ad84c0e2a"
         },
         {
           "path": "dist/locales/bg.pak",
@@ -5757,8 +5757,8 @@
         },
         {
           "path": "dist/locales/ca.pak",
-          "size": 692237,
-          "sha256": "94b2082cc585cc7f0e18839664683d97b45f9c15d0b027ba789902100fb029aa"
+          "size": 692259,
+          "sha256": "8a472eabdc3f30d94c56367d526f6d345ad65732827097aac747438f233a536f"
         },
         {
           "path": "dist/locales/cs.pak",
@@ -5773,12 +5773,12 @@
         {
           "path": "dist/locales/de.pak",
           "size": 693302,
-          "sha256": "9b3218eebd6e5bfdfcc50436ff0cef02b92fb9454c4bc9f78093408651e325d4"
+          "sha256": "6201f0c314340a272e6cd7b57e13c4e20e3bc64f053f2c6f8e98f1cf52840908"
         },
         {
           "path": "dist/locales/el.pak",
-          "size": 1251081,
-          "sha256": "a687e7166636cc78afb903429c7b62aed48fe4a1e20057d5dd192e7806721d52"
+          "size": 1251062,
+          "sha256": "48d430dca8785ce24fc605851b2bb739164b8e5fb5588909329a82e58f6902d0"
         },
         {
           "path": "dist/locales/en-GB.pak",
@@ -5807,8 +5807,8 @@
         },
         {
           "path": "dist/locales/fa.pak",
-          "size": 1026920,
-          "sha256": "59a08aad82255e6574e187cf39bfe2523dcbe5cc27421711ccc42c45ad00da4d"
+          "size": 1026890,
+          "sha256": "55d3a85f71fb270b20f2c45bfc6a4bfa7026a49dc98d92ce30acb76c9e0bda2a"
         },
         {
           "path": "dist/locales/fi.pak",
@@ -5832,8 +5832,8 @@
         },
         {
           "path": "dist/locales/he.pak",
-          "size": 898811,
-          "sha256": "f149893ec79d46937ccaaacefa2bea4179c79f45b4ddb4d215d7e7756b4101cd"
+          "size": 898809,
+          "sha256": "b90f6b709886c37ac52fb8eb1e4d40931b0558b084dcda69e3e4b5ba537e23f8"
         },
         {
           "path": "dist/locales/hi.pak",
@@ -5863,7 +5863,7 @@
         {
           "path": "dist/locales/ja.pak",
           "size": 815554,
-          "sha256": "916884da7606a990aceb82c0cd4b3480c054e5d0562684df40767310ba9d4dab"
+          "sha256": "4186d52dd6b41e1fce9432890b758bad513f4da4c14c4962b46b0c15b4df58a9"
         },
         {
           "path": "dist/locales/kn.pak",
@@ -5883,7 +5883,7 @@
         {
           "path": "dist/locales/lv.pak",
           "size": 749059,
-          "sha256": "4a47f56c40b16b261cb8bf29a0b16be9638a88b8a5df4d8bb1d13c39271e2b58"
+          "sha256": "e91342ed84e1847968b40194250b4d76bbd2ea13133675b8b099dca45ee0f197"
         },
         {
           "path": "dist/locales/ml.pak",
@@ -5917,18 +5917,18 @@
         },
         {
           "path": "dist/locales/pt-BR.pak",
-          "size": 673126,
-          "sha256": "2c48cfad589795774dc2dbd5d7717f8695f3c02d85acc0076ad7a02666e60968"
+          "size": 673147,
+          "sha256": "2191f4b09031038607309bc39d9d9aec544ce2b6ecec623e443915dafe983511"
         },
         {
           "path": "dist/locales/pt-PT.pak",
-          "size": 676987,
-          "sha256": "e613f2149cb23de02296e8524981d594cd1bac34360d83bc1682ff37eccc55c3"
+          "size": 676984,
+          "sha256": "98daa1072e7c405e3f5e030bfe25ef1e12b31a96e0b1db245d6805a564390f75"
         },
         {
           "path": "dist/locales/ro.pak",
-          "size": 702573,
-          "sha256": "909fadc1bb8b1bda780d182b823a98fd3b8f9fa362bffc95b3ebf2b270ad0698"
+          "size": 702574,
+          "sha256": "da5c79d06ae972aa460724ef378f91bf4afda911b167a896963f6e0d4daf9aec"
         },
         {
           "path": "dist/locales/ru.pak",
@@ -5937,8 +5937,8 @@
         },
         {
           "path": "dist/locales/sk.pak",
-          "size": 730194,
-          "sha256": "9a2b0ed5cf2e1c8e1d18abc136af82867469a2503b76e3a9f848ee723b7a0102"
+          "size": 730258,
+          "sha256": "951c05d59f1ca05a7f184327c40c320b1e4e48fbfaa21951e21f5ea5275e2c6a"
         },
         {
           "path": "dist/locales/sl.pak",
@@ -5947,8 +5947,8 @@
         },
         {
           "path": "dist/locales/sr.pak",
-          "size": 1075897,
-          "sha256": "aa3a70c23a149e1ef9fea6db95d5cc0084a85477bd772f6d0629601f35f0e65e"
+          "size": 1075898,
+          "sha256": "c3b4a5aba1e86ea0088e5c33002bb055ed567840b2859b277014be0a7283013e"
         },
         {
           "path": "dist/locales/sv.pak",
@@ -5967,8 +5967,8 @@
         },
         {
           "path": "dist/locales/te.pak",
-          "size": 1571941,
-          "sha256": "24e355a0b67eb09e93ee8caffbe34246dad42e526e6bd4877149c5068ab03ed7"
+          "size": 1571940,
+          "sha256": "5439181ded31f8cc5dbcc1eed358753d4b7449ad29380baabe4cb893d8751a06"
         },
         {
           "path": "dist/locales/th.pak",
@@ -5983,7 +5983,7 @@
         {
           "path": "dist/locales/uk.pak",
           "size": 1172722,
-          "sha256": "6b58314224303e7338c44c2014259c56894bfffe22de46eca6cae1bff4edcfae"
+          "sha256": "8ea16b807cb01daa3280665f2bf457aa14185fa7eec5b81b36fd0a5c3d55b1b9"
         },
         {
           "path": "dist/locales/ur.pak",
@@ -6007,8 +6007,8 @@
         },
         {
           "path": "dist/resources.pak",
-          "size": 7148145,
-          "sha256": "77f82c006ca57145a385188e67f06c8a1136c0d86de10dc5889f0dbd6117b061"
+          "size": 7236975,
+          "sha256": "dbc09df898b959d93a7355dc833f0559474d55ab884da9e103e221e0603b3a8e"
         },
         {
           "path": "dist/resources/default_app.asar",
@@ -6018,17 +6018,17 @@
         {
           "path": "dist/snapshot_blob.bin",
           "size": 365488,
-          "sha256": "01e68a60b8838be376b202607defadaabdb61b5907dc6caf2cfaf8e915229532"
+          "sha256": "8dfab590b9780a198fae51cd101c468d61cce40556734db3ec501be11df61051"
         },
         {
           "path": "dist/v8_context_snapshot.bin",
           "size": 740048,
-          "sha256": "8b01d2eb0fc5324e0ff3879a30efca0eb7f5dfe35f829721aebc98b0bffbb4c3"
+          "sha256": "8a51c6fa8fe292f533dcdab7e77705213fee2de64247b5638e02c257c47f34be"
         },
         {
           "path": "dist/version",
           "size": 6,
-          "sha256": "15580716d6eafec8531854de4888dfa45c4a56e8d1649bb56dc3ab058be22bb7"
+          "sha256": "0094bae899827d1f488ae9946b19b68a8e0104e88f3cee7914eb33bfde558995"
         },
         {
           "path": "dist/vk_swiftshader_icd.json",
@@ -6038,17 +6038,17 @@
         {
           "path": "dist/vk_swiftshader.dll",
           "size": 5502464,
-          "sha256": "a0f117801db7c874cafca765aac0eddc4e07f422af5a38d6e673635ac5bb8a75"
+          "sha256": "dfd6f3d220e963e5d43dc1f76ddf67796d2ca1b7be1ee291728e3505f700264e"
         },
         {
           "path": "dist/vulkan-1.dll",
           "size": 930304,
-          "sha256": "58349de6c50157aa78500d383910dbc7b40a8a4a022aff9cc3eeef8915c9b3ed"
+          "sha256": "dd4f81864cfd0436a93e7a47292bf3ea143ab10d780a1ec85bf89c63bdbc53e3"
         },
         {
           "path": "electron.d.ts",
-          "size": 1122411,
-          "sha256": "fd1ad4bc25754908cf632e000cd33b9d07bda1186138da356cb86080ff77907b"
+          "size": 1122904,
+          "sha256": "9d42a826b20eb2439d9dc85c5d294da3b498cbfdbf1dd29cbbb76a7d4ca94052"
         },
         {
           "path": "index.js",
@@ -6068,7 +6068,7 @@
         {
           "path": "package.json",
           "size": 744,
-          "sha256": "02d60dd9473e05f9e5c3d23d3397e24c77cf283f086bb20be283e4536aaf1923"
+          "sha256": "3d4cb058d752ffea804929bec188b02671de846c049128b31b5dd8e50e102c56"
         },
         {
           "path": "path.txt",

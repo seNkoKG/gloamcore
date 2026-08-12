@@ -10,7 +10,15 @@ function assertTrustedRemoteUrl(value, kind) {
   const allowed = kind === "image"
     ? common && url.hostname === "www.poewiki.net" && url.pathname.startsWith("/images/")
     : common && (
-        (url.hostname === "poe.ninja" && url.pathname.startsWith("/poe1/api/")) ||
+        (
+          url.hostname === "senkokg.github.io" &&
+          (
+            url.pathname === "/gloamcore/data/poe-ninja/v1/manifest.json" ||
+            /^\/gloamcore\/data\/poe-ninja\/v1\/routes\/[a-f0-9]{64}\.json$/.test(url.pathname)
+          ) &&
+          url.search === "" &&
+          url.hash === ""
+        ) ||
         (url.hostname === "www.poewiki.net" && url.pathname === "/w/api.php") ||
         (
           url.hostname === "web.poecdn.com" &&

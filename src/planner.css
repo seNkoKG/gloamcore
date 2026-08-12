@@ -147,7 +147,6 @@
 .planner-import > nav { display:flex; gap:5px; margin:11px 0; padding:3px; border:1px solid var(--line); border-radius:4px; }
 .planner-import > nav button,.character-import-mode button { flex:1; min-height:29px; border:0; color:var(--text-3); background:transparent; font-size:8px; font-weight:900; text-transform:uppercase; }
 .planner-import > nav button.is-active,.character-import-mode button.is-active { color:var(--teal); background:var(--teal-soft); }
-.planner-shell[data-game="poe2"] .planner-import > nav button:nth-child(2) { display:none; }
 .character-import { display:grid !important; grid-template-columns:1fr 1fr; gap:8px !important; }
 .character-import > p,.character-import-mode { grid-column:1 / -1; margin:0; }
 .character-import-mode { display:flex; gap:4px; padding:3px; border:1px solid var(--line); border-radius:4px; }
@@ -175,7 +174,7 @@
 .planner-commandbar .planner-tabs button { display:flex; align-items:center; gap:5px; padding:0 9px; border:0; border-bottom:2px solid transparent; color:var(--text-3); background:transparent; font-size:7px; font-weight:900; text-transform:capitalize; }.planner-commandbar .planner-tabs button:hover { color:var(--text-2); }.planner-commandbar .planner-tabs button.is-active { border-bottom-color:var(--teal); color:#d9fff6; background:linear-gradient(0deg,rgba(53,217,181,.1),transparent 70%); }
 .planner-command-actions { display:flex; align-items:center; justify-content:flex-end; gap:4px; min-width:0; padding:0 8px; }
 .planner-command-actions > button { display:flex; align-items:center; justify-content:center; gap:5px; min-height:30px; padding:0 8px; border:1px solid var(--line); border-radius:2px; color:var(--text-2); background:rgba(13,27,35,.82); font-size:7px; font-weight:900; }.planner-command-actions > button.is-primary { border-color:var(--teal-line); color:#06130f; background:var(--teal); }.planner-command-actions > button:disabled { opacity:.35; }
-.planner-game-select select,.planner-bloodline-select select { max-width:98px; min-height:29px; padding:0 5px; border:1px solid var(--line); color:var(--text-2); background:rgba(13,27,35,.82); font-size:7px; }
+.planner-bloodline-select select { max-width:98px; min-height:29px; padding:0 5px; border:1px solid var(--line); color:var(--text-2); background:rgba(13,27,35,.82); font-size:7px; }
 .planner-workspace { display:grid; grid-template-columns:226px minmax(0,1fr); flex:1; min-height:0; overflow:hidden; }
 .planner-stat-rail { position:relative; z-index:7; display:flex; min-width:0; flex-direction:column; min-height:0; overflow:auto; border-right:1px solid #1b3540; background:linear-gradient(180deg,rgba(11,24,32,.98),rgba(7,16,22,.99)); scrollbar-width:thin; }
 .planner-stat-rail.is-collapsed { width:32px; overflow:visible; }.planner-workspace:has(.planner-stat-rail.is-collapsed) { grid-template-columns:32px minmax(0,1fr); }

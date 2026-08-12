@@ -118,10 +118,13 @@ export function DetailsDrawer({
       : row.source === "exchange"
         ? "Ninja exchange"
         : "Ninja stash estimate";
+  const exactTradeUrl = tradeUrl(row, league);
 
   useEffect(() => {
     setTargetPrice(watch?.targetPrice == null ? "" : String(watch.targetPrice));
-    setTargetUnit(watch?.targetUnit || "divine");
+    setTargetUnit(
+      watch?.targetUnit || (row.divineValue == null ? "chaos" : "divine"),
+    );
     setNote(watch?.note || "");
   }, [watch, row.key]);
 
@@ -445,7 +448,9 @@ export function DetailsDrawer({
               setTargetUnit(event.target.value as "chaos" | "divine")
             }
           >
-            <option value="divine">Divine</option>
+            <option value="divine" disabled={row.divineValue == null}>
+              Divine{row.divineValue == null ? " (conversion unavailable)" : ""}
+            </option>
             <option value="chaos">Chaos</option>
           </select>
         </div>
@@ -471,7 +476,12 @@ export function DetailsDrawer({
       </section>
 
       <div className="details-links">
-        <button type="button" onClick={() => bridge.openExternal(tradeUrl(row, league))}>
+        <button
+          type="button"
+          disabled={!exactTradeUrl}
+          title={exactTradeUrl ? "Open exact Official Trade results" : "Exact Trade identity unavailable"}
+          onClick={() => exactTradeUrl && bridge.openExternal(exactTradeUrl)}
+        >
           <ExternalLink size={14} />
           Open Trade
         </button>

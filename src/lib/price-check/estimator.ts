@@ -365,10 +365,11 @@ export function estimatePriceCheck(
     const faustusCenter = (faustus.minimumChaos + faustus.maximumChaos) / 2;
     const timestamp = faustusTimestamp(faustus.hour);
     const faustusAge = timestamp == null || timestamp > now ? null : now - timestamp;
+    const faustusFresh = faustusAge != null && faustusAge <= 2 * HOUR;
     const faustusConfidence: PriceCheckConfidence =
-      faustusAge == null
+      !faustusFresh
         ? "low"
-        : faustus.traded >= 20 && faustusAge <= 2 * HOUR
+        : faustus.traded >= 20
           ? "high"
           : faustus.traded >= 5
             ? "medium"
@@ -380,17 +381,17 @@ export function estimatePriceCheck(
       divineValue: null,
       sampleCount: faustus.traded,
       ageMs: faustusAge,
-      stale: faustusAge == null || faustusAge > 2 * HOUR,
+      stale: !faustusFresh,
       confidence: faustusConfidence,
       detail: `${faustus.traded} units traded between ${faustus.minimumChaos} and ${faustus.maximumChaos} chaos.`,
     });
     const divergence = Math.abs(center - faustusCenter) / Math.max(faustusCenter, 1);
-    if (faustusConfidence !== "low" && divergence <= 0.2) {
+    if (faustusFresh && faustusConfidence !== "low" && divergence <= 0.2) {
       center = (center * 2 + faustusCenter) / 3;
       score = Math.min(100, score + 5);
       confidence = confidenceFromScore(score);
       reasons.push("Faustus completed-hour evidence agrees with the listing estimate.");
-    } else if (divergence > 0.5) {
+    } else if (faustusFresh && faustusConfidence !== "low" && divergence > 0.5) {
       score = Math.min(score, 49);
       confidence = lowerConfidence(confidence, "low");
       warnings.push("Faustus evidence and the listing estimate disagree materially.");

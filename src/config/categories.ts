@@ -164,6 +164,15 @@ export const categories: CategoryDefinition[] = [
     description: "Unique flask values and listings.",
   },
   {
+    id: "flasks",
+    label: "Flasks",
+    group: "Equipment & gems",
+    apiType: "Flask",
+    source: "item",
+    icon: "flask",
+    description: "Current non-unique flask base and variant prices.",
+  },
+  {
     id: "unique-jewels",
     label: "Unique Jewels",
     group: "Equipment & gems",

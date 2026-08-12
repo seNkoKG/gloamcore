@@ -1,5 +1,7 @@
 export type RegexEntryMode = "avoid" | "want";
 export type RegexMatchMode = "any" | "all";
+export type RegexTokenMode = "safe" | "compact";
+export type RegexOptimizationMode = RegexTokenMode | "exact";
 
 export interface RegexEntry {
   id: string;
@@ -7,8 +9,10 @@ export interface RegexEntry {
   text?: string;
   selected: boolean;
   mode?: RegexEntryMode;
-  /** A precomputed pattern proven unique within the entry's data category. */
+  /** A precomputed pattern proven unique across the generated full-tooltip corpus. */
   optimizedToken?: string;
+  /** A legacy/category-only fragment. Never use this in the safe mode. */
+  compactToken?: string;
   /** A precomputed exact pattern, primarily for numeric templates. */
   exactToken?: string;
 }
@@ -39,9 +43,14 @@ export interface PoeRegexResult {
   chunksAreLossless: boolean;
   /** Complete quoted terms that cannot fit without changing their regex. */
   oversizedTerms: string[];
+  /** False for the explicitly experimental category-only compact mode. */
+  fullTooltipSafe: boolean;
+  optimizationScope: "exact" | "full-tooltip" | "category-only";
 }
 
 export interface BuildPoeRegexOptions {
+  optimization?: RegexOptimizationMode;
+  /** @deprecated Use optimization. Explicit false retains the old compact behavior. */
   exact?: boolean;
   limit?: number;
   wantMatch?: RegexMatchMode;
@@ -53,6 +62,11 @@ export interface BuildPoeRegexOptions {
 }
 
 export const POE_REGEX_LIMIT = 250;
+
+/** Legacy `optimized` profiles are deliberately migrated to the safe default. */
+export function migrateRegexTokenMode(value: unknown): RegexTokenMode {
+  return value === "compact" ? "compact" : "safe";
+}
 
 export function escapePoeRegex(value: string) {
   return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
@@ -250,6 +264,9 @@ export function buildPoeRegex(
   const optimizationFallbacks: string[] = [];
   const unresolved: string[] = [];
   const tokens: PoeRegexToken[] = [];
+  const optimization = options.optimization || (
+    options.exact === true ? "exact" : options.exact === false ? "compact" : "safe"
+  );
 
   for (const entry of selected) {
     const value = entry.text || entry.label;
@@ -261,7 +278,7 @@ export function buildPoeRegex(
     const exact = entry.exactToken || exactPoeRegex(value);
     let token = exact;
     let optimized = false;
-    if (!options.exact) {
+    if (optimization === "safe") {
       if (entry.optimizedToken) {
         if (!universe.length || isUniquePattern(entry.optimizedToken, value, universe)) {
           token = entry.optimizedToken;
@@ -269,7 +286,23 @@ export function buildPoeRegex(
         } else {
           optimizationFallbacks.push(entry.id);
         }
-      } else if (universe.length) {
+      } else {
+        optimizationFallbacks.push(entry.id);
+      }
+    } else if (optimization === "compact") {
+      if (universe.length) {
+        const supplied = entry.compactToken;
+        if (supplied && isUniquePattern(supplied, value, universe)) {
+          token = supplied;
+          optimized = token !== exact;
+          tokens.push({
+            id: entry.id,
+            token,
+            mode: entry.mode || "want",
+            optimized,
+          });
+          continue;
+        }
         const others = universe.filter(
           (candidate) => normalizePoeSearchText(candidate) !== normalized,
         );
@@ -333,6 +366,12 @@ export function buildPoeRegex(
     chunks: chunked.chunks,
     chunksAreLossless: chunked.lossless,
     oversizedTerms: chunked.oversized,
+    fullTooltipSafe: optimization !== "compact",
+    optimizationScope: optimization === "compact"
+      ? "category-only"
+      : optimization === "exact"
+        ? "exact"
+        : "full-tooltip",
   };
 }
 
@@ -370,11 +409,10 @@ export interface SavedRegexPreset {
   id: string;
   name: string;
   category: "maps" | "map-names" | "waystones" | "tablets" | "flasks" | "vendor" | "items" | "gems" | "boat" | "expedition" | "heist" | "beasts" | "tattoos" | "runegrafts" | "scarabs" | "jewels" | "relics" | "custom";
-  game?: "poe1" | "poe2";
   expression: string;
   tags: string[];
   hotkey?: string;
-  tokenMode?: "exact" | "optimized";
+  tokenMode?: RegexTokenMode | "exact" | "optimized";
   wantMatch?: RegexMatchMode;
   categoryUniverseSha256?: string;
   updatedAt: number;

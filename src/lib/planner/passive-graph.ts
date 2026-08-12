@@ -11,6 +11,8 @@ export interface PassiveRemoteAllocationProvider {
 
 export interface PassiveAllocationContext {
   remoteProviders: readonly PassiveRemoteAllocationProvider[];
+  /** Nodes owned by another weapon-set graph; they cannot seed or cross this path. */
+  blockedNodeIds?: ReadonlySet<number>;
 }
 
 const CURRENT_JEWEL_RADII: Record<string, number> = {
@@ -218,7 +220,8 @@ export function shortestAllocationPath(
 ) {
   const nodes = new Map(tree.nodes.map((node) => [node.id, node]));
   const target = nodes.get(targetId);
-  if (!target || !allowedNode(target, classId, ascendancyName, secondaryAscendancyName)) return [];
+  const blocked = context?.blockedNodeIds || new Set<number>();
+  if (blocked.has(targetId) || !target || !allowedNode(target, classId, ascendancyName, secondaryAscendancyName)) return [];
   const start = classStartNode(tree, classId);
   if (!start) return [];
   const connected = normallyReachableAllocated(
@@ -234,7 +237,7 @@ export function shortestAllocationPath(
   const sources = connected.size
     ? [...connected].filter((id) => {
         const node = nodes.get(id);
-        return Boolean(node && allowedNode(node, classId, ascendancyName, secondaryAscendancyName));
+        return !blocked.has(id) && Boolean(node && allowedNode(node, classId, ascendancyName, secondaryAscendancyName));
       })
     : [start.id];
   if (!sources.includes(start.id)) sources.push(start.id);
@@ -252,7 +255,7 @@ export function shortestAllocationPath(
       if (!current) continue;
       for (const nextId of adjacency.get(currentId) || []) {
         const next = nodes.get(nextId);
-        if (!next || !allowedNode(next, classId, ascendancyName, secondaryAscendancyName)) continue;
+        if (blocked.has(nextId) || !next || !allowedNode(next, classId, ascendancyName, secondaryAscendancyName)) continue;
         if (!allowedPathStep(current, next, currentDistance)) continue;
         const nextDistance = currentDistance + (allocated.has(nextId) ? 0 : 1);
         if ((distance.get(nextId) ?? Number.POSITIVE_INFINITY) <= nextDistance) continue;

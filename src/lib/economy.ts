@@ -46,14 +46,22 @@ function iconUrl(icon?: string) {
   return `https://web.poecdn.com${icon.startsWith("/") ? "" : "/"}${icon}`;
 }
 
-function safeNumber(value: unknown, fallback = 0) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-
 function positiveNumber(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function optionalCount(value: unknown) {
+  if (value == null) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : Number.NaN;
+}
+
+function maximumCount(...values: unknown[]) {
+  const parsed = values.map(optionalCount);
+  if (parsed.some(Number.isNaN)) return Number.NaN;
+  const present = parsed.filter((value): value is number => value != null);
+  return present.length ? Math.max(...present) : null;
 }
 
 function normalizeTrend(sparkline?: {
@@ -77,35 +85,13 @@ function lowConfidenceReason(
   observationCount: number | null,
 ) {
   const samples = [listingCount, observationCount].filter(
-    (value): value is number => value != null && value > 0,
+    (value): value is number => value != null,
   );
-  if (samples.length === 0) return undefined;
+  if (samples.length === 0) return "Market sample count unavailable";
   const sampleSize = Math.min(...samples);
   return sampleSize < 5
     ? `${sampleSize} market ${sampleSize === 1 ? "observation" : "observations"}`
     : undefined;
-}
-
-function median(values: number[]) {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2;
-}
-
-function inferredDivineChaos(lines: RawItemOverview["lines"]) {
-  const ratios = (lines || [])
-    .map((line) => {
-      const chaos = positiveNumber(line.chaosValue);
-      const divine = positiveNumber(line.divineValue);
-      return chaos != null && divine != null ? chaos / divine : null;
-    })
-    .filter(
-      (ratio): ratio is number => ratio != null && ratio >= 20 && ratio <= 1_000,
-    );
-  return median(ratios) || 180;
 }
 
 function normalizeExchange(
@@ -122,19 +108,19 @@ function normalizeExchange(
   const divineRate =
     primary === "divine"
       ? 1
-      : safeNumber(rates.divine, primary === "chaos" ? 1 / 180 : 0);
+      : positiveNumber(rates.divine);
   const chaosRate =
     primary === "chaos"
       ? 1
-      : safeNumber(rates.chaos, primary === "divine" ? 180 : 0);
+      : positiveNumber(rates.chaos);
 
   const rows: EconomyRow[] = (data.lines || []).flatMap((line) => {
     const item = items[line.id];
     const primaryValue = positiveNumber(line.primaryValue);
-    if (primaryValue == null) return [];
+    const volume = optionalCount(line.volumePrimaryValue);
+    if (primaryValue == null || chaosRate == null || Number.isNaN(volume)) return [];
     const chaosValue = primaryValue * chaosRate;
-    const divineValue = primaryValue * divineRate;
-    const volume = line.volumePrimaryValue == null ? null : line.volumePrimaryValue;
+    const divineValue = divineRate == null ? null : primaryValue * divineRate;
     const trend = normalizeTrend(line.sparkline);
     const confidenceReason = lowConfidenceReason(volume, volume);
     return [{
@@ -183,29 +169,31 @@ function normalizeStashCurrency(
   const detailByName = Object.fromEntries(
     details.map((detail) => [detail.name?.toLowerCase() || "", detail]),
   );
-  const divineChaos =
+  const divineChaos = positiveNumber(
     data.lines?.find((line) => line.currencyTypeName === "Divine Orb")
-      ?.chaosEquivalent || 180;
+      ?.chaosEquivalent,
+  );
 
   const rows: EconomyRow[] = (data.lines || []).flatMap((line, index) => {
     const detail = detailByName[line.currencyTypeName?.toLowerCase() || ""];
-    const count = Math.max(
-      safeNumber(line.pay?.count),
-      safeNumber(line.receive?.count),
-    );
-    const listingCount = Math.max(
-      safeNumber(line.pay?.listing_count),
-      safeNumber(line.receive?.listing_count),
+    const count = maximumCount(line.pay?.count, line.receive?.count);
+    const listingCount = maximumCount(
+      line.pay?.listing_count,
+      line.receive?.listing_count,
     );
     const spark =
       line.receiveSparkLine?.data?.some((point) => point != null)
         ? line.receiveSparkLine
         : line.paySparkLine;
     const chaosValue = positiveNumber(line.chaosEquivalent);
-    if (chaosValue == null) return [];
+    if (
+      chaosValue == null ||
+      Number.isNaN(count) ||
+      Number.isNaN(listingCount)
+    ) return [];
     const id = line.detailsId || detail?.tradeId || String(detail?.id || index);
     const trend = normalizeTrend(spark);
-    const confidenceReason = lowConfidenceReason(listingCount || null, count || null);
+    const confidenceReason = lowConfidenceReason(listingCount, count);
     return [{
       key: `${category.id}:stash-currency:${id}`,
       id,
@@ -216,12 +204,12 @@ function normalizeStashCurrency(
       source: "stash-currency",
       detailsId: line.detailsId,
       chaosValue,
-      divineValue: chaosValue / divineChaos,
+      divineValue: divineChaos == null ? null : chaosValue / divineChaos,
       change: trend.change,
       sparkline: trend.data,
       volume: null,
-      listingCount: listingCount || null,
-      observationCount: count || null,
+      listingCount,
+      observationCount: count,
       implicitModifiers: [],
       explicitModifiers: [],
       mutatedModifiers: [],
@@ -235,7 +223,7 @@ function normalizeStashCurrency(
     core: {
       primary: "chaos",
       secondary: "divine",
-      rates: { divine: 1 / divineChaos },
+      rates: divineChaos == null ? {} : { divine: 1 / divineChaos },
       items: {},
     },
   };
@@ -245,15 +233,13 @@ function normalizeItems(
   data: RawItemOverview,
   category: CategoryDefinition,
 ): NormalizedOverview {
-  const divineChaos = inferredDivineChaos(data.lines);
   const rows: EconomyRow[] = (data.lines || []).flatMap((line) => {
     const chaosValue = positiveNumber(line.chaosValue);
     if (chaosValue == null) return [];
-    const divineValue =
-      positiveNumber(line.divineValue) ?? chaosValue / divineChaos;
-    const listingCount =
-      line.listingCount == null ? null : safeNumber(line.listingCount);
-    const observations = line.count == null ? null : safeNumber(line.count);
+    const divineValue = positiveNumber(line.divineValue);
+    const listingCount = optionalCount(line.listingCount);
+    const observations = optionalCount(line.count);
+    if (Number.isNaN(listingCount) || Number.isNaN(observations)) return [];
     const trend = normalizeTrend(line.sparkLine);
     const confidenceReason = lowConfidenceReason(listingCount, observations);
     return [{
@@ -301,7 +287,7 @@ function normalizeItems(
     core: {
       primary: "chaos",
       secondary: "divine",
-      rates: { divine: 1 / divineChaos },
+      rates: {},
       items: {},
     },
   };
@@ -338,9 +324,14 @@ function matchesPrice(
   const value = displayPrice(row, display).value;
   const parsedMinimum = minimum === "" ? null : Number(minimum);
   const parsedMaximum = maximum === "" ? null : Number(maximum);
-  if (parsedMinimum != null && Number.isFinite(parsedMinimum) && value < parsedMinimum)
+  if (
+    value == null &&
+    ((parsedMinimum != null && Number.isFinite(parsedMinimum)) ||
+      (parsedMaximum != null && Number.isFinite(parsedMaximum)))
+  ) return false;
+  if (value != null && parsedMinimum != null && Number.isFinite(parsedMinimum) && value < parsedMinimum)
     return false;
-  if (parsedMaximum != null && Number.isFinite(parsedMaximum) && value > parsedMaximum)
+  if (value != null && parsedMaximum != null && Number.isFinite(parsedMaximum) && value > parsedMaximum)
     return false;
   return true;
 }
@@ -494,11 +485,15 @@ export function deriveFilterOptions(rows: EconomyRow[]) {
 
 export function marketStats(rows: EconomyRow[]) {
   const reliable = rows.filter((row) => !row.lowConfidence);
-  const trustedRows = reliable.length > 0 ? reliable : rows;
-  const changed = trustedRows.filter((row) => row.change != null);
-  const gainers = [...changed].sort((a, b) => (b.change || 0) - (a.change || 0));
-  const losers = [...changed].sort((a, b) => (a.change || 0) - (b.change || 0));
-  const liquid = [...trustedRows].sort(
+  const gainers = reliable
+    .filter((row) => row.change != null && row.change > 0)
+    .sort((a, b) => (b.change || 0) - (a.change || 0));
+  const losers = reliable
+    .filter((row) => row.change != null && row.change < 0)
+    .sort((a, b) => (a.change || 0) - (b.change || 0));
+  const liquid = reliable
+    .filter((row) => (row.volume ?? row.listingCount) != null && (row.volume ?? row.listingCount ?? 0) > 0)
+    .sort(
     (a, b) =>
       (b.volume ?? b.listingCount ?? 0) - (a.volume ?? a.listingCount ?? 0),
   );

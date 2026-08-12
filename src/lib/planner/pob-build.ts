@@ -7,6 +7,9 @@ export interface ImportedPassiveSpec {
   secondaryAscendClassId: number;
   nodes: number[];
   masteryEffects: Record<number, number>;
+  clusterHashFormatVersion?: number;
+  unknownAttributes?: Record<string, string>;
+  unknownChildren?: string[];
   sockets?: Record<number, number>;
   extendedHashes?: number[];
   skillOverrides?: Record<number, Record<string, unknown>>;
@@ -137,7 +140,7 @@ export interface ImportedPobBuild {
   skillGroups: ImportedPobSkillGroup[];
   config: Record<string, string | number | boolean>;
   playerStats: ImportedPobStat[];
-  statSource: "pob-engine" | "pob-snapshot" | "character-api" | "none";
+  statSource: "pob-engine" | "pob-snapshot" | "none";
   notes: string;
 }
 
@@ -195,6 +198,33 @@ function masteryMap(value = "") {
   );
 }
 
+function uniqueNumberList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(Number).filter((entry) => Number.isSafeInteger(entry) && entry >= 0))];
+}
+
+/** Accepts only the numeric version family used by Path of Exile 1 builds. */
+export function isPoe1PobVersion(value: unknown) {
+  const version = typeof value === "string" ? value.trim() : "";
+  return !version || /^[1-9]\d*(?:[._]\d+)*$/.test(version);
+}
+
+export function withPassiveSpecAllocation(
+  spec: ImportedPassiveSpec,
+  allocation: Iterable<number>,
+) {
+  const nodes = new Set([...allocation].map(Number)
+    .filter((entry) => Number.isSafeInteger(entry) && entry >= 0));
+
+  const masteryEffects = Object.fromEntries(Object.entries(spec.masteryEffects)
+    .filter(([nodeId]) => nodes.has(Number(nodeId))));
+  return {
+    ...spec,
+    nodes: [...nodes],
+    masteryEffects,
+  };
+}
+
 export function itemIdentityFromPobText(text: string) {
   const lines = text.replace(/\r\n/g, "\n").split("\n").map((line) => line.trim());
   const rarityIndex = lines.findIndex((line) => /^Rarity:/i.test(line));
@@ -224,159 +254,11 @@ export function trustedPoeIconUrl(value: unknown) {
   }
 }
 
-function normalizedAssetName(value: unknown) {
-  return String(value || "")
-    .replace(/<<[^>]+>>/g, "")
-    .replace(/[^a-z0-9]+/gi, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function canonicalEquipmentSlot(value: unknown) {
-  const slot = String(value || "").replace(/[^a-z0-9]+/gi, "").toLowerCase();
-  const aliases: Record<string, string> = {
-    weapon: "weapon1",
-    weapon1: "weapon1",
-    mainhand: "weapon1",
-    offhand: "weapon2",
-    weapon2: "weapon2",
-    helm: "helmet",
-    helmet: "helmet",
-    bodyarmour: "bodyarmour",
-    bodyarmor: "bodyarmour",
-    chest: "bodyarmour",
-    gloves: "gloves",
-    boots: "boots",
-    amulet: "amulet",
-    ring: "ring1",
-    ring1: "ring1",
-    ring2: "ring2",
-    belt: "belt",
-    flask: "flask1",
-    flask1: "flask1",
-    flask2: "flask2",
-    flask3: "flask3",
-    flask4: "flask4",
-    flask5: "flask5",
-    weapon1swap: "weapon1swap",
-    weapon2swap: "weapon2swap",
-    weaponswap: "weapon1swap",
-    offhandswap: "weapon2swap",
-  };
-  return aliases[slot] || slot;
-}
-
-function canonicalCharacterEquipmentSlot(value: unknown) {
-  const slot = String(value || "").replace(/[^a-z0-9]+/gi, "").toLowerCase();
-  const officialCharacterSlots: Record<string, string> = {
-    weapon: "weapon1",
-    offhand: "weapon2",
-    weapon2: "weapon1swap",
-    offhand2: "weapon2swap",
-  };
-  return officialCharacterSlots[slot] || canonicalEquipmentSlot(value);
-}
-
 function inventoryDimension(value: unknown, maximum: number) {
   const numeric = Number(value);
   return Number.isSafeInteger(numeric) && numeric >= 1 && numeric <= maximum
     ? numeric
     : undefined;
-}
-
-function characterCollections(character: Record<string, unknown>) {
-  const arrays = [character.equipment, character.inventory, character.jewels]
-    .filter(Array.isArray) as unknown[][];
-  const queue = arrays.flat().filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object");
-  const items: Record<string, unknown>[] = [];
-  const seen = new Set<Record<string, unknown>>();
-  while (queue.length) {
-    const item = queue.shift();
-    if (!item || seen.has(item)) continue;
-    seen.add(item);
-    items.push(item);
-    if (Array.isArray(item.socketedItems)) {
-      queue.push(...item.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object"));
-    }
-  }
-  return items;
-}
-
-function rawCharacterItemNames(item: Record<string, unknown>) {
-  return [item.name, item.typeLine, item.baseType]
-    .map(normalizedAssetName)
-    .filter(Boolean);
-}
-
-function itemUniqueId(item: ImportedPobItem) {
-  return /^Unique ID:\s*(.+)$/im.exec(item.text)?.[1]?.trim() || "";
-}
-
-/**
- * Reattaches official item and gem artwork that PoB necessarily drops when it
- * serializes an official character payload to XML. No account data is copied;
- * only already-public web.poecdn.com image URLs are retained in local state.
- */
-export function enrichPobBuildWithCharacterAssets(
-  build: ImportedPobBuild,
-  character: Record<string, unknown>,
-) {
-  const rawItems = characterCollections(character);
-  const rawById = new Map(rawItems.flatMap((item) => {
-    const id = typeof item.id === "string" ? item.id.trim() : "";
-    return id ? [[id, item] as const] : [];
-  }));
-  const equipment = rawItems.filter((item) => canonicalCharacterEquipmentSlot(item.inventoryId));
-  const rawForBuildItem = (item: ImportedPobItem) => {
-    const uniqueId = itemUniqueId(item);
-    if (uniqueId && rawById.has(uniqueId)) return rawById.get(uniqueId);
-    const slot = canonicalEquipmentSlot(item.slot);
-    const itemNames = [normalizedAssetName(item.name), normalizedAssetName(item.baseType)].filter(Boolean);
-    const candidates = slot
-      ? equipment.filter((candidate) => canonicalCharacterEquipmentSlot(candidate.inventoryId) === slot)
-      : rawItems;
-    return candidates.find((candidate) => rawCharacterItemNames(candidate).some((name) => itemNames.includes(name)))
-      || rawItems.find((candidate) => rawCharacterItemNames(candidate).some((name) => itemNames.includes(name)));
-  };
-  const items = build.items.map((item) => {
-    const raw = rawForBuildItem(item);
-    const icon = trustedPoeIconUrl(raw?.icon);
-    const width = inventoryDimension(raw?.w, 4);
-    const height = inventoryDimension(raw?.h, 6);
-    return {
-      ...item,
-      ...(icon ? { icon } : {}),
-      ...(width ? { width } : {}),
-      ...(height ? { height } : {}),
-    };
-  });
-
-  const allSocketed = rawItems.flatMap((item) => Array.isArray(item.socketedItems)
-    ? item.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
-    : []);
-  const usedSocketed = new Set<Record<string, unknown>>();
-  const skillGroups = build.skillGroups.map((group) => {
-    const slot = canonicalEquipmentSlot(group.slot);
-    const slotItem = rawItems.find((item) => slot && canonicalCharacterEquipmentSlot(item.inventoryId) === slot);
-    const localSocketed = Array.isArray(slotItem?.socketedItems)
-      ? slotItem.socketedItems.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
-      : [];
-    const gems = group.gems.map((gem) => {
-      const name = normalizedAssetName(gem.name);
-      const candidates = [...localSocketed, ...allSocketed].filter((candidate) => !usedSocketed.has(candidate));
-      const raw = candidates.find((candidate) => rawCharacterItemNames(candidate).includes(name));
-      if (!raw) return gem;
-      usedSocketed.add(raw);
-      const icon = trustedPoeIconUrl(raw.icon);
-      return {
-        ...gem,
-        ...(icon ? { icon } : {}),
-        ...(typeof raw.support === "boolean" ? { support: raw.support } : {}),
-      };
-    });
-    return { ...group, gems };
-  });
-  return { ...build, items, skillGroups };
 }
 
 function valueFromInput(attrs: Record<string, string>) {
@@ -454,6 +336,25 @@ function parsePlayerStats(buildBody: string): ImportedPobStat[] {
   });
 }
 
+const KNOWN_SPEC_ATTRIBUTES = new Set([
+  "title",
+  "treeVersion",
+  "classId",
+  "ascendClassId",
+  "secondaryAscendClassId",
+  "nodes",
+  "masteryEffects",
+  "clusterHashFormatVersion",
+]);
+
+function preservedSpecChildren(body: string) {
+  return Array.from(body.matchAll(/<([:\w.-]+)\b[^>]*(?:\/\s*>|>[\s\S]*?<\/\1\s*>)/gi), (match) => ({
+    tag: match[1],
+    xml: match[0],
+  })).filter(({ tag }) => !/^(?:Sockets|Overrides)$/i.test(tag))
+    .map(({ xml }) => xml);
+}
+
 export function parsePobXml(xml: string): ImportedPobBuild {
   if (!/<PathOfBuilding\b/i.test(xml)) throw new Error("This XML has no PathOfBuilding root.");
   const buildMatch = /<Build\b([^>]*)>([\s\S]*?)<\/Build>|<Build\b([^>]*)\/>/i.exec(xml);
@@ -503,6 +404,7 @@ export function parsePobXml(xml: string): ImportedPobBuild {
     (treeSection?.[2] || xml).matchAll(/<Spec\b([^>]*?)(?:\/>|>([\s\S]*?)<\/Spec>)/gi),
     (match, index) => {
       const value = attributes(match[1]);
+      const body = match[2] || "";
       const sockets = Object.fromEntries(Array.from((match[2] || "").matchAll(/<Socket\b([^>]*?)\/>/gi), (socket) => {
         const socketValue = attributes(socket[1]);
         return [Number(socketValue.nodeId), Number(socketValue.itemId)];
@@ -517,6 +419,13 @@ export function parsePobXml(xml: string): ImportedPobBuild {
           stats,
         }];
       }).filter(([nodeId]) => Number(nodeId) > 0));
+      const unknownAttributes = Object.fromEntries(Object.entries(value)
+        .filter(([name]) => !KNOWN_SPEC_ATTRIBUTES.has(name) && !/InternalId$/i.test(name)));
+      const unknownChildren = preservedSpecChildren(body);
+      const treeVersion = value.treeVersion || "";
+      const explicitClusterVersion = optionalNumberAttribute(value.clusterHashFormatVersion);
+      const clusterHashFormatVersion = explicitClusterVersion
+        ?? (value.nodes != null ? 1 : 2);
       if (index === activeSpec - 1) {
         for (const [nodeId, itemId] of Object.entries(sockets)) {
           if (!itemSlots.has(Number(itemId))) itemSlots.set(Number(itemId), `Jewel ${nodeId}`);
@@ -525,17 +434,24 @@ export function parsePobXml(xml: string): ImportedPobBuild {
       return {
         id: `spec-${index}-${value.title || "default"}`,
         title: value.title || `Tree ${index + 1}`,
-        treeVersion: value.treeVersion || "",
+        treeVersion,
         classId: Number(value.classId) || 0,
         ascendClassId: Number(value.ascendClassId) || 0,
         secondaryAscendClassId: Number(value.secondaryAscendClassId) || 0,
         nodes: numberList(value.nodes),
         masteryEffects: masteryMap(value.masteryEffects),
+        ...(clusterHashFormatVersion != null ? { clusterHashFormatVersion } : {}),
+        ...(Object.keys(unknownAttributes).length ? { unknownAttributes } : {}),
+        ...(unknownChildren.length ? { unknownChildren } : {}),
         sockets,
         skillOverrides,
       };
     },
   );
+  if (!isPoe1PobVersion(build.targetVersion)
+    || specs.some((spec) => !isPoe1PobVersion(spec.treeVersion))) {
+    throw new Error("This build does not target Path of Exile 1.");
+  }
   const items: ImportedPobItem[] = Array.from(
     (itemsSection?.[2] || "").matchAll(/<Item\b([^>]*)>([\s\S]*?)<\/Item>/gi),
     (match, index) => {
@@ -611,6 +527,7 @@ export function parsePobXml(xml: string): ImportedPobBuild {
       classId: 0,
       ascendClassId: 0,
       secondaryAscendClassId: 0,
+      clusterHashFormatVersion: 2,
       nodes: [],
       masteryEffects: {},
       sockets: {},
@@ -1063,10 +980,43 @@ function serializeItems(build: ImportedPobBuild) {
   return `<Items activeItemSet="${activeId}">${items ? `\n${items}` : ""}${sets ? `\n${sets}` : ""}\n\t</Items>`;
 }
 
+function specAttributePatch(spec: ImportedPassiveSpec) {
+  const patch: Record<string, unknown> = {
+    title: spec.title,
+    treeVersion: spec.treeVersion,
+    classId: spec.classId,
+    ascendClassId: spec.ascendClassId,
+    secondaryAscendClassId: spec.secondaryAscendClassId,
+    nodes: spec.nodes.join(","),
+    masteryEffects: Object.entries(spec.masteryEffects).map(([node, effect]) => `{${node},${effect}}`).join(","),
+  };
+  if (spec.clusterHashFormatVersion !== undefined) patch.clusterHashFormatVersion = spec.clusterHashFormatVersion;
+  return patch;
+}
+
+function serializedSpecOpening(spec: ImportedPassiveSpec) {
+  const attributes = {
+    ...(spec.unknownAttributes || {}),
+    ...specAttributePatch(spec),
+  };
+  const serialized = Object.entries(attributes)
+    .filter(([name]) => /^[\w:.-]+$/.test(name))
+    .map(([name, value]) => `${name}="${escapeXmlAttribute(value)}"`)
+    .join(" ");
+  return `\t\t<Spec ${serialized}`;
+}
+
+function safeUnknownSpecChildren(spec: ImportedPassiveSpec) {
+  return (spec.unknownChildren || []).filter((child) => (
+    /^<([:\w.-]+)\b[^>]*(?:\/\s*>|>[\s\S]*<\/\1\s*>)$/i.test(child.trim())
+    && !/^<(?:Sockets|Overrides)\b/i.test(child.trim())
+  ));
+}
+
 function serializeTree(specs: ImportedPassiveSpec[], activeSpecId: string) {
   const activeIndex = Math.max(0, specs.findIndex((spec) => spec.id === activeSpecId));
   const rows = specs.map((spec) => {
-    const opening = `\t\t<Spec title="${escapeXmlAttribute(spec.title)}" treeVersion="${escapeXmlAttribute(spec.treeVersion)}" classId="${spec.classId}" ascendClassId="${spec.ascendClassId}" secondaryAscendClassId="${spec.secondaryAscendClassId}" nodes="${spec.nodes.join(",")}" masteryEffects="${Object.entries(spec.masteryEffects).map(([node, effect]) => `{${node},${effect}}`).join(",")}"`;
+    const opening = serializedSpecOpening(spec);
     const sockets = Object.entries(spec.sockets || {}).map(([nodeId, itemId]) => `\t\t\t\t<Socket nodeId="${nodeId}" itemId="${itemId}"/>`).join("\n");
     const overrides = Object.entries(spec.skillOverrides || {}).map(([nodeId, raw]) => {
       const override = record(raw);
@@ -1077,6 +1027,7 @@ function serializeTree(specs: ImportedPassiveSpec[], activeSpecId: string) {
     const children = [
       sockets ? `\t\t\t<Sockets>\n${sockets}\n\t\t\t</Sockets>` : "",
       overrides ? `\t\t\t<Overrides>\n${overrides}\n\t\t\t</Overrides>` : "",
+      ...safeUnknownSpecChildren(spec).map((child) => `\t\t\t${child.trim().replace(/\n/g, "\n\t\t\t")}`),
     ].filter(Boolean).join("\n");
     return children ? `${opening}>\n${children}\n\t\t</Spec>` : `${opening}/>`;
   }).join("\n");
@@ -1166,16 +1117,8 @@ function patchTree(source: string, specs: ImportedPassiveSpec[], activeSpecId: s
   let output = source.replace(/<Spec\b[^>]*(?:\/>|>[\s\S]*?<\/Spec>)/gi, (block) => {
     const spec = specs[specIndex++];
     if (!spec) return block;
-    const socketPatched = patchSpecSockets(block, spec.sockets || {});
-    return socketPatched.replace(/^<Spec\b[^>]*\/?>/i, (opening) => updateXmlAttributes(opening, {
-      title: spec.title,
-      treeVersion: spec.treeVersion,
-      classId: spec.classId,
-      ascendClassId: spec.ascendClassId,
-      secondaryAscendClassId: spec.secondaryAscendClassId,
-      nodes: spec.nodes.join(","),
-      masteryEffects: Object.entries(spec.masteryEffects).map(([node, effect]) => `{${node},${effect}}`).join(","),
-    }));
+    const structured = patchSpecSockets(block, spec.sockets || {});
+    return structured.replace(/^<Spec\b[^>]*\/?>/i, (opening) => updateXmlAttributes(opening, specAttributePatch(spec)));
   });
   if (specIndex < specs.length) {
     const extra = serializeTree(specs.slice(specIndex), specs[specIndex]?.id || "")
@@ -1517,6 +1460,14 @@ function objectRecord(value: unknown) {
   }));
 }
 
+function stringRecord(value: unknown) {
+  return Object.fromEntries(Object.entries(record(value)).flatMap(([key, rawValue]) => (
+    /^[\w:.-]+$/.test(key) && !KNOWN_SPEC_ATTRIBUTES.has(key) && !/InternalId$/i.test(key) && typeof rawValue === "string"
+      ? [[key, rawValue.slice(0, 4_096)]]
+      : []
+  )));
+}
+
 /** Runtime-safe normalisation for JSON workspaces written by any planner version. */
 export function normalizeImportedPassiveSpecs(value: unknown): ImportedPassiveSpec[] {
   if (!Array.isArray(value)) return [];
@@ -1529,15 +1480,31 @@ export function normalizeImportedPassiveSpecs(value: unknown): ImportedPassiveSp
     const extendedHashes = Array.isArray(spec.extendedHashes)
       ? [...new Set(spec.extendedHashes.map((entry) => finiteInteger(entry, -1)).filter((entry) => entry >= 0))]
       : undefined;
+    const treeVersion = typeof spec.treeVersion === "string" ? spec.treeVersion.slice(0, 40) : "";
+    const clusterHashFormatVersion = finiteInteger(spec.clusterHashFormatVersion, -1);
+    const unknownAttributes = stringRecord(spec.unknownAttributes);
+    const unknownChildren = Array.isArray(spec.unknownChildren)
+      ? spec.unknownChildren.filter((child): child is string => (
+          typeof child === "string"
+          && child.length <= 65_536
+          && /^<([:\w.-]+)\b[^>]*(?:\/\s*>|>[\s\S]*<\/\1\s*>)$/i.test(child.trim())
+          && !/^<(?:Sockets|Overrides)\b/i.test(child.trim())
+        )).slice(0, 64)
+      : undefined;
     return [{
       id: typeof spec.id === "string" && spec.id.trim() ? spec.id.slice(0, 160) : `spec-${index + 1}`,
       title: typeof spec.title === "string" && spec.title.trim() ? spec.title.slice(0, 160) : `Tree ${index + 1}`,
-      treeVersion: typeof spec.treeVersion === "string" ? spec.treeVersion.slice(0, 40) : "",
+      treeVersion,
       classId: finiteInteger(spec.classId),
       ascendClassId: finiteInteger(spec.ascendClassId),
       secondaryAscendClassId: finiteInteger(spec.secondaryAscendClassId),
       nodes,
       masteryEffects: numericRecord(spec.masteryEffects),
+      ...(clusterHashFormatVersion >= 1
+        ? { clusterHashFormatVersion }
+        : { clusterHashFormatVersion: 2 }),
+      ...(Object.keys(unknownAttributes).length ? { unknownAttributes } : {}),
+      ...(unknownChildren?.length ? { unknownChildren } : {}),
       sockets: numericRecord(spec.sockets),
       ...(extendedHashes ? { extendedHashes } : {}),
       ...(spec.skillOverrides && typeof spec.skillOverrides === "object" ? { skillOverrides: objectRecord(spec.skillOverrides) } : {}),
@@ -1551,6 +1518,16 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
   if (!value || typeof value !== "object") return null;
   const source = record(value);
   const className = typeof source.className === "string" && source.className.trim() ? source.className : "Scion";
+  const sourceXml = typeof source.xml === "string" ? source.xml : "";
+  let xmlBuild: ImportedPobBuild | null = null;
+  if (sourceXml.trim()) {
+    try {
+      xmlBuild = parsePobXml(sourceXml);
+    } catch {
+      return null;
+    }
+  }
+  if (!isPoe1PobVersion(source.targetVersion)) return null;
   const fallback = emptyPobBuild(className);
   const items = Array.isArray(source.items) ? source.items.flatMap((rawItem, index) => {
     if (!rawItem || typeof rawItem !== "object") return [];
@@ -1704,12 +1681,30 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
       percent: typeof stat.percent === "boolean" ? stat.percent : pobStatPercent(name),
     }];
   }) : [];
-  const statSource = source.statSource === "pob-engine" || source.statSource === "pob-snapshot" || source.statSource === "character-api" || source.statSource === "none"
+  const statSource = source.statSource === "character-api"
+    ? playerStats.length ? "pob-snapshot" : "none"
+    : source.statSource === "pob-engine" || source.statSource === "pob-snapshot" || source.statSource === "none"
     ? source.statSource
     : playerStats.length ? "pob-snapshot" : "none";
+  const rawSpecs = Array.isArray(source.specs) ? source.specs : [];
+  const normalizedSpecs = normalizeImportedPassiveSpecs(rawSpecs);
+  if (normalizedSpecs.some((spec) => !isPoe1PobVersion(spec.treeVersion))) return null;
+  const specs = normalizedSpecs.length ? normalizedSpecs.map((spec, index) => {
+    const rawSpec = record(rawSpecs[index]);
+    const xmlSpec = xmlBuild?.specs[index];
+    if (!xmlSpec) return spec;
+    return {
+      ...spec,
+      ...(rawSpec.clusterHashFormatVersion === undefined && xmlSpec.clusterHashFormatVersion !== undefined
+        ? { clusterHashFormatVersion: xmlSpec.clusterHashFormatVersion }
+        : {}),
+      ...(rawSpec.unknownAttributes === undefined && xmlSpec.unknownAttributes ? { unknownAttributes: xmlSpec.unknownAttributes } : {}),
+      ...(rawSpec.unknownChildren === undefined && xmlSpec.unknownChildren ? { unknownChildren: xmlSpec.unknownChildren } : {}),
+    };
+  }) : xmlBuild?.specs || [];
   return {
     ...fallback,
-    xml: typeof source.xml === "string" ? source.xml : "",
+    xml: sourceXml,
     level: Math.max(1, finiteInteger(source.level, 1)),
     className,
     ascendancyName: typeof source.ascendancyName === "string" ? source.ascendancyName : "",
@@ -1719,7 +1714,7 @@ export function normalizeImportedPobBuild(value: Partial<ImportedPobBuild> | nul
     activeSpec: Math.max(1, finiteInteger(source.activeSpec, 1)),
     activeItemSet: Math.max(1, finiteInteger(source.activeItemSet, 1)),
     activeSkillSet: Math.max(1, finiteInteger(source.activeSkillSet, 1)),
-    specs: normalizeImportedPassiveSpecs(source.specs),
+    specs,
     items,
     itemSets,
     skillGroups,

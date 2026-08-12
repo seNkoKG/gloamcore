@@ -43,20 +43,18 @@ function minimalAsar(jsonText: string, extraPayloadBytes = 0) {
 }
 
 describe("desktop release Trade endpoint policy", () => {
-  it("permits official search, fetch, and exchange routes only in the vetted desktop client", () => {
-    expect(() => assertNoForbiddenText(
-      "vetted client",
-      Buffer.from("/api/trade/search/ /api/trade/fetch/ /api/trade/exchange/"),
+  it("rejects undocumented Trade routes from every packaged runtime path", () => {
+    for (const relativePath of [
+      "electron/main.cjs",
       "electron/official-trade-listings.cjs",
-    )).not.toThrow();
-
-    for (const relativePath of ["electron/main.cjs", "dist/assets/index.js"]) {
-      for (const route of ["search", "fetch", "exchange"]) {
+      "dist/assets/index.js",
+    ]) {
+      for (const route of ["search", "fetch", "exchange", "data"]) {
         expect(() => assertNoForbiddenText(
           relativePath,
-          Buffer.from(`/api/trade/${route}/`),
+          Buffer.from(["/api/trade", route, ""].join("/")),
           relativePath,
-        )).toThrow(/outside the vetted client/i);
+        )).toThrow(/undocumented Trade/i);
       }
     }
   });
@@ -65,8 +63,62 @@ describe("desktop release Trade endpoint policy", () => {
     expect(() => assertNoForbiddenText(
       "vetted client",
       Buffer.from("price-check:search-trade"),
-      "electron/official-trade-listings.cjs",
+      "electron/main.cjs",
     )).toThrow(/legacy Trade IPC/i);
+  });
+});
+
+describe("desktop release poe.ninja proxy boundary", () => {
+  it("rejects direct economy API clients but permits user-facing economy links", () => {
+    expect(() => assertNoForbiddenText(
+      "app.asar",
+      Buffer.from("https://poe.ninja/poe1/api/economy/leagues"),
+      "electron/main.cjs",
+    )).toThrow(/direct end-user poe\.ninja API/i);
+    expect(() => assertNoForbiddenText(
+      "app.asar",
+      Buffer.from("https://poe.ninja/poe1/economy/Allflame/currency"),
+      "dist/assets/index.js",
+    )).not.toThrow();
+  });
+});
+
+describe("desktop release rejected PoE account boundary", () => {
+  it.each([
+    "oauth:connect",
+    "stash:sync",
+    "planner:list-characters",
+    "poe-character-import.cjs",
+    '"import-character"',
+    "account:characters",
+  ])("rejects %s from packaged application content", (forbidden) => {
+    expect(() => assertNoForbiddenText(
+      "app.asar",
+      Buffer.from(forbidden),
+      "electron/main.cjs",
+    )).toThrow(/rejected PoE/i);
+  });
+});
+
+describe("desktop release single-game boundary", () => {
+  it.each([
+    ["PoE", String(1 + 1)].join(" "),
+    ["Path of Exile", "I".repeat(2)].join(" "),
+    ["PoB", ["t", "w", "o"].join("")].join(" "),
+  ])("rejects unsupported game marker %s from packaged application content", (marker) => {
+    expect(() => assertNoForbiddenText(
+      "app.asar",
+      Buffer.from(marker),
+      "electron/main.cjs",
+    )).toThrow(/unsupported second-game/i);
+  });
+
+  it("does not confuse pinned PoB release versions with a game marker", () => {
+    expect(() => assertNoForbiddenText(
+      "app.asar",
+      Buffer.from("Path of Building 2.67.2; PoB 2.67.2"),
+      "electron/main.cjs",
+    )).not.toThrow();
   });
 });
 

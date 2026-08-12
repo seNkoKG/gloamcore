@@ -78,8 +78,18 @@ export function isWatchPriceActionable(entry: WatchEntry, now = Date.now()) {
     Number.isFinite(entry.marketFetchedAt) &&
     Number.isFinite(now) &&
     age >= 0 &&
-    age <= MAX_ACTIONABLE_PRICE_AGE_MS
+    age <= MAX_ACTIONABLE_PRICE_AGE_MS &&
+    (entry.targetPrice == null ||
+      !entry.targetUnit ||
+      watchTargetMarketValue(entry) != null)
   );
+}
+
+function watchTargetMarketValue(entry: WatchEntry) {
+  if (!entry.targetUnit) return null;
+  const value =
+    entry.targetUnit === "chaos" ? entry.row.chaosValue : entry.row.divineValue;
+  return value != null && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 export function isWatchTargetHit(entry: WatchEntry, now = Date.now()) {
@@ -90,9 +100,8 @@ export function isWatchTargetHit(entry: WatchEntry, now = Date.now()) {
   ) {
     return false;
   }
-  const current =
-    entry.targetUnit === "chaos" ? entry.row.chaosValue : entry.row.divineValue;
-  return current <= entry.targetPrice;
+  const current = watchTargetMarketValue(entry);
+  return current != null && current <= entry.targetPrice;
 }
 
 export function watchAlertDecision(
@@ -107,7 +116,8 @@ export function watchAlertDecision(
     !initialRefreshComplete ||
     !isWatchPriceActionable(entry, now) ||
     entry.targetPrice == null ||
-    !entry.targetUnit
+    !entry.targetUnit ||
+    watchTargetMarketValue(entry) == null
   ) {
     return { notify: false };
   }

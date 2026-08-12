@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PassiveTreeData, PassiveTreeNodeData } from "../../types";
-import { addPobConfigSet, addPobSkillSet, emptyPobBuild, enrichPobBuildWithCharacterAssets, itemsWithPassiveSpecLoadout, parsePobXml, pobConfigSetSummaries, pobCustomModifierBlocks, pobSkillSetSummaries, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout, withActivePobConfigSet, withActivePobItemSet, withActivePobSkillSet, withPobConfigSetTitle, withPobCustomModifierBlocks, withPobItemEquipped, withPobItemText, withPobSkillSetTitle, withoutPobConfigSet, withoutPobItem, withoutPobSkillSet } from "./pob-build";
+import { addPobConfigSet, addPobSkillSet, emptyPobBuild, itemsWithPassiveSpecLoadout, normalizeImportedPobBuild, normalizeImportedPassiveSpecs, parsePobXml, pobConfigSetSummaries, pobCustomModifierBlocks, pobSkillSetSummaries, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout, withActivePobConfigSet, withActivePobItemSet, withActivePobSkillSet, withPobConfigSetTitle, withPobCustomModifierBlocks, withPobItemEquipped, withPobItemText, withPobSkillSetTitle, withoutPobConfigSet, withoutPobItem, withoutPobSkillSet } from "./pob-build";
 import { applyImportedMasteryEffects } from "./cluster-jewel-graph";
 import {
   comparePlannerBuilds,
@@ -77,6 +77,12 @@ const tree: PassiveTreeData = {
 describe("passive graph behavior", () => {
   it("allocates the shortest path from the current tree", () => {
     expect(shortestAllocationPath(tree, new Set([1]), 5, 0)).toEqual([2, 4, 5]);
+  });
+
+  it("never targets or paths through nodes owned by another weapon set", () => {
+    const context = { remoteProviders: [], blockedNodeIds: new Set([4]) };
+    expect(shortestAllocationPath(tree, new Set([1]), 5, 0, undefined, undefined, context)).toEqual([]);
+    expect(shortestAllocationPath(tree, new Set([1]), 4, 0, undefined, undefined, context)).toEqual([]);
   });
 
   it("refunds dependent disconnected branches", () => {
@@ -327,45 +333,39 @@ describe("Path of Building XML import", () => {
     expect(pobStatPercent("EffectiveMovementSpeedMod")).toBe(false);
   });
 
-  it("retains only trusted official artwork from character imports", () => {
-    const build = parsePobXml(`<PathOfBuilding><Build mainSocketGroup="1"/><Tree><Spec nodes="1"/></Tree><Items activeItemSet="1"><Item id="7">Rarity: RARE\nStorm Crown\nHubris Circlet\n--------\nUnique ID: helmet-id</Item><ItemSet id="1"><Slot name="Helmet" itemId="7"/></ItemSet></Items><Skills><SkillSet id="1"><Skill slot="Helmet"><Gem nameSpec="Kinetic Blast" skillId="KineticBlast" level="20" quality="0"/></Skill></SkillSet></Skills></PathOfBuilding>`);
-    const enriched = enrichPobBuildWithCharacterAssets(build, {
-      equipment: [{
-        id: "helmet-id",
-        inventoryId: "Helm",
-        name: "Storm Crown",
-        typeLine: "Hubris Circlet",
-        icon: "https://web.poecdn.com/image/helmet.png",
-        w: 2,
-        h: 2,
-        socketedItems: [{ typeLine: "Kinetic Blast", icon: "https://web.poecdn.com/image/kinetic-blast.png", support: false }],
-      }],
-      jewels: [{ id: "bad", typeLine: "Cobalt Jewel", icon: "https://example.com/tracker.png" }],
-    });
-
-    expect(enriched.items[0]).toMatchObject({ icon: "https://web.poecdn.com/image/helmet.png", width: 2, height: 2 });
-    expect(enriched.skillGroups[0].gems[0]).toMatchObject({ icon: "https://web.poecdn.com/image/kinetic-blast.png", support: false });
-    expect(JSON.stringify(enriched)).not.toContain("example.com");
+  it("rejects builds outside the Path of Exile 1 version family", () => {
+    expect(() => parsePobXml('<PathOfBuilding><Build targetVersion="0_1"/><Tree><Spec treeVersion="3_29" nodes="1"/></Tree></PathOfBuilding>')).toThrow(/does not target Path of Exile 1/);
+    expect(() => parsePobXml('<PathOfBuilding><Build targetVersion="3_0"/><Tree><Spec treeVersion="0_3" nodes="1"/></Tree></PathOfBuilding>')).toThrow(/does not target Path of Exile 1/);
   });
 
-  it("maps official active and swap weapon slots without conflating Weapon2 with the off-hand", () => {
-    const item = (id: number) => `<Item id="${id}">Rarity: NORMAL\nTest Sword</Item>`;
-    const build = parsePobXml(`<PathOfBuilding><Build/><Tree><Spec nodes="1"/></Tree><Items activeItemSet="1">${[1, 2, 3, 4].map(item).join("")}<ItemSet id="1"><Slot name="Weapon 1" itemId="1"/><Slot name="Weapon 2" itemId="2"/><Slot name="Weapon 1 Swap" itemId="3"/><Slot name="Weapon 2 Swap" itemId="4"/></ItemSet></Items><Skills><SkillSet id="1"/></Skills></PathOfBuilding>`);
-    const enriched = enrichPobBuildWithCharacterAssets(build, {
-      equipment: [
-        { inventoryId: "Weapon", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/active-main.png", w: 1, h: 3 },
-        { inventoryId: "Offhand", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/active-off.png", w: 1, h: 3 },
-        { inventoryId: "Weapon2", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/swap-main.png", w: 2, h: 4 },
-        { inventoryId: "Offhand2", typeLine: "Test Sword", icon: "https://web.poecdn.com/image/swap-off.png", w: 2, h: 3 },
-      ],
+  it("uses current cluster hashes for fresh PoE1 specs and migrates legacy stat provenance", () => {
+    expect(emptyPobBuild("Scion").targetVersion).toBe("3_0");
+    expect(normalizeImportedPassiveSpecs([{
+      id: "fresh", title: "Fresh", treeVersion: "3_29", classId: 0, ascendClassId: 0,
+      secondaryAscendClassId: 0, nodes: [], masteryEffects: {},
+    }])[0].clusterHashFormatVersion).toBe(2);
+    expect(parsePobXml('<PathOfBuilding><Build/><Tree><Spec treeVersion="3_29" nodes="1"/></Tree></PathOfBuilding>').specs[0].clusterHashFormatVersion).toBe(1);
+    expect(parsePobXml('<PathOfBuilding><Build/><Tree><Spec treeVersion="3_29"/></Tree></PathOfBuilding>').specs[0].clusterHashFormatVersion).toBe(2);
+    expect(parsePobXml('<PathOfBuilding><Build/><Tree><Spec treeVersion="3_29" clusterHashFormatVersion="2" nodes="1"/></Tree></PathOfBuilding>').specs[0].clusterHashFormatVersion).toBe(2);
+    const legacyXml = '<PathOfBuilding><Build/><Tree><Spec treeVersion="3_29" nodes="1"/></Tree></PathOfBuilding>';
+    const normalizedLegacy = normalizeImportedPobBuild({
+      ...emptyPobBuild(),
+      xml: legacyXml,
+      specs: [{
+        id: "legacy", title: "Legacy", treeVersion: "3_29", classId: 0, ascendClassId: 0,
+        secondaryAscendClassId: 0, nodes: [1], masteryEffects: {},
+      }],
     });
+    expect(normalizedLegacy?.specs[0].clusterHashFormatVersion).toBe(1);
 
-    expect(enriched.items.map(({ slot, icon, width, height }) => ({ slot, icon, width, height }))).toEqual([
-      { slot: "Weapon 1", icon: "https://web.poecdn.com/image/active-main.png", width: 1, height: 3 },
-      { slot: "Weapon 2", icon: "https://web.poecdn.com/image/active-off.png", width: 1, height: 3 },
-      { slot: "Weapon 1 Swap", icon: "https://web.poecdn.com/image/swap-main.png", width: 2, height: 4 },
-      { slot: "Weapon 2 Swap", icon: "https://web.poecdn.com/image/swap-off.png", width: 2, height: 3 },
-    ]);
+    const withoutStats = normalizeImportedPobBuild({ ...emptyPobBuild(), statSource: "character-api" } as never);
+    const withStats = normalizeImportedPobBuild({
+      ...emptyPobBuild(),
+      statSource: "character-api",
+      playerStats: [{ name: "Life", label: "Life", value: 4_000, category: "defence", percent: false }],
+    } as never);
+    expect(withoutStats?.statSource).toBe("none");
+    expect(withStats?.statSource).toBe("pob-snapshot");
   });
 
   it("exports edited trees and skills without dropping PoB-only spec children", () => {
@@ -686,7 +686,6 @@ describe("planner saved builds and comparisons", () => {
       id: "one",
       name: "  Boss\nBuild  ",
       tags: ["mapping", "mapping"],
-      game: "poe1",
       treeVersion: "3_29",
       build: null,
       specs: [],
@@ -716,7 +715,6 @@ describe("planner saved builds and comparisons", () => {
     const snapshot = createPlannerSnapshot({
       id: "active-workspace",
       name: "Persisted Witch",
-      game: "poe1",
       treeVersion: "3_29",
       build: imported,
       specs: [],
@@ -744,7 +742,7 @@ describe("planner saved builds and comparisons", () => {
     expect(() => parseActivePlannerWorkspace("{broken")).toThrow("left unchanged");
     expect(() => parseActivePlannerWorkspace(JSON.stringify({ version: 1, snapshot: { unexpected: true } }))).toThrow("unsupported format");
     const snapshot = createPlannerSnapshot({
-      game: "poe1", treeVersion: "3_29", build: null, specs: [], activeSpecId: "", classId: 0,
+      treeVersion: "3_29", build: null, specs: [], activeSpecId: "", classId: 0,
       ascendancyId: 0, allocated: [], editedSinceImport: false,
     });
     const unknownTab = JSON.stringify({ version: 1, tab: "secrets", savedAt: 1, snapshot });
@@ -766,7 +764,6 @@ describe("planner saved builds and comparisons", () => {
   it("refuses to serialize a library that the next launch would lock", () => {
     const snapshot = createPlannerSnapshot({
       id: "oversized",
-      game: "poe1",
       treeVersion: "3_29",
       build: { ...emptyPobBuild(), notes: "x".repeat(MAX_SAVED_PLANNER_LIBRARY_BYTES) },
       specs: [],

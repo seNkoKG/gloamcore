@@ -21,7 +21,7 @@ import { formatPrice, formatRelativeTime } from "../lib/format";
 import type { QuickSearchRow, SurfaceState } from "../types";
 import { CurrencyMark } from "./CurrencyMark";
 
-function openRow(row: QuickSearchRow) {
+function openRow(row: Pick<QuickSearchRow, "league" | "categoryId" | "source" | "key">) {
   return bridge.surfaceAction({
     type: "open-row",
     league: row.league,
@@ -159,18 +159,7 @@ export function TraySurface() {
               <button
                 type="button"
                 key={`${alert.league}:${alert.categoryId}:${alert.key}`}
-                onClick={() =>
-                  openRow({
-                    ...alert,
-                    categoryLabel: "",
-                    chaosValue: alert.unit === "chaos" ? alert.current : 0,
-                    divineValue: alert.unit === "divine" ? alert.current : 0,
-                    change: null,
-                    volume: null,
-                    listingCount: null,
-                    lowConfidence: false,
-                  })
-                }
+                onClick={() => openRow(alert)}
               >
                 <span className="tray-mini-icon">
                   {alert.icon ? <img src={alert.icon} alt="" /> : <Star size={13} />}

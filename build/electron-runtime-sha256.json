@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "platform": "win32-x64",
-  "electronVersion": "43.2.0",
+  "electronVersion": "43.3.0",
   "fileCount": 75,
-  "sha256": "a8d0e9b4c0b8035c9cf2f8a8a31aa4ddc41442e183db9c7c3c940c908e49f27f"
+  "sha256": "6861e5883f67b2e1f1dd12b4d9328bdf0cce7e9ef2201ef6999a8f8ffbb291aa"
 }

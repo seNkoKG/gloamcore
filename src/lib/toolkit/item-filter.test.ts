@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterActionProblem,
+  itemFilterFileMatchesMode,
+  itemFilterFileName,
+  itemFilterModeFromFileName,
+  ITEM_FILTER_ACTION_SCHEMA,
   moveBaseType,
   findMatchingFilterBlocks,
   parseItemFilter,
@@ -8,6 +13,7 @@ import {
   serializeItemFilter,
   setBlockAction,
   setBlockVisibility,
+  setItemFilterMode,
   validateItemFilter,
 } from "./item-filter";
 
@@ -385,5 +391,87 @@ describe("item filter editor", () => {
     });
     expect(matches.map((entry) => entry.firstMatch)).toEqual([true, false, false]);
     expect(matches.map((entry) => entry.matches)).toEqual([true, true, false]);
+  });
+
+  it("enforces the Normal/Ruthless visibility matrix without rewriting on mode switch", () => {
+    const text = [
+      "# future syntax stays authored",
+      "Hide",
+      "    FutureAction Preserve This Exactly",
+      "    SetTextColor 255 255 255 79",
+      "    SetFontSize 0",
+      "",
+    ].join("\n");
+    const normal = parseItemFilter(text, "normal");
+    expect(validateItemFilter(normal)).toEqual([
+      "Block 1: SetFontSize value 1 must be an integer from 1 to 45.",
+    ]);
+    const ruthless = setItemFilterMode(normal, "ruthless");
+    expect(serializeItemFilter(ruthless)).toBe(text);
+    expect(validateItemFilter(ruthless)).toEqual([
+      "Block 1: Hide blocks are not valid in Ruthless filters.",
+      "Block 1: SetTextColor alpha must be 80 or above in Ruthless filters.",
+      "Block 1: SetFontSize value 1 must be an integer from 1 to 45.",
+    ]);
+    expect(() => setBlockVisibility(ruthless, ruthless.blocks[0].id, "Hide")).toThrow(/not valid/);
+    expect(setBlockVisibility(ruthless, ruthless.blocks[0].id, "Minimal").blocks[0].visibility).toBe("Minimal");
+  });
+
+  it("uses official extensions to infer and propose filter modes", () => {
+    expect(itemFilterModeFromFileName("strict.ruthlessfilter")).toBe("ruthless");
+    expect(itemFilterModeFromFileName("strict.filter")).toBe("normal");
+    expect(itemFilterFileName("strict.filter", "ruthless")).toBe("strict.ruthlessfilter");
+    expect(itemFilterFileName("strict.ruthlessfilter", "normal")).toBe("strict.filter");
+    expect(itemFilterFileMatchesMode("strict.ruthlessfilter", "ruthless")).toBe(true);
+    expect(itemFilterFileMatchesMode("strict.filter", "ruthless")).toBe(false);
+  });
+
+  it("shares one action schema across direct edits, validation, replay, and UI bounds", () => {
+    expect(ITEM_FILTER_ACTION_SCHEMA.SetFontSize.numberRanges[0]).toEqual({ index: 0, min: 1, max: 45 });
+    expect(filterActionProblem("SetTextColor", ["1", "2", "3", "79"], "ruthless")).toContain("80 or above");
+    expect(filterActionProblem("SetTextColor", ["1", "2", "3", "80"], "ruthless")).toBeNull();
+    expect(filterActionProblem("MinimapIcon", ["2", "Cyan", "Diamond"], "normal")).toBeNull();
+    expect(filterActionProblem("PlayAlertSound", ["17", "100"], "normal")).toContain("1 to 16");
+
+    const document = parseItemFilter("Show\n    SetFontSize 30\n", "ruthless");
+    expect(() => setBlockAction(document, document.blocks[0].id, "SetFontSize", ["0"])).toThrow(/1 to 45/);
+    const intent = {
+      kind: "action" as const,
+      blockId: document.blocks[0].id,
+      tier: document.blocks[0].tier,
+      action: "SetTextColor",
+      values: ["255", "255", "255", "79"],
+      createdAt: 1,
+    };
+    const replay = replayFilterIntents(document, [intent]);
+    expect(replay.applied).toEqual([]);
+    expect(replay.skipped[0]?.reason).toContain("80 or above");
+    expect(serializeItemFilter(replay.document)).toBe(serializeItemFilter(document));
+  });
+
+  it("preserves unknown actions losslessly while editing a canonical action", () => {
+    const text = "Show\n\tFutureAction \"keep spacing\" # untouched\n\tSetFontSize 30 # edit me\n";
+    const document = parseItemFilter(text);
+    const edited = setBlockAction(document, document.blocks[0].id, "SetFontSize", ["31"]);
+    expect(serializeItemFilter(edited)).toBe(
+      "Show\n\tFutureAction \"keep spacing\" # untouched\n\tSetFontSize 31 # edit me\n",
+    );
+  });
+
+  it("refuses a final-base move that would delete opaque future syntax", () => {
+    const text = [
+      "# tier: Source",
+      "Show",
+      '    BaseType "Divine Orb"',
+      "FutureBlock",
+      "    FutureAction Preserve",
+      "# tier: Target",
+      "Show",
+      '    BaseType "Mirror of Kalandra"',
+    ].join("\n");
+    const document = parseItemFilter(text);
+    const moved = moveBaseType(document, document.blocks[0].id, "Divine Orb", document.blocks[1].id);
+    expect(moved).toBe(document);
+    expect(serializeItemFilter(moved)).toBe(text);
   });
 });

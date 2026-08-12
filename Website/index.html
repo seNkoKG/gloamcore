@@ -110,9 +110,10 @@
             <h1>One desktop.<br><span>Every PoE decision.</span></h1>
             <p class="hero__promise">Read the market. Price the item. Plan the build.</p>
             <p class="hero__lede">
-              GloamCore turns one Ctrl+D item copy into a compact, roll-aware market check,
-              then keeps economy tracking, item research, stash wealth, build planning, and
-              practical player tools in one focused workspace.
+              GloamCore turns one Ctrl+D item copy into a compact, roll-aware local check.
+              Tune an exact query plan locally, then open it on the official Trade website
+              with one deliberate click. Economy tracking, item research, stash wealth,
+              build planning, and practical player tools stay together.
             </p>
             <div class="hero__actions">
               <a class="button button--primary" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>
@@ -197,8 +198,8 @@
               <span class="step-grid__number">03</span>
               <div class="step-grid__visual step-grid__visual--signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
               <h3>Compare and decide</h3>
-              <p>Tune exact modifiers, review current asking-price evidence, then open the full official Trade query when needed.</p>
-              <small>Seller rows are asking prices</small>
+              <p>Tune exact modifiers locally, review aggregate market context, then open the encoded query on the official Trade website.</p>
+              <small>No in-app seller lookup</small>
             </li>
           </ol>
         </div>
@@ -223,7 +224,7 @@
               <div>
                 <p class="feature-card__label">Price Checker</p>
                 <h3>Price the actual item, not just its base.</h3>
-                <p>Parse copied item text locally, edit rolls and state filters, review anonymous official Trade listings, and hand the exact plan to the full Trade site.</p>
+                <p>Parse copied item text locally, edit rolls and state filters, then open the exact encoded plan on the official Trade website with a deliberate click.</p>
               </div>
               <ul class="chip-list"><li>Uniques</li><li>Rares</li><li>Maps</li><li>Gems</li><li>Jewels</li></ul>
               <div class="feature-card__key" aria-hidden="true"><kbd>Ctrl</kbd><span>+</span><kbd>D</kbd></div>
@@ -233,7 +234,7 @@
               <div class="feature-card__top"><span>02</span><small>Current economy</small></div>
               <p class="feature-card__label">Market + Watchlist</p>
               <h3>See movement before the tooltip lies by omission.</h3>
-              <p>Browse current-league poe.ninja markets, official Faustus completed-hour observations, liquidity, source age, and local price targets.</p>
+              <p>Browse current-league poe.ninja markets, documented Public Currency Exchange completed-hour evidence from Faustus, liquidity, source age, and local price targets. Missing Divine conversions stay unavailable, and weak samples cannot drive movers or alerts.</p>
               <div class="mini-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             </article>
 
@@ -249,7 +250,7 @@
               <div class="feature-card__top"><span>04</span><small>PoB-compatible workspace</small></div>
               <p class="feature-card__label">Build Lab</p>
               <h3>Work with the build, then send it home.</h3>
-              <p>Import PoB data, edit trees and masteries, manage items, skills, and configuration sets, compare saved specs, and export to Path of Building.</p>
+              <p>Import PoB data, edit passive allocations and masteries, manage equipment weapon sets, skills, and configuration sets, compare saved specs, and export without requesting a Path of Exile account profile.</p>
               <div class="node-map" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><b></b><b></b><b></b></div>
             </article>
 
@@ -266,7 +267,7 @@
               <div>
                 <p class="feature-card__label">Player Toolkit</p>
                 <h3>The small tools that usually cost five tabs.</h3>
-                <p>Check map mods, follow an in-memory event feed, solve Large Cluster Jewel back ordering, build regex, edit filters, compare socket colours, and audit economy data.</p>
+                <p>Check map mods, follow an in-memory event feed, solve Large Cluster Jewel back ordering, build full-tooltip-safe regex, edit Normal or Ruthless filters, compare socket colours, and audit economy data.</p>
               </div>
               <ul class="tool-list">
                 <li><span>MAP</span> Mod Check</li>
@@ -287,9 +288,9 @@
               <div class="overlay-frame__glow" aria-hidden="true"></div>
               <img
                 src="assets/img/example-price-check.png?v=20260812"
-                alt="GloamCore compact Ctrl+D price checker showing editable modifiers and current seller listings"
+                alt="GloamCore compact price checker showing copied item state, editable modifiers, and an official Trade handoff"
                 width="460"
-                height="900"
+                height="360"
                 loading="lazy"
               >
             </div>
@@ -304,9 +305,9 @@
             <ul class="check-list">
               <li><span>01</span><div><strong>Identity and item state</strong><p>Corruption, influences, links, item level, map state, and other relevant context stay explicit.</p></div></li>
               <li><span>02</span><div><strong>Editable roll-aware filters</strong><p>Enable the stats that define value and adjust supported minimums, maximums, and exact matches.</p></div></li>
-              <li><span>03</span><div><strong>Official Trade evidence</strong><p>Review a bounded anonymous seller snapshot, then open the full mapped query for valuable items.</p></div></li>
+              <li><span>03</span><div><strong>Official Trade handoff</strong><p>Open the complete encoded query on the official Trade website and inspect current results there.</p></div></li>
             </ul>
-            <p class="accuracy-note"><span aria-hidden="true">i</span> Seller rows are current asking prices, not completed sales. Thin, stale, or fuzzy evidence should be verified on the full Trade site.</p>
+            <p class="accuracy-note"><span aria-hidden="true">i</span> Aggregate values and completed-hour evidence are context, not guaranteed sale prices. Verify valuable items on the official Trade website.</p>
           </div>
         </div>
       </section>
@@ -335,11 +336,11 @@
               </figure>
               <figure class="gallery-panel" id="panel-build" role="tabpanel" aria-labelledby="tab-build" tabindex="0" data-gallery-panel="build">
                 <img src="assets/img/example-buildlab.jpg?v=20260812" alt="GloamCore Build Lab passive tree workspace" width="1798" height="1144" loading="lazy">
-                <figcaption><span>02 / BUILD</span><div><strong>Work inside the passive tree</strong><p>PoB import, tree editing, mastery choices, saved specs, item and skill sets, comparison, and export.</p></div></figcaption>
+                <figcaption><span>02 / BUILD</span><div><strong>Work inside the passive tree</strong><p>PoB import, passive allocations, masteries, saved specs, equipment and skill sets, comparison, and export.</p></div></figcaption>
               </figure>
               <figure class="gallery-panel" id="panel-regex" role="tabpanel" aria-labelledby="tab-regex" tabindex="0" data-gallery-panel="regex">
                 <img src="assets/img/example-regex.jpg?v=20260812" alt="GloamCore source-tracked regex workbench" width="1798" height="1144" loading="lazy">
-                <figcaption><span>03 / TOOLKIT</span><div><strong>Build rules you can explain</strong><p>Explicit WANT and AVOID choices, length-aware output, source provenance, profiles, and map properties.</p></div></figcaption>
+                <figcaption><span>03 / TOOLKIT</span><div><strong>Build rules you can explain</strong><p>Safe full-tooltip output by default, experimental compact tokens, explicit WANT and AVOID choices, and source provenance.</p></div></figcaption>
               </figure>
             </div>
           </div>
@@ -360,7 +361,7 @@
 
           <div class="boundary-grid">
             <article data-reveal><span>LOCAL</span><div><h3>Copied item parsing</h3><p>Ctrl+D performs one ordinary item copy and parses the resulting text locally. It does not inspect game memory or inject into PoE.</p></div></article>
-            <article data-reveal><span>NONE</span><div><h3>No POESESSID</h3><p>Market checks use public sources and anonymous Trade routes. GloamCore never asks for your account-session cookie.</p></div></article>
+            <article data-reveal><span>NONE</span><div><h3>No PoE account authorization</h3><p>Trade filters are built locally and open only through a user-clicked browser handoff. GloamCore asks for neither POESESSID nor Path of Exile account authorization.</p></div></article>
             <article data-reveal><span>BOUND</span><div><h3>Isolated Wealthy Exile session</h3><p>Wealthy Exile owns its login, cookies, OAuth tokens, and stash responses inside a dedicated browser profile.</p></div></article>
             <article data-reveal><span>OPEN</span><div><h3>Inspectable releases</h3><p>The source-available repository, release notes, installers, portable builds, updater metadata, and checksums are published together.</p></div></article>
           </div>
@@ -443,7 +444,7 @@
           <div class="faq__items" data-reveal>
             <details>
               <summary>What does Ctrl+D actually do?<span aria-hidden="true">+</span></summary>
-              <p>It performs one ordinary copy action on the hovered item, parses the copied English item text locally, and opens a compact result. It does not inspect game memory, inject into PoE, automate gameplay, or send whispers.</p>
+              <p>It performs one ordinary copy action on the hovered item, parses the copied English item text locally, and opens a compact result. It does not call undocumented Trade website APIs. It also does not inspect game memory, inject into PoE, automate gameplay, or send whispers.</p>
             </details>
             <details>
               <summary>Why does the overlay need Borderless or Windowed Fullscreen?<span aria-hidden="true">+</span></summary>
@@ -451,7 +452,7 @@
             </details>
             <details>
               <summary>Are the prices guaranteed?<span aria-hidden="true">+</span></summary>
-              <p>No. poe.ninja values are aggregate market context, seller rows are current asking prices rather than completed sales, and Faustus values are completed-hour observations. Verify valuable items on the full official Trade site.</p>
+              <p>No. poe.ninja values are aggregate market context and Faustus values are completed-hour evidence. Missing Divine conversions remain unavailable, while weak or stale evidence cannot drive alerts. Open the exact query and verify valuable items on the official Trade website.</p>
             </details>
             <details>
               <summary>Do I need Path of Building?<span aria-hidden="true">+</span></summary>

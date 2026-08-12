@@ -597,10 +597,6 @@ html[data-surface="price-check"] #root {
   padding: 11px 13px;
 }
 
-.pc-official-listings {
-  max-width: none;
-}
-
 .pc-estimate {
   position: relative;
   overflow: hidden;

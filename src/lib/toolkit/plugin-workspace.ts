@@ -3,6 +3,14 @@ import type { ToolkitPlugin, ToolkitWorkspace } from "../../types";
 const MAX_PLUGIN_STORAGE_KEYS = 64;
 const MAX_PLUGIN_STORAGE_VALUE_CHARS = 16 * 1024;
 const MAX_PLUGIN_STORAGE_CHARS = 128 * 1024;
+const PLUGIN_CAPABILITIES = [
+  "get-context", "get-leagues", "get-current-item", "capture-game",
+  "storage:get", "storage:set", "storage:delete", "open-external",
+] as const;
+
+export function pluginCapabilities() {
+  return [...PLUGIN_CAPABILITIES];
+}
 
 export function assertPersistablePluginStorage(storage: Record<string, string>) {
   const entries = Object.entries(storage);
@@ -23,7 +31,6 @@ function sameActivationState(left: ToolkitPlugin, right: ToolkitPlugin) {
   return left.name === right.name &&
     left.url === right.url &&
     left.enabled === right.enabled &&
-    left.game === right.game &&
     left.permissions.currentItem === right.permissions.currentItem &&
     left.permissions.gameCapture === right.permissions.gameCapture &&
     left.permissions.openExternal === right.permissions.openExternal;

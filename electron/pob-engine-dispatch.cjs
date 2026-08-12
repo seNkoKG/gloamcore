@@ -131,7 +131,6 @@ function createPobEngineDispatcher({
     previewTimeless: (request) => enqueue("preview-timeless", request),
     huntTimeless: (request) => enqueue("hunt-timeless", request),
     calculate: (request) => enqueue("calculate", request),
-    importCharacter: (request) => enqueue("import-character", request),
     dispose: () => {
       if (closed) return;
       closed = true;

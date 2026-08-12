@@ -16,7 +16,6 @@ import { formatPrice, formatRelativeTime } from "../lib/format";
 import { formatPriceCheckHotkey } from "../lib/price-check/hotkey";
 import { isOfficialPriceCheckFilter } from "../lib/price-check/equipment-properties";
 import {
-  officialTradeNeedsExplicitSearch,
   priceCheckItemForMode,
   priceCheckModesForItem,
 } from "../lib/price-check/official-trade-workflow";
@@ -37,7 +36,6 @@ import type {
   PriceCheckModifierFilter,
   PriceCheckSession,
 } from "../lib/price-check/types";
-import { CompactTradeListings } from "./CompactTradeListings";
 import { CurrencyMark } from "./CurrencyMark";
 import { UnidentifiedUniqueResolver } from "./UnidentifiedUniqueResolver";
 
@@ -930,7 +928,6 @@ export function PriceCheckPanel(props: PriceCheckPanelProps) {
   const ready = session.status === "ready" && !!session.item;
   const match = selectedMatch(session);
   const icon = match?.row.icon || session.item?.iconHint;
-  const waitingForManualTradeSearch = officialTradeNeedsExplicitSearch(session);
   const availableModes = session.item
     ? priceCheckModesForItem(session.item)
     : (["similar"] as const);
@@ -1059,28 +1056,6 @@ export function PriceCheckPanel(props: PriceCheckPanelProps) {
   ].filter((warning, index, all) => all.indexOf(warning) === index);
   const hasGenericDisclaimer = rawWarnings.some((warning) => genericWarningCopy.has(warning));
   const specificWarnings = rawWarnings.filter((warning) => !genericWarningCopy.has(warning));
-  const officialRows = (session.officialTrade?.listings || [])
-    .filter((listing) => listing.price != null)
-    .map((listing) => ({
-      id: listing.id,
-      amount: listing.price!.amount,
-      currency: listing.price!.currency,
-      indexedAt: listing.indexed,
-      seller: listing.seller.account,
-      character: listing.seller.character,
-      itemName: listing.item.name,
-      baseType: listing.item.baseType,
-      icon: listing.item.icon,
-      whisper: listing.whisper,
-      groupedCount: listing.groupedCount,
-      stock: listing.stock,
-      exchange: listing.exchange ? {
-        haveAmount: listing.exchange.haveAmount,
-        itemAmount: listing.exchange.itemAmount,
-        stock: listing.exchange.stock,
-      } : undefined,
-    }));
-
   return (
     <section className="pc-panel" aria-live="polite" aria-atomic="false">
       <UnidentifiedUniqueResolver
@@ -1159,19 +1134,6 @@ export function PriceCheckPanel(props: PriceCheckPanelProps) {
           ) : filterControls}
         </section>
 
-        {session.officialTradeLoading || session.officialTrade ? (
-          <CompactTradeListings
-            className="pc-official-listings"
-            rows={officialRows}
-            total={session.officialTrade?.total || 0}
-            loading={session.officialTradeLoading}
-            stale={session.officialTrade?.stale}
-            error={session.officialTrade?.error || undefined}
-            onRetry={onRetry}
-            onOpenTrade={onOpenTrade}
-          />
-        ) : null}
-
         {(session.message ||
           hasGenericDisclaimer ||
           specificWarnings.length ||
@@ -1206,7 +1168,7 @@ export function PriceCheckPanel(props: PriceCheckPanelProps) {
           title="Open official Trade with these filters prefilled"
         >
           <ExternalLink size={15} aria-hidden />
-          Trade
+          Open Trade
         </button>
         <button
           className="pc-button"
@@ -1243,10 +1205,8 @@ export function PriceCheckPanel(props: PriceCheckPanelProps) {
           </button>
         ) : null}
         <button className="pc-button pc-button--quiet" type="button" onClick={onRetry}>
-          {waitingForManualTradeSearch
-            ? <Search size={15} aria-hidden />
-            : <RefreshCw size={15} aria-hidden />}
-          {waitingForManualTradeSearch ? "Search Trade" : "Refresh"}
+          <RefreshCw size={15} aria-hidden />
+          Refresh
         </button>
         <span className="pc-freshness" title={session.sourceFetchedAt ? new Date(session.sourceFetchedAt).toLocaleString() : undefined}>
           <i className={session.sourceStale ? "is-stale" : undefined} />

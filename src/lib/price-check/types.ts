@@ -290,44 +290,6 @@ export interface PriceCheckIdentityState {
   active: "exact" | "base";
 }
 
-export interface OfficialTradeListing {
-  id: string;
-  price: { amount: number; currency: string } | null;
-  indexed: string;
-  seller: { account: string; character: string };
-  item: { name: string; baseType: string; icon: string };
-  whisper: string;
-  /** Number of same-seller listings collapsed into this displayed row. */
-  groupedCount?: number;
-  /** Aggregated stack stock for grouped ordinary Trade listings. */
-  stock?: number;
-  /** Sanitized legacy bulk ratio; present only for the exchange endpoint. */
-  exchange?: {
-    haveAmount: number;
-    haveCurrency: string;
-    itemAmount: number;
-    itemCurrency: string;
-    stock: number;
-  };
-}
-
-export interface OfficialTradeListingsRequest {
-  league: string;
-  tradeQuery: Record<string, unknown>;
-  api?: "trade" | "exchange";
-  force?: boolean;
-}
-
-export interface OfficialTradeListingsResult {
-  api?: "trade" | "exchange";
-  listings: OfficialTradeListing[];
-  total: number;
-  searchId: string;
-  fetchedAt: number;
-  stale: boolean;
-  error: string;
-}
-
 export type PriceCheckDashboardMode =
   | "similar"
   | "exact"
@@ -386,11 +348,6 @@ export interface PriceCheckSession {
   query: PriceCheckQueryPlan | null;
   sourceFetchedAt?: number;
   sourceStale: boolean;
-  /** Current public seller rows returned by GGG's official Trade service. */
-  officialTrade?: OfficialTradeListingsResult;
-  officialTradeLoading?: boolean;
-  /** Query edits wait for an explicit Search, matching Awakened's workflow. */
-  officialTradeNeedsSearch?: boolean;
   message?: string;
 }
 

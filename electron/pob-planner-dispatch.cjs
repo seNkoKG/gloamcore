@@ -23,7 +23,7 @@ function normalizeRequest(request) {
       ? source.version
       : "";
   return Object.freeze({
-    game: source.game === "poe2" ? "poe2" : "poe1",
+    game: "poe1",
     treeVersion: requestedVersion.replace(/\0/g, "").slice(0, 40),
     ruthless: Boolean(source.ruthless),
     alternate: Boolean(source.alternate),
@@ -52,7 +52,7 @@ function validateDescriptor(value) {
     && typeof value.cacheKey === "string"
     && value.cacheKey.length > 0
     && value.cacheKey.length <= 16_384
-    && (value.game === "poe1" || value.game === "poe2")
+    && value.game === "poe1"
     && typeof value.version === "string"
     && value.version.length > 0
     && value.version.length <= 80

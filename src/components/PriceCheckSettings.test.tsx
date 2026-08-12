@@ -24,7 +24,7 @@ describe("PriceCheckSettings completeness", () => {
       "Close when focus leaves",
       "Pin new checks",
       "Legacy capture behavior",
-      "Online sellers",
+      "Online listings",
       "Similar-roll tolerance",
       "Show advanced modifiers",
       "Remember checks",

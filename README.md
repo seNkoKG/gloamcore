@@ -30,8 +30,8 @@ in one tray-first app.
 
 | Workspace | What it gives you |
 | --- | --- |
-| **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware Trade check over the game. |
-| **Market Explorer** | Current league prices, trends, liquidity, filters, local watchlists, target alerts, and official Faustus completed-hour history. |
+| **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware local check, then open its exact filters on the official Trade website when needed. |
+| **Market Explorer** | Current poe.ninja prices, trends, liquidity, filters, local watchlists, target alerts, and documented Public Currency Exchange completed-hour evidence from Faustus. |
 | **Item Intel** | Searchable PoE Wiki reference data, artwork, requirements, modifiers, and trusted handoffs. |
 | **Build Lab** | Import, edit, compare, save, and export PoB-compatible builds with exact item and jewel visuals. |
 | **Stash Wealth** | Wealthy Exile edge-to-edge inside a responsive, isolated browser profile that remembers its own sign-in. |
@@ -44,30 +44,37 @@ ordinary item-copy action, parses the clipboard locally, and paints a compact
 overlay without taking keyboard focus away from the game. Passive card clicks
 and dismissal keep Path of Exile active, and the next Ctrl+D remains armed
 after any checkbox, filter, or X click. A separate deliberate locked mode
-is available when you want full editor interaction.
+is available when you want full editor interaction. Copying an item, editing a
+filter, and refreshing market context never call the Trade website's undocumented
+search, exchange, or fetch APIs. A deliberate **Trade** click opens the exact
+encoded query in the user's browser.
 
 <p align="center">
-  <img src="docs/assets/readme/price-check-malachai.png" alt="GloamCore compact price check with modifier controls and anonymous Trade listings" width="460"><br>
-  <em>Roll-aware modifiers and anonymous live listings in the compact overlay.</em>
+  <img src="docs/assets/readme/price-check-malachai.png" alt="GloamCore compact price check with editable modifiers and an official Trade handoff" width="460"><br>
+  <em>Copied item state, roll-aware filters, aggregate market context, and an explicit Trade handoff.</em>
 </p>
 
 The checker understands contextual state for uniques, rares, magic items,
 maps, gems, jewels, weapons, armour, and other item families. Price-defining
-corruption implicits stay separate—including double corruptions—and the full
+corruption implicits stay separate—including double corruptions—and the exact
 query can open directly on the official Trade website.
 
-> Use **Borderless** or **Windowed Fullscreen** for the native overlay. Seller
-> rows are asking prices, not completed sales; inspect the full Trade page
-> before pricing a valuable item.
+> Use **Borderless** or **Windowed Fullscreen** for the native overlay. Aggregate
+> estimates and completed-hour evidence are context, not guaranteed sale prices;
+> inspect current results on the official Trade website before pricing a
+> valuable item.
 
-## Five connected workflows
+## Six connected workspaces
 
 ### Follow the live economy
 
 Search current poe.ninja markets by league and category, sort and filter rows,
 inspect seven-day movement and liquidity, and keep a local watchlist with
 Windows target notifications. Last-good data is clearly marked when an
-upstream source is temporarily unavailable.
+upstream source is temporarily unavailable. If an upstream row has no usable
+Divine conversion, GloamCore leaves it unavailable instead of inferring one;
+missing or zero sample counts remain low confidence and cannot drive market
+pulse or target alerts.
 
 ### Plan without inventing numbers
 
@@ -78,7 +85,10 @@ configuration sets, PoB-backed gem and configuration catalogs, main-skill
 selection, notes, comparison, undo/redo, and PoB export. Raw item edits are
 validated by the same engine before they enter the build. Explicit recalculation
 uses a separately installed, fingerprint-verified Path of Building Community
-engine and fails closed when that engine is unavailable.
+engine and fails closed when that engine is unavailable. Build Lab targets
+Path of Exile 1 and rejects other build or passive-tree version families rather
+than interpreting them as compatible. Genuine PoB passive socket and override
+state, plus equipment weapon-set switching, remain lossless.
 
 ### Keep stash wealth signed in
 
@@ -97,6 +107,9 @@ and safe links to specialist sources. The Player Toolkit adds a local map-mod
 verdict overlay, a read-only in-memory `Client.txt` event feed, an exact Large
 Cluster Jewel back-notable finder, source-tracked regex, item-filter editing,
 socket-colour comparison, economy audits, and isolated opt-in overlay tools.
+Regex output defaults to full-tooltip-safe fragments; compact category-only
+tokens are explicitly experimental. The filter editor validates separate
+Normal and Ruthless rule sets and filename extensions before writing.
 
 ## Product tour
 
@@ -107,7 +120,7 @@ socket-colour comparison, economy audits, and isolated opt-in overlay tools.
   </tr>
   <tr>
     <td align="center"><strong>Build Lab</strong><br>Import, inspect, edit, compare, and export.</td>
-    <td align="center"><strong>Regex Workbench</strong><br>Compose explicit WANT/AVOID rules with visible provenance.</td>
+    <td align="center"><strong>Regex Workbench</strong><br>Compose explicit WANT/AVOID rules with safe full-tooltip output by default.</td>
   </tr>
 </table>
 
@@ -134,7 +147,7 @@ contract.
 
 | Shortcut | Action |
 | --- | --- |
-| `Ctrl+D` | Price-check the item under the cursor in PoE |
+| `Ctrl+D` | Copy and locally inspect the item under the cursor in PoE |
 | `Ctrl+Alt+M` | Check the map under the cursor with local Map Mod rules |
 | `Ctrl+Alt+D` | Open the price checker in deliberate locked interaction mode |
 | `Ctrl+Shift+E` | Show or hide GloamCore globally |
@@ -156,15 +169,17 @@ rejected without replacing the last working binding.
 - PoE Event Log reads the selected `Client.txt` in place. Events stay in memory
   and are neither saved nor uploaded; only the selected path and filter choices
   persist.
-- Optional private-character import keeps its narrowly scoped official OAuth
-  token in memory for the import only and does not cache authenticated
-  character responses.
+- Build Lab imports local PoB XML, codes, and supported build links. It
+  does not request Path of Exile account access or import account profiles.
 - Wealthy Exile runs in a separate persistent browser profile. Its session and
   private responses are not exposed to the application renderer.
-- Compact seller listings use anonymous public Trade website routes. GGG may
-  change, reject, or rate-limit them at any time.
-- poe.ninja, PoE Wiki, official Trade, and other upstream services can be
-  delayed or unavailable; stale fallback data is labelled where applicable.
+- Price-check filters are built locally. Only an explicit user click opens the
+  encoded query on `pathofexile.com/trade`; GloamCore never calls the website's
+  undocumented search, exchange, or fetch APIs.
+- The project-controlled poe.ninja mirror, PoE Wiki, official Trade, and other
+  upstream services can be delayed or unavailable; stale fallback data is
+  labelled where applicable, and economy snapshots older than two hours fail
+  closed.
 
 Read [Price checker behavior](docs/PRICE_CHECKER.md),
 [Toolkit and Build Lab boundaries](docs/TOOLKIT_AND_PLANNER.md), and
@@ -172,9 +187,11 @@ Read [Price checker behavior](docs/PRICE_CHECKER.md),
 
 ## Development
 
-GloamCore uses Electron, React, TypeScript, and Vite. The Electron main process
-owns global shortcuts, bounded remote requests, disk caching, updates, native
-overlay windows, and a narrow context-isolated preload bridge.
+GloamCore uses React, TypeScript, and Vite across its interfaces. The Windows
+desktop uses Electron for global shortcuts, bounded remote requests, disk
+caching, updates, native overlay windows, and a narrow context-isolated preload
+bridge. Android and iOS development previews use Capacitor from the same React
+engine; the public GitHub release remains Windows x64.
 
 ```powershell
 pnpm install --frozen-lockfile

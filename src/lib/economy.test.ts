@@ -5,6 +5,7 @@ import {
   defaultFiltersForSource,
   emptyFilters,
   filterRows,
+  marketStats,
   normalizeOverview,
   sortRows,
 } from "./economy";
@@ -54,6 +55,15 @@ describe("economy normalization", () => {
     expect(mirror?.chaosValue).toBe(40000);
     expect(mirror?.divineValue).toBe(200);
     expect(mirror?.change).toBe(12);
+  });
+
+  it("keeps direct chaos while marking a missing exchange Divine rate unavailable", () => {
+    const normalized = normalizeOverview(
+      { ...sample, core: { ...sample.core!, rates: {} } },
+      "exchange",
+      currency,
+    );
+    expect(normalized.rows[0]).toMatchObject({ chaosValue: 40_000, divineValue: null });
   });
 
   it("filters by search and trend", () => {
@@ -133,7 +143,7 @@ describe("economy normalization", () => {
     expect(rows[0].sparkline).toEqual([]);
   });
 
-  it("infers the live divine conversion from valid item rows", () => {
+  it("does not invent a divine conversion for an item row that lacks one", () => {
     const items: RawItemOverview = {
       lines: [
         { id: 1, name: "A", chaosValue: 175, divineValue: 1 },
@@ -143,7 +153,21 @@ describe("economy normalization", () => {
     };
     const skillGems = categories.find((category) => category.id === "skill-gems")!;
     const rows = normalizeOverview(items, "stash-item", skillGems).rows;
-    expect(rows.find((row) => row.id === "3")?.divineValue).toBe(0.5);
+    expect(rows.find((row) => row.id === "3")?.divineValue).toBeNull();
+  });
+
+  it("sorts unavailable Divine values last and excludes them from Divine bounds", () => {
+    const skillGems = categories.find((category) => category.id === "skill-gems")!;
+    const rows = normalizeOverview({ lines: [
+      { id: 1, name: "Unavailable", chaosValue: 10, count: 10, listingCount: 10 },
+      { id: 2, name: "Known", chaosValue: 20, divineValue: 0.1, count: 10, listingCount: 10 },
+    ] }, "stash-item", skillGems).rows;
+
+    expect(sortRows(rows, { key: "value", direction: "asc" }, "divine")
+      .map((row) => row.name)).toEqual(["Known", "Unavailable"]);
+    expect(filterRows(rows, emptyFilters, "divine")).toHaveLength(2);
+    expect(filterRows(rows, { ...emptyFilters, minPrice: "0.01" }, "divine")
+      .map((row) => row.name)).toEqual(["Known"]);
   });
 
   it("drops unpriced or invalid market rows", () => {
@@ -173,6 +197,8 @@ describe("economy normalization", () => {
             divineValue: 0.05,
             gemLevel: 20,
             levelRequired: 70,
+            count: 30,
+            listingCount: 30,
           },
         ],
       },
@@ -190,5 +216,36 @@ describe("economy normalization", () => {
     expect(
       filterRows(rows, { ...emptyFilters, level: "0-20" }, "adaptive"),
     ).toHaveLength(0);
+  });
+
+  it("marks zero and unknown liquidity as non-actionable and rejects invalid counts", () => {
+    const skillGems = categories.find((category) => category.id === "skill-gems")!;
+    const rows = normalizeOverview(
+      {
+        lines: [
+          { id: 1, name: "Zero", chaosValue: 1, count: 0, listingCount: 0 },
+          { id: 2, name: "Unknown", chaosValue: 2 },
+          { id: 3, name: "Negative", chaosValue: 3, count: -1, listingCount: 8 },
+          { id: 4, name: "Reliable", chaosValue: 4, count: 8, listingCount: 8 },
+        ],
+      },
+      "stash-item",
+      skillGems,
+    ).rows;
+
+    expect(rows.map((row) => row.name)).toEqual(["Zero", "Unknown", "Reliable"]);
+    expect(rows[0]).toMatchObject({ lowConfidence: true, confidenceReason: "0 market observations" });
+    expect(rows[1]).toMatchObject({ lowConfidence: true, confidenceReason: "Market sample count unavailable" });
+    expect(rows[2].lowConfidence).toBe(false);
+  });
+
+  it("never promotes weak or directionally wrong rows into market pulse stats", () => {
+    const rows = normalizeOverview(sample, "exchange", currency).rows;
+    const weak = { ...rows[0], lowConfidence: true, change: 99, volume: 999_999 };
+    const falling = { ...rows[0], key: "falling", change: -5, volume: null };
+    const stats = marketStats([weak, falling]);
+    expect(stats.gainer).toBeUndefined();
+    expect(stats.loser?.key).toBe("falling");
+    expect(stats.liquid).toBeUndefined();
   });
 });

@@ -18,7 +18,7 @@ const {
 describe("toolkit runtime settings", () => {
   it("sanitizes macro text and rejects non-HTTPS cheat/plugin URLs", () => {
     const value = sanitizeWorkspace({
-      macros: [{ id: "home", hotkey: "F5", text: "/hideout\n", scope: "poe1" }],
+      macros: [{ id: "home", hotkey: "F5", text: "/hideout\n" }],
       cheatSheets: [{ title: "Safe", url: "https://example.com/a" }, { title: "Bad", url: "file:///secret" }, { title: "Credentials", url: "https://user@example.com/a" }],
       plugins: [{ name: "Bad", url: "javascript:alert(1)", enabled: true }, { name: "Incomplete", url: "https://", enabled: true }],
       theme: { accent: "red", background: "#101010", density: "comfortable" },
@@ -66,19 +66,16 @@ describe("toolkit runtime settings", () => {
       name: "Price helper",
       url: "https://plugins.example/app",
       enabled: true,
-      game: "poe2",
       permissions: { currentItem: true, gameCapture: false, openExternal: true },
       storage: { "safe:key": "value", "bad key": "also kept under a safe key", ignored: 10 },
     }] });
     expect(workspace.plugins[0]).toMatchObject({
       id: "price-helper",
-      game: "poe2",
       permissions: { currentItem: true, gameCapture: false, openExternal: true },
       storage: { "safe:key": "value", "bad-key": "also kept under a safe key" },
     });
     expect(sanitizePluginStorage({ huge: "x".repeat(20_000) }).huge).toHaveLength(16 * 1024);
     expect(sanitizeWorkspace({ plugins: [{ name: "Legacy", url: "https://example.com", enabled: true }] }).plugins[0]).toMatchObject({
-      game: "poe1",
       permissions: { currentItem: false, gameCapture: false, openExternal: false },
       storage: {},
     });

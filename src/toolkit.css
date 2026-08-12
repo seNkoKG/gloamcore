@@ -19,6 +19,8 @@
 .toolkit-toolbar button.is-primary, .regex-output-card button.is-primary { color: #06100d; border-color: var(--teal); background: var(--teal); font-weight: 800; }
 .toolkit-toolbar span { margin-left: auto; color: var(--text-3); font-size: 9px; }
 .toolkit-toolbar button:disabled, .filter-side-card button:disabled { opacity: .4; cursor: default; }
+.filter-mode-control { display:flex; align-items:center; gap:5px; color:var(--text-3); font-size:9px; }
+.filter-mode-control select { min-height:30px; padding:0 7px; border:1px solid var(--line); border-radius:5px; color:var(--text); background:var(--bg-2); font-size:9px; }
 .toolkit-message { display: flex; align-items: center; gap: 7px; margin: 8px 0; padding: 8px 10px; border: 1px solid rgba(247,191,99,.2); border-radius: 5px; color: var(--amber); background: rgba(247,191,99,.05); font-size: 10px; }
 .filter-grid { display: grid; grid-template-columns: 190px minmax(420px, 1fr) 225px; gap: 10px; min-height: 570px; }
 .filter-tier-list, .filter-editor-card, .filter-side-card, .regex-output-card, .regex-selector, .regex-category-panel, .regex-profile-panel, .recolor-config, .recolor-results { border: 1px solid var(--line); border-radius: 7px; background: rgba(12,18,25,.9); }
@@ -37,6 +39,8 @@
 .filter-visibility { display: flex; align-items: flex-start; gap: 3px; }
 .filter-visibility button { min-height: 27px; border-color: var(--line); }
 .filter-visibility button.is-active { color: var(--teal); border-color: rgba(46,230,184,.34); background: var(--teal-soft); }
+.filter-visibility button:disabled { opacity:.38; cursor:not-allowed; }
+.filter-visibility button.is-active:disabled { color:var(--amber); border-color:rgba(247,191,99,.3); background:rgba(247,191,99,.06); opacity:1; }
 .toolkit-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; padding: 14px 0; }
 .toolkit-form-grid label, .recolor-rate-row label { position: relative; display: grid; gap: 6px; color: var(--text-3); font-size: 9px; text-transform: uppercase; }
 .toolkit-form-grid input, .toolkit-form-grid select, .filter-side-card input, .recolor-rate-row input { width: 100%; min-height: 31px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; color: var(--text); background: var(--bg-1); outline: none; font-size: 10px; }
@@ -251,7 +255,7 @@
 .workspace-panel > header h2,.theme-workspace h2 { margin:0 0 4px; color:var(--text); font-size:14px; }.workspace-panel > header p,.theme-workspace p { margin:0; color:var(--text-3); font-size:9px; line-height:1.45; }
 .workspace-panel > header > button { min-height:31px; padding:0 12px; border:1px solid var(--teal-line); border-radius:3px; color:var(--teal); background:var(--teal-soft); font-size:9px; font-weight:800; }
 .macro-table { border:1px solid var(--line); border-radius:5px; background:var(--panel); }
-.macro-table > div { display:grid; grid-template-columns:30px minmax(90px,.7fr) 115px minmax(180px,1.4fr) 86px 30px; gap:6px; align-items:center; min-height:44px; padding:6px 9px; border-top:1px solid var(--line-soft); }
+.macro-table > div { display:grid; grid-template-columns:30px minmax(90px,.7fr) 115px minmax(180px,1.4fr) 30px; gap:6px; align-items:center; min-height:44px; padding:6px 9px; border-top:1px solid var(--line-soft); }
 .macro-table > div:first-child { border-top:0; }.macro-table .macro-head { min-height:29px; color:var(--text-3); background:var(--panel-2); font-size:7px; font-weight:900; text-transform:uppercase; }
 .macro-table input:not([type="checkbox"]),.macro-table select,.cheat-grid input,.cheat-grid textarea,.plugin-grid input:not([type="checkbox"]),.plugin-grid select { min-width:0; min-height:29px; padding:0 7px; border:1px solid var(--line); border-radius:3px; color:var(--text); background:var(--panel-2); font-size:9px; }.macro-table input[type="checkbox"] { accent-color:var(--teal); }
 .macro-table button,.cheat-grid button,.plugin-grid button { display:grid; place-items:center; min-height:28px; border:1px solid var(--line); border-radius:3px; color:var(--text-3); background:var(--panel-2); }

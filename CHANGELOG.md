@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+## 2.9.0
+
+- Audited every supported economy route against the live poe.ninja catalogue,
+  verified documented Public Currency Exchange completed-hour evidence from
+  Faustus, and checked local Trade
+  query serialization against the pinned Path of Exile 1 selector data.
+  Cluster Jewel, Forbidden Jewel, and Foulborn queries now preserve their exact
+  selector or mutated-item identity and fail closed when it is unknown.
+- Removed invented Chaos/Divine conversion fallbacks. Partial snapshots retain
+  direct Chaos prices, show unavailable conversions explicitly, and cannot
+  trigger confidence-sensitive movers or watch alerts without usable liquidity.
+- Removed the unsupported in-app Trade search, exchange, and fetch transport,
+  including listing UI, caches, IPC, and packaged remnants. The exact
+  editable query plan remains local; only an explicit user click opens its
+  encoded filters on the official `pathofexile.com/trade` website.
+- Made Build Lab strictly Path of Exile 1 and fail closed on unsupported build
+  or passive-tree version families. Passive socket and override state, unknown
+  passive-spec data, equipment weapon sets, and the current Cluster Jewel hash
+  format remain lossless through import, editing, history, and export.
+- Rebuilt the default regex pack as 15,854 entries in 20 categories from three
+  declared sources: pinned local Awakened PoE Trade base and stat packs plus
+  current PoE Wiki map-modifier data. Safe patterns are verified against full
+  copied-tooltip lines; compact category-only output remains experimental.
+- Added explicit Normal/Ruthless item-filter modes and enforced their legal
+  block/action matrix, including Ruthless text alpha and Save As extensions,
+  while preserving unknown directives for forward-compatible round trips.
+- Removed the complete unapproved GGG OAuth, account-character, and native stash
+  stack after application rejection. PoB import/calculation and the separately
+  sandboxed Wealthy Exile website remain available.
+- Hardened desktop settings commits, event-log path authorization, exact Path
+  of Exile process/title macro focus checks, bounded text imports, preload/main
+  IPC parity, and release-package debris checks.
+- Updated Electron to 43.3.0 with Windows DPI and crash fixes, Vite to 8.2.1,
+  and the Capacitor platform toolchain to 8.5.0.
+- Added deterministic Capacitor Swift-package normalization plus Android and
+  macOS/iOS CI gates, and routed poe.ninja economy snapshots through the
+  project-controlled, cache-aware GitHub Pages mirror.
+
 ## 2.8.1
 
 - Corrected Faustus item identity resolution on desktop and mobile by mapping
@@ -329,9 +367,9 @@
   bandit, pantheon, and Cluster Jewel handling before loading the generated PoB
   XML. Public and OAuth profile modes share this exact path, and authenticated
   character responses are never cached.
-- Disabled PoE 2 account-profile import instead of creating a lossy build that
-  drops skills, weapon-set specialisations, or quest statistics. PoB2 XML/code
-  import, matching installed-tree editing, and PoB2 export remain supported.
+- Kept imported PoB files as Build Lab's source of truth instead of creating a
+  partial build that drops skills, equipment weapon sets, passive sockets and
+  overrides, or quest choices.
 - Replaced the placeholder regex editor with a data-backed poe.re-style
   workbench: 69 searchable categories, mutually exclusive AVOID/WANT choices,
   exact and exhaustively verified shorter tokens, Any/All wanted logic, map
@@ -391,15 +429,14 @@
   rows, with the first two ten-ID fetches in parallel and adaptive continuation
   up to 100 result IDs when grouping would otherwise under-sample the market.
 - Added a Scalpel-style Player Toolkit: safe filter editing and replay,
-  PoE1/PoE2 regex workspaces, socket recolouring, economy/dust/card audits,
+  source-tracked Path of Exile 1 regex workspaces, socket recolouring,
+  economy/dust/card audits,
   opt-in focus-gated macros and stash scrolling, cheat-sheet and whiteboard
   overlays, themes, checkpoints, and a permissioned HTTPS plugin host.
 - Added a SolvedExile-style Build Lab using installed PoB Community data:
-  authoritative PoE1/PoE2 trees, PoE1 character profiles, PoB/PoB2 XML/code
-  import, interactive allocation, editable items/skills/config/notes, imported
-  calculation and Galaxy views, saved-build comparisons, and PoB export. PoE2
-  schema differences, including radians, shared starts, integer class IDs, and
-  connection records, are parsed explicitly instead of being treated as PoE1.
+  authoritative Path of Exile 1 tree parsing, PoB XML/code import, interactive
+  allocation, editable items/skills/config/notes, imported calculations,
+  saved-build comparisons, and PoB export.
 
 - Removed the overlay-level item-check cooldown: a new price-check hotkey press
   now hands focus back to Path of Exile once, captures the newly hovered item,

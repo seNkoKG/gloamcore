@@ -4,6 +4,7 @@ import {
   assertPersistablePluginStorage,
   mergePersistedPluginStorageIntoDraft,
   persistedPluginForPreview,
+  pluginCapabilities,
   workspaceWithPersistedPluginStorage,
   workspaceWithLatestPersistedPluginStorage,
 } from "./plugin-workspace";
@@ -11,7 +12,7 @@ import {
 function workspace(): ToolkitWorkspace {
   return {
     version: 1,
-    macros: [{ id: "saved", label: "Saved", hotkey: "Ctrl+1", text: "/hideout", enabled: false, scope: "poe1" }],
+    macros: [{ id: "saved", label: "Saved", hotkey: "Ctrl+1", text: "/hideout", enabled: false }],
     cheatSheets: [],
     theme: { accent: "#35d9b5", background: "#080f14", density: "compact" },
     whiteboard: { strokes: [], snapshots: [] },
@@ -22,7 +23,6 @@ function workspace(): ToolkitWorkspace {
       name: "Saved plugin",
       url: "https://example.com/tool",
       enabled: true,
-      game: "poe1",
       permissions: { currentItem: false, gameCapture: false, openExternal: false },
       storage: { before: "1" },
     }],
@@ -76,5 +76,11 @@ describe("saved plugin activation boundaries", () => {
     const reconciled = workspaceWithLatestPersistedPluginStorage(draft, saved);
     expect(reconciled.macros[0].label).toBe("User edit");
     expect(reconciled.plugins[0].storage).toEqual({ latest: "2" });
+  });
+
+  it("advertises the complete PoE 1 host capability contract", () => {
+    expect(pluginCapabilities()).toEqual(expect.arrayContaining([
+      "get-leagues", "get-current-item", "capture-game", "storage:get", "open-external",
+    ]));
   });
 });

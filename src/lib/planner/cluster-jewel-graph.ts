@@ -23,6 +23,8 @@ export interface MaterializedPassiveTree {
   tree: PassiveTreeData;
   /** Current generated IDs corresponding to allocated official `hashes_ex`. */
   mappedExtendedAllocations: number[];
+  /** Exact PoB v1-to-v2 generated cluster-node remap, present only during legacy conversion. */
+  legacyClusterNodeMap?: ReadonlyMap<number, number>;
 }
 
 export interface MaterializedPassiveSpec extends MaterializedPassiveTree {
@@ -44,8 +46,7 @@ function normalizedTreeVersion(value: string | undefined) {
 export function passiveSpecMatchesTree(inputTree: PassiveTreeData, spec?: ImportedPassiveSpec | null) {
   const requested = String(spec?.treeVersion || "").trim();
   if (!requested) return true;
-  const requestedGame = /^0[._]/.test(requested) ? "poe2" : "poe1";
-  return inputTree.game === requestedGame
+  return inputTree.game === "poe1"
     && normalizedTreeVersion(inputTree.version) === normalizedTreeVersion(requested);
 }
 
@@ -297,8 +298,25 @@ export function materializeImportedPassiveTree(
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const groups: PassiveTreeGroupData[] = [...(overriddenTree.groups || [])];
   const mappedExtendedAllocations = new Set<number>();
+  const legacyClusterNodeMap = spec.clusterHashFormatVersion === 1 ? new Map<number, number>() : null;
   const extended = new Set((spec.extendedHashes || []).map(Number));
   const importedGroups = importedExtendedGroups(spec);
+
+  const clusterSocket = (groupId: number, index: number) => cluster.socketTemplates.find((candidate) => (
+    candidate.groupId === groupId && candidate.expansionJewel.index === index
+  ));
+  const legacyProxyGroupId = (groupId: number, expansionSize: number, clusterSizeIndex: number) => {
+    let legacyGroupId = groupId;
+    let groupSize = expansionSize;
+    for (let guard = 0; clusterSizeIndex < groupSize && guard < 4; guard += 1) {
+      const socket = clusterSocket(legacyGroupId, 1) || clusterSocket(legacyGroupId, 0);
+      const proxy = socket && cluster.proxies[socket.expansionJewel.proxy];
+      if (!socket || !proxy) break;
+      legacyGroupId = proxy.groupId;
+      groupSize = socket.expansionJewel.size;
+    }
+    return legacyGroupId;
+  };
 
   const link = (left: PassiveTreeNodeData, right: PassiveTreeNodeData) => {
     if (!left.out.includes(right.id)) left.out.push(right.id);
@@ -402,6 +420,11 @@ export function materializeImportedPassiveTree(
       node.orbit = nodeOrbit;
       node.orbitIndex = nodeIndex;
       indices.set(nodeIndex, addNode(node));
+      if (legacyClusterNodeMap) {
+        const legacyGroupId = legacyProxyGroupId(proxy.groupId, expansion.size, descriptor.config.sizeIndex);
+        const legacySocket = clusterSocket(legacyGroupId, jewelIndex);
+        if (legacySocket && legacySocket.id !== node.id) legacyClusterNodeMap.set(legacySocket.id, node.id);
+      }
     };
 
     if (descriptor.config.size === "Large" && descriptor.socketCount === 1) {
@@ -481,6 +504,42 @@ export function materializeImportedPassiveTree(
       node.y = group.y - Math.cos(radians) * radius;
       mapExtendedAllocation(node, proxy.id);
     }
+    if (legacyClusterNodeMap) {
+      const legacySkillsPerOrbit = cluster.skillsPerOrbit[proxy.orbit] || skillsInOrbit;
+      const legacyProxyIndex = translateClusterOrbitIndex(
+        proxy.orbitIndex,
+        legacySkillsPerOrbit,
+        descriptor.config.totalIndices,
+      );
+      const legacyNodeIdsByOrbit = new Map<number, number>();
+      const currentNodeIdsByOrbit = new Map<number, number>();
+      for (const [nodeIndex, node] of indices) {
+        const legacyRelative = (nodeIndex + legacyProxyIndex) % descriptor.config.totalIndices;
+        const legacyOrbitIndex = translateClusterOrbitIndex(
+          legacyRelative,
+          descriptor.config.totalIndices,
+          legacySkillsPerOrbit,
+        );
+        legacyNodeIdsByOrbit.set(legacyOrbitIndex, node.id);
+        const currentRelative = translateClusterOrbitIndex(
+          Number(node.orbitIndex),
+          skillsInOrbit,
+          descriptor.config.totalIndices,
+        );
+        const currentInLegacyOrbit = translateClusterOrbitIndex(
+          currentRelative,
+          descriptor.config.totalIndices,
+          legacySkillsPerOrbit,
+        );
+        currentNodeIdsByOrbit.set(currentInLegacyOrbit, node.id);
+      }
+      for (const [orbitIndex, legacyNodeId] of legacyNodeIdsByOrbit) {
+        const currentNodeId = currentNodeIdsByOrbit.get(orbitIndex);
+        if (currentNodeId != null && currentNodeId !== legacyNodeId) {
+          legacyClusterNodeMap.set(legacyNodeId, currentNodeId);
+        }
+      }
+    }
 
     const ordered = [...indices.entries()].sort(([left], [right]) => left - right).map(([, node]) => node);
     for (let index = 1; index < ordered.length; index += 1) link(ordered[index - 1], ordered[index]);
@@ -519,6 +578,7 @@ export function materializeImportedPassiveTree(
   return {
     tree: { ...overriddenTree, nodes, groups },
     mappedExtendedAllocations: [...mappedExtendedAllocations],
+    ...(legacyClusterNodeMap ? { legacyClusterNodeMap } : {}),
   };
 }
 
@@ -533,12 +593,26 @@ export function materializeImportedPassiveSpec(
   items: readonly ImportedPobItem[] = [],
 ): MaterializedPassiveSpec {
   const materialized = materializeImportedPassiveTree(inputTree, spec, items);
-  if (!materialized.mappedExtendedAllocations.length) return { ...materialized, spec };
+  const legacyMap = materialized.legacyClusterNodeMap;
+  const mapNodeId = (nodeId: number) => legacyMap?.get(nodeId) || nodeId;
+  const converted = spec.clusterHashFormatVersion === 1 && inputTree.cluster && legacyMap
+    ? {
+        ...spec,
+        clusterHashFormatVersion: 2,
+        nodes: [...new Set(spec.nodes.map(mapNodeId))],
+        sockets: Object.fromEntries(Object.entries(spec.sockets || {}).map(([nodeId, itemId]) => [mapNodeId(Number(nodeId)), itemId])),
+        masteryEffects: Object.fromEntries(Object.entries(spec.masteryEffects).map(([nodeId, effectId]) => [mapNodeId(Number(nodeId)), effectId])),
+        skillOverrides: Object.fromEntries(Object.entries(spec.skillOverrides || {}).map(([nodeId, override]) => [mapNodeId(Number(nodeId)), override])),
+      }
+    : spec;
+  const mappedExtendedAllocations = materialized.mappedExtendedAllocations.map(mapNodeId);
+  if (!mappedExtendedAllocations.length && converted === spec) return { ...materialized, spec };
   return {
     ...materialized,
+    mappedExtendedAllocations,
     spec: {
-      ...spec,
-      nodes: [...new Set([...spec.nodes, ...materialized.mappedExtendedAllocations])],
+      ...converted,
+      nodes: [...new Set([...converted.nodes, ...mappedExtendedAllocations])],
     },
   };
 }

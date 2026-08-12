@@ -146,7 +146,7 @@ describe("PoB planner desktop service", () => {
         11: { skill: 11, name: "Position Proxy", icon: "proxy.png", group: 2, orbit: 1, orbitIndex: 0, isProxy: true, out: [] },
       },
       constants: { skillsPerOrbit: [1, 6], orbitRadii: [0, 82] },
-    }, "3_29", "C:/missing/tree.lua", "poe1", {
+    }, "3_29", "C:/missing/tree.lua", {
       sprites: {
         normalActive: { filename: "https://example.test/skills.jpg", w: 64, h: 64, coords: { "real.png": { x: 1, y: 2, w: 26, h: 26 } } },
         normalInactive: { filename: "https://example.test/skills-disabled.jpg", w: 64, h: 64, coords: { "real.png": { x: 3, y: 4, w: 26, h: 26 } } },
@@ -172,7 +172,7 @@ describe("PoB planner desktop service", () => {
         99: { skill: 99, name: "Feed the Fury", isNotable: true, icon: "notable.png", stats: ["30% increased Damage while Leeching"] },
       },
       constants: { skillsPerOrbit: [1, 6, 16, 16], orbitRadii: [0, 82, 162, 335] },
-    }, "3_29", "C:/missing/tree.lua", "poe1", null, {
+    }, "3_29", "C:/missing/tree.lua", null, {
       jewels: {
         "Large Cluster Jewel": {
           size: "Large", sizeIndex: 2, minNodes: 8, maxNodes: 12,
@@ -195,17 +195,6 @@ describe("PoB planner desktop service", () => {
       definitions: { "Feed the Fury": { notable: true, stats: ["30% increased Damage while Leeching"] } },
       tattoos: { "Tattoo of the Kitava Warrior": { stats: ["5% increased maximum Life"] } },
     });
-  });
-
-  it("uses PoB2 radians, connection records, integer class ids, and shared starts", () => {
-    const tree = sanitizeTree({
-      classes: [{ name: "Monk", integerId: 10, ascendancies: [{ id: "Invoker", internalId: "Monk2", name: "Invoker" }] }],
-      groups: { 1: { x: 100, y: 200 } },
-      nodes: { 10: { skill: 10, name: "Shared start", group: 1, orbit: 1, orbitIndex: 1, connections: [{ id: 11 }], classesStart: ["Monk"], stats: [] } },
-      constants: { skillsPerOrbit: [1, 12], orbitRadii: [0, 82], orbitAnglesByOrbit: [[0], [0, Math.PI / 2]] },
-    }, "0_4", "tree.lua", "poe2");
-    expect(tree).toMatchObject({ game: "poe2", classes: [{ id: 10, ascendancies: [{ internalId: "Monk2" }] }] });
-    expect(tree.nodes[0]).toMatchObject({ id: 10, x: 182, y: 200, out: [11], classStartIndex: 10, classStartIds: [10] });
   });
 
   it("decodes Path of Building's URL-safe deflate format", () => {
