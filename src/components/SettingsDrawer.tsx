@@ -194,6 +194,7 @@ export function SettingsDrawer({
               ["gloam", "Gloam Teal"],
               ["azurite", "Azurite Blue"],
               ["ember", "Ember Gold"],
+              ["wraeclast", "Path of Exile"],
             ] as Array<[AppTheme, string]>).map(([value, label]) => (
               <button
                 key={value}

@@ -47,6 +47,40 @@
   --teal-2: #d98a3b;
   --accent-contrast: #1b0d02;
 }
+
+:root[data-theme="wraeclast"] {
+  --accent-rgb: 217, 173, 100;
+  --bg-0: #0b0907;
+  --bg-1: #12100c;
+  --bg-2: #19150f;
+  --bg-3: #231c13;
+  --bg-4: #2c2318;
+  --line: #3a3023;
+  --line-soft: rgba(173, 143, 93, 0.18);
+  --text: #f2e5ca;
+  --text-2: #c8b995;
+  --text-3: #9b8a6b;
+  --teal: #d9ad64;
+  --teal-2: #bd8745;
+  --accent-contrast: #1a1005;
+}
+
+:root[data-theme="wraeclast"] body {
+  background:
+    radial-gradient(circle at 82% -8%, rgba(var(--accent-rgb), 0.11), transparent 34%),
+    linear-gradient(145deg, var(--bg-0), var(--bg-2) 52%, #080604);
+}
+
+:root[data-theme="wraeclast"] .app-shell { border-color: var(--line); }
+:root[data-theme="wraeclast"] .titlebar { border-bottom-color: var(--line); background: rgba(11, 9, 7, 0.97); }
+:root[data-theme="wraeclast"] .sidebar { border-right-color: var(--line); background: linear-gradient(180deg, var(--teal-wash), transparent 18%), var(--bg-1); }
+:root[data-theme="wraeclast"] .sidebar-primary { border-bottom-color: var(--line); }
+:root[data-theme="wraeclast"] .sidebar-primary-item { color: var(--text-2); }
+:root[data-theme="wraeclast"] .sidebar-primary-item:hover { color: var(--text); background: var(--bg-3); }
+:root[data-theme="wraeclast"] .settings-drawer,
+:root[data-theme="wraeclast"] .details-drawer { border-left-color: var(--line); background: radial-gradient(circle at 100% 0, var(--teal-wash), transparent 24%), var(--bg-1); }
+:root[data-theme="wraeclast"] .settings-heading { border-bottom-color: var(--line); background: rgba(18, 16, 12, 0.97); }
+:root[data-theme="wraeclast"] .settings-section { border-color: var(--line); background: var(--bg-2); }
 * {
   box-sizing: border-box;
 }
@@ -3016,7 +3050,7 @@ select option {
 
 .setting-theme-options {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-top: 10px;
 }
@@ -3054,6 +3088,7 @@ select option {
 .setting-theme-option--gloam > span { color: #2ee6b8; background: #2ee6b8; }
 .setting-theme-option--azurite > span { color: #66b8ff; background: #66b8ff; }
 .setting-theme-option--ember > span { color: #f2ad5c; background: #f2ad5c; }
+.setting-theme-option--wraeclast > span { color: #d9ad64; background: #d9ad64; }
 
 .setting-row,
 .setting-select {

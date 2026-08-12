@@ -66,9 +66,10 @@ published directly to installed clients.
 Atlas Command Center now scales official node art with the graph, zooms around
 the cursor, focuses search results at a readable level, and uses a full-canvas
 floating inspector without changing its exact graph or allocation rules.
-League Center and every native workspace can share Gloam Teal, Azurite Blue, or
-Ember Gold from Settings. Stash Wealth also removes the site's current Nitro
-and Google ad rails on top of its existing isolated ads-only network filter.
+League Center and every native workspace can share Gloam Teal, Azurite Blue,
+Ember Gold, or a Wraeclast-inspired Path of Exile palette from Settings. Stash
+Wealth also removes the site's current Nitro and Google ad rails on top of its
+existing isolated ads-only network filter.
 
 ## New in 3.3.0: a journal that stores facts, not guesses
 

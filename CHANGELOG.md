@@ -8,9 +8,9 @@
   the graph, search focuses readable nodes, cursor-centred zoom stays precise,
   and the inspector floats cleanly over the full tree without changing Atlas
   graph, point, allocation, refund, import, or migration rules.
-- Unified League Center and the other native workspaces under three persisted,
-  contrast-safe Gloam Teal, Azurite Blue, and Ember Gold themes. League Center
-  now uses the same line-icon navigation language as the existing sidebar.
+- Unified League Center and the other native workspaces under four persisted,
+  contrast-safe Gloam Teal, Azurite Blue, Ember Gold, and Path of Exile themes.
+  League Center now uses the same line-icon navigation language as the existing sidebar.
 - Restored ad-free Stash Wealth presentation with targeted, origin-scoped DOM
   cleanup for current Wealthy Exile Nitro and Google ad rails, layered over the
   existing ads-only network filter and isolated browser session.

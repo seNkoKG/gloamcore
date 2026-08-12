@@ -456,7 +456,7 @@ export interface SortState {
   direction: SortDirection;
 }
 
-export type AppTheme = "gloam" | "azurite" | "ember";
+export type AppTheme = "gloam" | "azurite" | "ember" | "wraeclast";
 
 export interface AppPreferences {
   league?: string;

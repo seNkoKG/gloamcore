@@ -41,6 +41,7 @@ function storedWatch(source: WatchEntry["row"]["source"]): WatchEntry {
 describe("stored preference migrations", () => {
   it("preserves supported interface themes and rejects unknown palettes", () => {
     expect(migrateStoredPreferences({ theme: "ember" }).stored.theme).toBe("ember");
+    expect(migrateStoredPreferences({ theme: "wraeclast" }).stored.theme).toBe("wraeclast");
     const repaired = migrateStoredPreferences({ theme: "neon-random" });
     expect(repaired.migrated).toBe(true);
     expect(repaired.stored.theme).toBeUndefined();

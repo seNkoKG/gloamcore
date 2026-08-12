@@ -33,7 +33,7 @@ intact and the retired full official-trade-listings subsystem remains prohibited
 - Reworked the Atlas view for proportional official sprite rendering,
   cursor-centred zoom, search focus, and a full-canvas floating inspector while
   preserving the exact 3.29.1 graph and deterministic allocation rules.
-- Added three persisted global native-interface themes and aligned League
+- Added four persisted global native-interface themes and aligned League
   Center with the rest of GloamCore. Embedded third-party web surfaces remain
   site-owned and visually isolated by design.
 - Restored the targeted Wealthy Exile ad cleanup without widening access to its

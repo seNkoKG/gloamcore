@@ -15,7 +15,7 @@ const DATA_SOURCES = new Set<DataSource>([
 ]);
 const VALUE_DISPLAYS = new Set(["adaptive", "chaos", "divine"]);
 const DENSITIES = new Set(["compact", "comfortable"]);
-const APP_THEMES = new Set(["gloam", "azurite", "ember"]);
+const APP_THEMES = new Set(["gloam", "azurite", "ember", "wraeclast"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === "object" && !Array.isArray(value);

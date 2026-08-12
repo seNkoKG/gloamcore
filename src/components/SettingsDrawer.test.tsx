@@ -51,6 +51,7 @@ describe("SettingsDrawer shortcuts", () => {
     expect(markup).toContain('role="group" aria-label="Row density"');
     expect(markup).toContain('role="group" aria-label="Interface theme"');
     expect(markup).toContain("Azurite Blue");
+    expect(markup).toContain("Path of Exile");
     expect(markup).toContain('aria-pressed="true"');
   });
 });

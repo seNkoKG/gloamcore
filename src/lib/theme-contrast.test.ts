@@ -32,19 +32,22 @@ function variable(block: string, name: string) {
 
 describe("native interface theme contrast", () => {
   const root = /:root\s*\{([\s\S]*?)\}/.exec(css)?.[1] || "";
-  const backgrounds = [variable(root, "bg-0"), variable(root, "bg-1")];
-  const accents = [
-    variable(root, "teal"),
-    variable(/:root\[data-theme="azurite"\]\s*\{([\s\S]*?)\}/.exec(css)?.[1] || "", "teal"),
-    variable(/:root\[data-theme="ember"\]\s*\{([\s\S]*?)\}/.exec(css)?.[1] || "", "teal"),
+  const themeBlock = (theme: string) =>
+    new RegExp(`:root\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\}`).exec(css)?.[1] || "";
+  const themes = [
+    { name: "gloam", palette: root, base: root },
+    { name: "azurite", palette: themeBlock("azurite"), base: root },
+    { name: "ember", palette: themeBlock("ember"), base: root },
+    { name: "wraeclast", palette: themeBlock("wraeclast"), base: themeBlock("wraeclast") },
   ];
 
-  it.each(accents)("keeps accent %s readable on every native base surface", (accent) => {
-    for (const background of backgrounds) expect(contrast(accent, background)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("keeps primary and muted copy readable on the darkest surface", () => {
-    expect(contrast(variable(root, "text"), backgrounds[0])).toBeGreaterThanOrEqual(7);
-    expect(contrast(variable(root, "text-3"), backgrounds[0])).toBeGreaterThanOrEqual(4.5);
+  it.each(themes)("keeps $name controls and copy readable", ({ palette, base }) => {
+    const backgrounds = [variable(base, "bg-0"), variable(base, "bg-1")];
+    const accent = variable(palette, "teal");
+    for (const background of backgrounds) {
+      expect(contrast(accent, background)).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrast(variable(base, "text"), backgrounds[0])).toBeGreaterThanOrEqual(7);
+    expect(contrast(variable(base, "text-3"), backgrounds[0])).toBeGreaterThanOrEqual(4.5);
   });
 });
