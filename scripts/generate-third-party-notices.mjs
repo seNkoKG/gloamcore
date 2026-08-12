@@ -4,11 +4,29 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+const JAVASCRIPT_ENTRYPOINT_EXTENSIONS = new Set([".cjs", ".js", ".mjs"]);
+
+export function resolvePackageManagerInvocation(
+  packageManager,
+  nodeExecutable = process.execPath,
+) {
+  const isJavaScriptEntrypoint = JAVASCRIPT_ENTRYPOINT_EXTENSIONS.has(
+    path.extname(packageManager).toLowerCase(),
+  );
+  return isJavaScriptEntrypoint
+    ? { command: nodeExecutable, leadingArgs: [packageManager] }
+    : { command: packageManager, leadingArgs: [] };
+}
+
+export function generateThirdPartyNotices() {
 const packageManager = process.env.npm_execpath || process.argv[2];
 
 if (!packageManager || !fs.existsSync(packageManager)) {
-  throw new Error("Run this generator through pnpm or pass the pnpm.mjs path.");
+  throw new Error("Run this generator through pnpm or pass the pnpm executable path.");
 }
+
+const packageManagerInvocation = resolvePackageManagerInvocation(packageManager);
 
 let pnpmStoreDir;
 try {
@@ -50,14 +68,14 @@ function readLicenseReport({ productionOnly = false } = {}) {
 
   let lastError;
   for (const storeDir of attempt) {
-    const licenseArgs = [packageManager];
+    const licenseArgs = [...packageManagerInvocation.leadingArgs];
     if (storeDir) licenseArgs.push(`--config.store-dir=${storeDir}`);
     licenseArgs.push("licenses", "list");
     if (productionOnly) licenseArgs.push("--prod");
     licenseArgs.push("--json");
     try {
       return JSON.parse(execFileSync(
-        process.execPath,
+        packageManagerInvocation.command,
         licenseArgs,
         { cwd: projectRoot, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
       ));
@@ -294,3 +312,9 @@ fs.writeFileSync(
 );
 
 console.log(`Wrote notices for ${packages.length} shipped packages.`);
+}
+
+const invokedScript = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
+if (invokedScript === fileURLToPath(import.meta.url)) {
+  generateThirdPartyNotices();
+}
