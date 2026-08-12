@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "gameVersion": "3.29.1",
+  "atlas": {
+    "revision": "0ae2e0f94f266fc21c86ee8dd561d7b559bf2db4",
+    "releasedAt": "2026-07-31T00:27:57Z",
+    "url": "https://raw.githubusercontent.com/grindinggear/atlastree-export/3.29.1/data.json",
+    "sha256": "890e70423d78d2ff3736370d54030bf0edeb7eb620870d20e5652d9d037f665d"
+  },
+  "navigator": {
+    "revision": "b7b2dd0ed62ae25cf55c74085fa64a1f4d7cf4ba",
+    "releasedAt": "2026-08-02T18:15:50Z",
+    "compatibilityEvidence": "Source commit message explicitly references 3.29: more graceful POB import failures update 3.29 gems",
+    "root": "https://raw.githubusercontent.com/HeartofPhos/exile-leveling/b7b2dd0ed62ae25cf55c74085fa64a1f4d7cf4ba/common/data",
+    "files": {
+      "json/areas.json": "60e3d3341b653a277dd8ab640448b49ccba9d006e4b17eb4d857684fe171afa7",
+      "json/gems.json": "ca4a39d359e477b069d456ad5aa376b2d5122bb7185c73872170733cb9121545",
+      "json/quests.json": "e72851aa355a67810db493fb46c10716fb7be5af3e4e84d6330c9fff270a4d06",
+      "routes/act-1.txt": "29618cc8756ac553e0f8b49f4a9a4f33fb3bcdd7ba98710dba032d9914899b89",
+      "routes/act-2.txt": "3b9a399c5481e05f97f2611c399e7f155efb965dd9380b89a3069e1390d33936",
+      "routes/act-3.txt": "18aa3aef5aab1b023b75212ab3cd5068c54397b14d0f2912b269cc8cba144308",
+      "routes/act-4.txt": "ddf0c036f8d7f6e2b66db1aa1295d4105cdabdfb3877ecbe74c03e42aa00d71d",
+      "routes/act-5.txt": "0c5b4c1ac6c5ab98ef2cda56e99a896d19e2a6ea65978d7347e642f31bd5de61",
+      "routes/act-6.txt": "39b0c7788461b4ae23be73804b81834371c652e90b93b40491fac2366a5c09fb",
+      "routes/act-7.txt": "6ffc729dbef128c703ac566fcd22f03bf61f4da5c46bfc99829975ccc9e67bdc",
+      "routes/act-8.txt": "151b29b7070504168546c2e32707140c2f7029a09a03710099f0e1d6f47aecb9",
+      "routes/act-9.txt": "be56e5ee95a34fcba81e540ab1a2385fb0b139fa27ccbc7a1d2b186799647905",
+      "routes/act-10.txt": "71bac55094db6172a2c81f434bd4ec38784879366d851e15b257ae96593bd40b"
+    }
+  }
+}

@@ -7,6 +7,35 @@ from the price dashboard until its data, performance, and accuracy checks pass.
 Older sections below record what earlier releases shipped. Version 2.9.3
 explicitly supersedes any retired transport or data-source behavior.
 
+## Approved delivery order
+
+1. **3.0.0 — League Navigator and patch-safe data channel.** Exact campaign
+   route branching, class-correct gem acquisition, local progress, authentic
+   PoE artwork, complete-pack validation, automatic client checks, rollback,
+   and guarded upstream update PRs.
+2. **3.1.0 — Atlas Command Center.** Official Atlas sprite art, exact current
+   graph and point accounting, gateway traversal, search, shortest connected
+   allocation, safe refunds, official URL import/export, comparison, saved
+   loadouts, and patch migration.
+3. **3.2.0 — Deterministic Upgrade Assistant.** Compare saved Build Lab states
+   and explicitly recalculate both sides through the verified installed Path of
+   Building engine. Never invent DPS, effective hit pool, or upgrade rankings.
+4. **3.3.0 — Mapping Journal.** Persist only sanitized map-session facts parsed
+   from the user-selected local Client.txt, with death/entry timing, notes,
+   tags, summary, and CSV export. Never infer loot, profit, or hidden game state.
+
+Each version is feature-audited against its pinned PoE source and then passes
+the existing baseline suites only as regression guards. Craft of Exile remains
+intact and the retired full official-trade-listings subsystem remains prohibited.
+
+## Current in 3.0.0
+
+- Added the League Navigator and patch-safe PoE data channel described above.
+- Updated the guarded source lock to the latest official Atlas export,
+  `3.29.1`, instead of freezing new work to the earlier preview.
+- Added daily source discovery that opens a review PR, plus automatic validated
+  pack checks in the app and a one-step last-known-good rollback.
+
 ## Current in 2.9.3
 
 - Restored the bounded public Trade price snapshot below the Ctrl+D modifier

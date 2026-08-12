@@ -12,6 +12,7 @@ export type AppMode =
   | "knowledge"
   | "watchlist"
   | "toolkit"
+  | "command"
   | "planner"
   | "craft"
   | "stash";

@@ -7,8 +7,8 @@
 <p><strong>Read the market. Price the item. Plan the build. Craft the project.</strong></p>
 
 A tray-first Path of Exile 1 companion for Windows with one-key local price
-checks, current economy context, item research, PoB build planning, Craft of
-Exile, stash wealth, and practical player tools.
+checks, current economy context, league navigation, item research, PoB build
+planning, Craft of Exile, stash wealth, and practical player tools.
 
 [![Latest release](https://img.shields.io/github/v/release/seNkoKG/gloamcore?display_name=tag&sort=semver&style=for-the-badge&color=2ee6c2)](https://github.com/seNkoKG/gloamcore/releases/latest)
 [![Windows x64](https://img.shields.io/badge/Windows-x64-17232d?style=for-the-badge&logo=windows&logoColor=2ee6c2)](https://github.com/seNkoKG/gloamcore/releases/latest)
@@ -26,17 +26,37 @@ Exile, stash wealth, and practical player tools.
 
 ![GloamCore Market Explorer with current prices, trends, liquidity, and the Craft of Exile workspace in the sidebar](docs/assets/readme/market-dashboard.png)
 
-## One app, seven connected workspaces
+## One app, eight connected workspaces
 
 | Workspace | What it does |
 | --- | --- |
 | **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware check. Selected modifiers automatically refresh a bounded public seller-price snapshot, while the complete query remains available on the official Trade website. |
 | **Market Explorer** | Browse current poe.ninja markets, trends, liquidity, source age, watch targets, and documented Public Currency Exchange completed-hour evidence from Faustus. |
 | **Item Intel** | Search PoE Wiki item and modifier data without leaving the market workflow. |
+| **League Navigator** | Follow a source-pinned campaign route, select the exact Bandit and Library branches, track progress, and find class-correct quest or vendor gem acquisition. |
 | **Build Lab** | Import, inspect, edit, compare, recalculate with a verified local PoB engine, and export PoB-compatible builds. |
 | **Craft of Exile** | Run the real Craft of Exile interface edge-to-edge in a dedicated, sandboxed desktop browser profile with scoped ads-only filtering. |
 | **Stash Wealth** | Keep the real Wealthy Exile website in a different isolated profile that remembers its own sign-in. |
 | **Player Toolkit** | Use Map Mod Check, PoE Event Log, Cluster Back, regex and filter workbenches, socket tools, audits, and opt-in overlays. |
+
+## League-correct guidance that can update safely
+
+League Navigator uses the exact PoE 1 campaign, quest, area, gem, and vendor
+records transformed from a pinned Exile Leveling revision. Its Bandit selector
+uses real Path of Exile character artwork and changes the route branch rather
+than showing generic checklist text. The optional Library branch is equally
+explicit, and acquisition rows are filtered to the selected character class.
+
+The same integrity boundary also carries Grinding Gear Games' official Atlas
+tree export for the next Atlas workspace. Every pack declares a game version,
+source commit, byte length, and SHA-256 digest. The app checks the
+project-controlled Pages channel at most once every six hours while the League
+Navigator is open, validates the entire candidate in memory, activates it in
+one cache write, and retains the previous pack for rollback. A scheduled
+repository workflow discovers new official Atlas tags and current Navigator
+source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
+opens a guarded review PR; partial or unreviewed upstream changes are never
+published directly to installed clients.
 
 ## New in 2.9.1: Craft of Exile inside GloamCore
 
@@ -196,6 +216,7 @@ mobile development projects.
 pnpm install --frozen-lockfile
 pnpm test
 pnpm build
+pnpm data:build-game
 pnpm electron:dev
 ```
 

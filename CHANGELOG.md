@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 3.0.0
+
+- Added League Navigator with exact source-backed Acts 1–10 route steps,
+  explicit Kill/Alira/Kraityn/Oak and optional Library branches, durable local
+  progress, class selection, and authentic Path of Exile quest/Bandit artwork.
+- Added searchable gem acquisition with exact quest/vendor, act, NPC, and
+  selected-class availability, plus an Active Build Lab gem filter.
+- Added versioned PoE 1 game-data packs using official Atlas 3.29.1 export data
+  and pinned Exile Leveling campaign data, with byte bounds, SHA-256 checks,
+  strict schemas, graph validation, atomic activation, bundled fallback, and
+  one validated rollback pack.
+- Added automatic in-app pack checks and a guarded daily GitHub workflow that
+  discovers new league sources, rebuilds/tests the complete pack, and opens a
+  review pull request before Pages publication.
+- Preserved Craft of Exile and all existing workspaces without restoring the
+  retired full official-trade-listings subsystem.
+
 ## 2.9.3
 
 - Restored automatic live seller-price snapshots below the Ctrl+D modifier

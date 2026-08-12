@@ -1080,6 +1080,24 @@ section[id] {
     linear-gradient(145deg, rgba(18, 27, 24, 0.88), rgba(7, 11, 10, 0.94));
 }
 
+.feature-card--navigator {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 90%, rgba(214, 168, 74, 0.16), transparent 42%),
+    linear-gradient(145deg, rgba(28, 22, 17, 0.9), rgba(7, 11, 10, 0.94));
+}
+
+.navigator-art {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+  opacity: 0.72;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.7));
+}
+
 .mini-chart {
   display: flex;
   height: 76px;

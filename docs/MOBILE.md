@@ -10,7 +10,7 @@ mobile-supported filters, trackers, item descriptions, trends, and trade links.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-2.9.3.apk`
+`deliverables/mobile/GloamCore-Android-3.0.0.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -32,7 +32,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-2.9.3.zip`
+`deliverables/mobile/GloamCore-iOS-Source-3.0.0.zip`
 
 On a Mac:
 
@@ -58,6 +58,10 @@ There is intentionally no unsigned IPA: iOS will not install one.
 - The app refreshes while open, immediately on resume, and when connectivity
   returns.
 - Cached snapshots and item descriptions remain available offline.
+- League Navigator ships the validated campaign, area, quest, and gem pack for
+  offline use, checks the project-controlled update channel while opened, and
+  activates only complete SHA-256-verified packs. Campaign progress migrates by
+  stable step ID when a new league pack is activated.
 - Item Intel searches live PoE Wiki Cargo item and modifier records, then
   keeps the last good result available from cache.
 - The price-check tab parses manually pasted in-game item text locally and

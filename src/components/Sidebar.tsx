@@ -43,6 +43,23 @@ export function Sidebar({
           type="button"
           className={clsx(
             "sidebar-primary-item",
+            mode === "command" && "is-active",
+          )}
+          onClick={() => onMode("command")}
+          title="League Navigator"
+        >
+          <img
+            className="sidebar-poe-icon"
+            src="https://www.poewiki.net/images/9/9a/Deal_with_the_Bandits_quest_icon.png"
+            alt=""
+          />
+          {!collapsed && <span>League Navigator</span>}
+          {!collapsed && <small>POE 1</small>}
+        </button>
+        <button
+          type="button"
+          className={clsx(
+            "sidebar-primary-item",
             mode === "price-check" && "is-active",
           )}
           onClick={() => onMode("price-check")}

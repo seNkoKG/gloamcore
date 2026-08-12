@@ -33,6 +33,7 @@ import { ToolkitPanel } from "./components/ToolkitPanel";
 import { BuildPlannerPanel } from "./components/BuildPlannerPanel";
 import { CraftOfExilePanel } from "./components/CraftOfExilePanel";
 import { StashWealthPanel } from "./components/StashWealthPanel";
+import { CommandCenterPanel } from "./components/CommandCenterPanel";
 import PriceCheckApp from "./PriceCheckApp";
 import { resetPriceCheckSurfaceScroll } from "./components/PriceCheckSurface";
 import { MobileEconomyList } from "./components/MobileEconomyList";
@@ -1550,6 +1551,8 @@ export default function App() {
             />
           ) : mode === "toolkit" ? (
             <ToolkitPanel league={league} />
+          ) : mode === "command" ? (
+            <CommandCenterPanel />
           ) : mode === "planner" ? (
             <BuildPlannerPanel />
           ) : mode === "craft" ? (
@@ -1669,6 +1672,9 @@ export default function App() {
             onKnowledge={() => {
               switchMode("knowledge");
               window.setTimeout(() => knowledgeSearchRef.current?.focus(), 0);
+            }}
+            onCommand={() => {
+              switchMode("command");
             }}
             onWatchlist={() => {
               switchMode("watchlist");

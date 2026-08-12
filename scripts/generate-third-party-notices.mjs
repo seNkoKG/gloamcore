@@ -192,6 +192,9 @@ for (const entry of [
 }
 const packages = [...noticePackages.values()]
   .sort((left, right) => left.name.localeCompare(right.name));
+const gameDataSources = JSON.parse(
+  fs.readFileSync(path.join(projectRoot, "scripts", "game-data-sources.json"), "utf8"),
+);
 
 const sections = packages.map((entry) => {
   const packagePath = entry.paths?.[0];
@@ -242,9 +245,54 @@ filter plan. StatGroup category selection, merged IDs, per-ID numeric
 transforms, base-property discriminators, and unique fixed-stat declarations
 remain pinned to that source release.
 GloamCore does not use POESESSID or account-session cookies. The Windows price
-checker opens an encoded query on the official Trade website in the user's
-browser; it does not fetch seller listings inside the app. Awakened PoE Trade
-acknowledges RePoE for extracted game data.
+checker can request a bounded, short-lived snapshot of at most five sanitized
+public seller-price rows through fixed Path of Exile Trade search/fetch routes.
+It does not send whispers or restore the retired full-listings subsystem; the
+complete query remains an explicit official Trade browser handoff. Awakened
+PoE Trade acknowledges RePoE for extracted game data.
+
+Path of Exile league-navigation data
+------------------------------------
+
+The bundled PoE ${gameDataSources.gameVersion} Atlas graph, node text, point
+budget, gateway relationships, official icon sprite references, and geometry
+are transformed from Grinding Gear Games' official Atlas tree export:
+https://github.com/grindinggear/atlastree-export/releases/tag/${gameDataSources.gameVersion}
+Source commit: ${gameDataSources.atlas.revision}
+Source SHA-256: ${gameDataSources.atlas.sha256}
+
+Grinding Gear Games identifies the Atlas export as the official exception for
+PoE 1 in-game data outside the supported APIs. Path of Exile names, art, and
+game data remain the property of Grinding Gear Games. The Navigator's Bandit
+and quest artwork is game imagery referenced through attributed PoE Wiki file
+pages; it is not AI-generated substitute art.
+
+The campaign route, areas, gems, quest rewards, and vendor availability are a
+transformed snapshot of Exile Leveling:
+https://github.com/HeartofPhos/exile-leveling/commit/${gameDataSources.navigator.revision}
+License: MIT
+
+MIT License
+
+Copyright (c) 2025 HeartofPhos
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 Regex reference data
 --------------------

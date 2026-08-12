@@ -6868,8 +6868,18 @@ html[data-surface="quick"] #root {
 }
 
 .mobile-bottom-nav {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
 }
+
+.sidebar-poe-icon,
+.mobile-poe-nav-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: saturate(0.85) drop-shadow(0 1px 2px #000);
+}
+
+.mobile-poe-nav-icon { width: 21px; height: 21px; }
 
 .app-shell--mobile .knowledge-panel {
   width: 100%;

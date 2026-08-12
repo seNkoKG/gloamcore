@@ -55,6 +55,42 @@ is shipped at `electron/pob-headless-wrapper.LICENSE.md`. The bridge verifies th
 supported local PoB engine before recalculation and fails closed for an unknown
 fingerprint.
 
+## Versioned league-navigation and Atlas packs
+
+`public/data/game/v1` contains one complete PoE 1 data release with a manifest,
+campaign Navigator pack, and Atlas pack. The current manifest targets PoE
+`3.29.1`. Atlas nodes, official icon sprite references, point budget, geometry,
+and graph relationships come from Grinding Gear Games'
+[official Atlas export](https://github.com/grindinggear/atlastree-export/releases/tag/3.29.1),
+pinned to commit `0ae2e0f94f266fc21c86ee8dd561d7b559bf2db4`.
+
+Campaign steps, areas, gems, quest rewards, vendors, class availability, and
+conditional Bandit/Library branches are transformed from
+[Exile Leveling](https://github.com/HeartofPhos/exile-leveling/commit/b7b2dd0ed62ae25cf55c74085fa64a1f4d7cf4ba),
+licensed under MIT. The full HeartofPhos notice is retained in the shipped
+third-party notices. Bandit and quest images are attributed Path of Exile game
+art referenced from their PoE Wiki file pages; they are presentation only and
+never supply game logic.
+
+`scripts/game-data-sources.json` is the review lock. The generator rejects a
+source whose checksum, size, UTF-8 JSON, route directives, Atlas geometry, or
+graph references do not match the reviewed contract. Renderer activation then
+rechecks manifest shape, pack byte size, SHA-256, graph symmetry, node identity,
+route branches, area/gem bounds, and exact game-version agreement. Both packs
+must pass before one atomic cache record changes; the prior validated bundle is
+retained for rollback and the bundled release remains the offline fallback.
+Source discovery also requires the Navigator revision to postdate the official
+Atlas revision and its commit message to explicitly identify the detected
+major/minor league family. A missing compatibility signal stops the workflow
+instead of silently relabelling old campaign or gem data.
+
+The daily `game-data-update.yml` workflow discovers the newest three-part
+official Atlas tag and current Exile Leveling commit, creates a new source lock,
+rebuilds both packs, and runs focused tests. It opens or refreshes a pull request
+instead of publishing upstream content unattended. Once that audited PR lands,
+Pages publishes the complete bundle and open clients adopt it automatically
+after validation.
+
 `public/data/toolkit/cluster-back-v1.json` records the SHA-256 of the installed
 PoB `src/Data/ClusterJewels.lua` used to derive notable display order. It does
 not ship PoB runtime code or the source database. The generator combines that

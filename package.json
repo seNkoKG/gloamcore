@@ -1,6 +1,6 @@
 {
   "name": "gloamcore",
-  "version": "2.9.3",
+  "version": "3.0.0",
   "packageManager": "pnpm@11.16.0",
   "private": true,
   "type": "module",
@@ -27,6 +27,7 @@
     "data:build-trade-stats": "node scripts/build-price-check-stat-pack.mjs",
     "data:build-base-types": "node scripts/build-price-check-base-pack.mjs",
     "data:build-forbidden-trade-options": "node scripts/build-forbidden-trade-options.mjs",
+    "data:build-game": "node scripts/build-game-data-packs.mjs",
     "test:tray": "electron scripts/tray-smoke.cjs",
     "test:price-check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1",
     "test:price-check:rare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1 -Rare",

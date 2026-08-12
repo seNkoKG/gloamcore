@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "Website/**"
+      - "public/data/game/**"
       - ".github/workflows/pages.yml"
       - "scripts/build-poe-ninja-mirror.mjs"
       - "scripts/poe-ninja-mirror-core.mjs"
@@ -43,6 +44,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pages-site"
           cp -a Website/. "$RUNNER_TEMP/pages-site/"
+          mkdir -p "$RUNNER_TEMP/pages-site/data/game"
+          cp -a public/data/game/. "$RUNNER_TEMP/pages-site/data/game/"
       - name: Build validated poe.ninja mirror
         timeout-minutes: 15
         run: >-

@@ -48,13 +48,13 @@ export function MobileTopbar({
           <img src={gloamCoreLogoUrl} alt="" />
         </span>
         <span>
-          <small>{mode === "price-check" ? "ITEM PRICE CHECK" : mode === "knowledge" ? "POE KNOWLEDGE" : mode === "watchlist" ? "PRICE TRACKING" : "GLOAMCORE"}</small>
-          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Item Intel" : mode === "watchlist" ? "Watchlist" : category.label}</strong>
+          <small>{mode === "price-check" ? "ITEM PRICE CHECK" : mode === "knowledge" ? "POE KNOWLEDGE" : mode === "watchlist" ? "PRICE TRACKING" : mode === "command" ? "POE 1 CAMPAIGN" : "GLOAMCORE"}</small>
+          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Item Intel" : mode === "watchlist" ? "Watchlist" : mode === "command" ? "League Navigator" : category.label}</strong>
         </span>
         {mode === "market" && <ChevronDown size={15} />}
       </button>
       <div className="mobile-topbar-meta">
-        <span>{mode === "knowledge" ? "PoE Wiki Cargo" : mode === "price-check" ? "Paste item text" : league || "Current league"}</span>
+        <span>{mode === "knowledge" ? "PoE Wiki Cargo" : mode === "price-check" ? "Paste item text" : mode === "command" ? "Verified league data" : league || "Current league"}</span>
         {mode === "market" && (
           <button
             type="button"
@@ -81,6 +81,7 @@ export function MobileBottomNav({
   onMarket,
   onPriceCheck,
   onKnowledge,
+  onCommand,
   onWatchlist,
   onSettings,
 }: {
@@ -91,6 +92,7 @@ export function MobileBottomNav({
   onMarket: () => void;
   onPriceCheck: () => void;
   onKnowledge: () => void;
+  onCommand: () => void;
   onWatchlist: () => void;
   onSettings: () => void;
 }) {
@@ -100,6 +102,14 @@ export function MobileBottomNav({
   };
   return (
     <nav className="mobile-bottom-nav" aria-label="Primary navigation">
+      <button
+        type="button"
+        className={mode === "command" && !settingsOpen ? "is-active" : undefined}
+        onClick={() => invoke(onCommand)}
+      >
+        <img className="mobile-poe-nav-icon" src="https://www.poewiki.net/images/9/9a/Deal_with_the_Bandits_quest_icon.png" alt="" />
+        <span>Guide</span>
+      </button>
       <button
         type="button"
         className={mode === "price-check" && !settingsOpen ? "is-active" : undefined}

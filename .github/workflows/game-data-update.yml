@@ -1,0 +1,84 @@
+name: Check for Path of Exile game-data updates
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: game-data-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm 11.16.0 and Node.js 24.14.0
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          version: 11.16.0
+          runtime: node@24.14.0
+          cache: true
+          cache-dependency-path: pnpm-lock.yaml
+          install: false
+
+      - name: Discover exact upstream revisions and stage packs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/update-game-data-sources.mjs
+          node scripts/build-game-data-packs.mjs
+
+      - name: Detect a reviewed-source change
+        id: changes
+        run: |
+          if git diff --quiet -- scripts/game-data-sources.json public/data/game; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            game_version="$(node -p 'JSON.parse(require("node:fs").readFileSync("scripts/game-data-sources.json", "utf8")).gameVersion')"
+            echo "game_version=$game_version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install locked dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate generated schema, graph, branches, and integrity
+        if: steps.changes.outputs.changed == 'true'
+        run: >-
+          pnpm exec vitest run
+          scripts/build-game-data-packs.test.ts
+          src/lib/game-data.test.ts
+          src/components/CommandCenterPanel.test.ts
+
+      - name: Open or refresh the guarded update pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GAME_VERSION: ${{ steps.changes.outputs.game_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c automation/game-data-update
+          git add scripts/game-data-sources.json public/data/game
+          git commit -m "data: update PoE ${GAME_VERSION} packs"
+          git push --force-with-lease origin HEAD:automation/game-data-update
+          existing="$(gh pr list --base main --head automation/game-data-update --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$existing" ]; then
+            gh pr create \
+              --base main \
+              --head automation/game-data-update \
+              --title "data: update Path of Exile ${GAME_VERSION} packs" \
+              --body "Automated source discovery found new pinned PoE 1 data. All pack hashes, schemas, Atlas graph relationships, campaign branches, and acquisition fixtures passed. Merge remains an explicit audit boundary; clients activate only the fully validated Pages bundle and retain one rollback pack."
+          fi
