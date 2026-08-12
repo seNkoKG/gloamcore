@@ -32,6 +32,7 @@ const TRUSTED_EXTERNAL_HOSTS = new Set([
   "pathofexile.com",
   "www.craftofexile.com",
   "craftofexile.com",
+  "beta.craftofexile.com",
   "poedb.tw",
   "www.poedb.tw",
   "pobb.in",

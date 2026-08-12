@@ -1,9 +1,9 @@
 # Security policy
 
 GloamCore is a desktop companion that handles global shortcuts, copied item
-text, local files, remote data, native overlay windows, and an isolated Wealthy
-Exile browser profile. Reports that cross one of those trust boundaries are
-taken seriously.
+text, local files, remote data, native overlay windows, and isolated Wealthy
+Exile and Craft of Exile browser profiles. Reports that cross one of those
+trust boundaries are taken seriously.
 
 ## Supported versions
 
@@ -52,6 +52,12 @@ details should wait until users have had a reasonable opportunity to update.
   GloamCore must not read or reuse Wealthy Exile cookies, OAuth tokens, or
   responses. Ads-only filtering is scoped to Wealthy Exile, disabled on sign-in
   hosts, and fails open if no filter engine is available.
+- The embedded Craft of Exile view must remain on a different dedicated
+  partition with no preload, Node, Electron, filesystem, download, or
+  clipboard-read access. First-party clipboard writes may be allowed only for
+  an explicit site export. Its cookies, Patreon session, and private responses
+  must not be exposed to GloamCore or the Wealthy Exile profile. Ads-only
+  filtering is scoped to Craft of Exile, disabled on Patreon, and fails open.
 - External URLs and remote responses must stay allowlisted, bounded, and
   validated before crossing the preload bridge.
 - Update metadata and binaries must come from the public

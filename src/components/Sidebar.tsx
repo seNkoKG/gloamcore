@@ -10,6 +10,7 @@ import {
   Scissors,
   Star,
   Gem,
+  Hammer,
 } from "lucide-react";
 import {
   categories,
@@ -59,6 +60,19 @@ export function Sidebar({
         >
           <LayoutDashboard size={18} />
           {!collapsed && <span>Market explorer</span>}
+        </button>
+        <button
+          type="button"
+          className={clsx(
+            "sidebar-primary-item",
+            mode === "craft" && "is-active",
+          )}
+          onClick={() => onMode("craft")}
+          title="Craft of Exile"
+        >
+          <Hammer size={18} />
+          {!collapsed && <span>Craft of Exile</span>}
+          {!collapsed && <small>CRAFT</small>}
         </button>
         <button
           type="button"

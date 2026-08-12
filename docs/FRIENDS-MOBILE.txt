@@ -1,7 +1,7 @@
-GLOAMCORE 2.9.0 — POE 1 ECONOMY + PRICE CHECKING ON YOUR PHONE
+GLOAMCORE 2.9.1 — POE 1 ECONOMY + PRICE CHECKING ON YOUR PHONE
 
 Android:
-1. Copy GloamCore-Android-2.9.0.apk to your phone.
+1. Copy GloamCore-Android-2.9.1.apk to your phone.
 2. Open it and approve “Install unknown apps” for your file/browser app.
 3. Launch GloamCore and allow notifications if you want price-target alerts.
 

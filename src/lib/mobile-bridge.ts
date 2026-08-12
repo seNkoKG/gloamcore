@@ -803,6 +803,16 @@ export const mobileBridge: PoeWidgetBridge = {
   async controlWealthyExile() {
     return false;
   },
+  async openCraftOfExile() {
+    await mobileBridge.openExternal("https://beta.craftofexile.com/?game=poe1");
+    return true;
+  },
+  async hideCraftOfExile() {
+    return false;
+  },
+  async controlCraftOfExile() {
+    return false;
+  },
   async openToolkitText() {
     return null;
   },

@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld("poeWidget", {
   hideWealthyExile: () => ipcRenderer.invoke("app:hide-wealthy-exile"),
   controlWealthyExile: (action) =>
     ipcRenderer.invoke("app:control-wealthy-exile", action),
+  openCraftOfExile: (bounds) =>
+    ipcRenderer.invoke("app:open-craft-of-exile", bounds),
+  hideCraftOfExile: () => ipcRenderer.invoke("app:hide-craft-of-exile"),
+  controlCraftOfExile: (action) =>
+    ipcRenderer.invoke("app:control-craft-of-exile", action),
   openToolkitText: (kind) => ipcRenderer.invoke("toolkit:open-text", kind),
   openToolkitImage: () => ipcRenderer.invoke("toolkit:open-image"),
   saveToolkitText: (request) => ipcRenderer.invoke("toolkit:save-text", request),

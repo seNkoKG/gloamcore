@@ -98,6 +98,7 @@ const {
   createWealthyExileView,
   fitViewBounds,
 } = require("./wealthy-exile-window.cjs");
+const { createCraftOfExileView } = require("./craft-of-exile-window.cjs");
 const {
   migrateLegacyDataDirectories,
 } = require("./legacy-data-migration.cjs");
@@ -287,6 +288,7 @@ const ALLOWED_EXTERNAL_HOSTS = new Set([
   "www.poewiki.net",
   "www.craftofexile.com",
   "craftofexile.com",
+  "beta.craftofexile.com",
   "poedb.tw",
   "www.poedb.tw",
 ]);
@@ -300,6 +302,8 @@ let priceCheckWindow;
 let mapModCheckWindow;
 let wealthyExileView;
 let wealthyExileVisibleRequested = false;
+let craftOfExileView;
+let craftOfExileVisibleRequested = false;
 const toolkitOverlayWindows = new Map();
 const toolkitOverlayGeometryTimers = new Map();
 let tray;
@@ -4802,6 +4806,7 @@ async function showWealthyExile(bounds) {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
   const fitted = fitViewBounds(bounds, mainWindow.getContentBounds());
   if (!fitted) return false;
+  hideCraftOfExile();
   if (!wealthyExileView || wealthyExileView.webContents.isDestroyed()) {
     wealthyExileView = createWealthyExileView({ WebContentsView });
     mainWindow.contentView.addChildView(wealthyExileView);
@@ -4830,6 +4835,52 @@ function hideWealthyExile() {
 
 function controlWealthyExile(action) {
   const contents = wealthyExileView?.webContents;
+  if (!contents || contents.isDestroyed()) return false;
+  if (action === "reload") {
+    contents.reload();
+    return true;
+  }
+  return false;
+}
+
+async function showCraftOfExile(bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const fitted = fitViewBounds(bounds, mainWindow.getContentBounds());
+  if (!fitted) return false;
+  hideWealthyExile();
+  if (!craftOfExileView || craftOfExileView.webContents.isDestroyed()) {
+    craftOfExileView = createCraftOfExileView({
+      WebContentsView,
+      openExternal: (url) => shell.openExternal(url),
+    });
+    mainWindow.contentView.addChildView(craftOfExileView);
+  }
+  const view = craftOfExileView;
+  craftOfExileVisibleRequested = true;
+  view.setBounds(fitted);
+  const ready = await view.craftOfExileReady;
+  if (view !== craftOfExileView || view.webContents.isDestroyed()) return false;
+  if (!ready) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.contentView.removeChildView(view);
+    }
+    view.webContents.close();
+    craftOfExileView = null;
+    return false;
+  }
+  if (!craftOfExileVisibleRequested) return false;
+  view.setVisible(true);
+  return true;
+}
+
+function hideCraftOfExile() {
+  craftOfExileVisibleRequested = false;
+  craftOfExileView?.setVisible(false);
+  return true;
+}
+
+function controlCraftOfExile(action) {
+  const contents = craftOfExileView?.webContents;
   if (!contents || contents.isDestroyed()) return false;
   if (action === "reload") {
     contents.reload();
@@ -5285,6 +5336,12 @@ app.on("before-quit", () => {
     mainWindow?.contentView.removeChildView(wealthyExileView);
     if (!wealthyExileView.webContents.isDestroyed()) wealthyExileView.webContents.close();
   }
+  if (craftOfExileView) {
+    mainWindow?.contentView.removeChildView(craftOfExileView);
+    if (!craftOfExileView.webContents.isDestroyed()) {
+      craftOfExileView.webContents.close();
+    }
+  }
   for (const window of toolkitOverlayWindows.values()) window.destroy();
   toolkitOverlayWindows.clear();
   trayWindow = null;
@@ -5292,6 +5349,8 @@ app.on("before-quit", () => {
   mapModCheckWindow = null;
   wealthyExileView = null;
   wealthyExileVisibleRequested = false;
+  craftOfExileView = null;
+  craftOfExileVisibleRequested = false;
   tray?.destroy();
   tray = null;
 });
@@ -5612,6 +5671,21 @@ ipcMain.handle("app:hide-wealthy-exile", (event) => {
 ipcMain.handle("app:control-wealthy-exile", (event, action) => {
   assertDashboardSender(event);
   return controlWealthyExile(action);
+});
+
+ipcMain.handle("app:open-craft-of-exile", (event, bounds) => {
+  assertDashboardSender(event);
+  return showCraftOfExile(bounds);
+});
+
+ipcMain.handle("app:hide-craft-of-exile", (event) => {
+  assertDashboardSender(event);
+  return hideCraftOfExile();
+});
+
+ipcMain.handle("app:control-craft-of-exile", (event, action) => {
+  assertDashboardSender(event);
+  return controlCraftOfExile(action);
 });
 
 ipcMain.handle("toolkit:open-text", (event, kind) => {

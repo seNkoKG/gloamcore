@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 2.9.1
+
+- Added Craft of Exile as an edge-to-edge desktop workspace using the real
+  service in a dedicated persistent browser partition. Its renderer has no
+  preload, Node, Electron, filesystem, download, or clipboard-read access;
+  only first-party clipboard writes used by explicit exports are permitted. A
+  cached ads-only filter is scoped to Craft of Exile pages and disabled during
+  Patreon sign-in.
+- Restricted Craft of Exile navigation to its own HTTPS origins and the
+  Patreon sign-in route, sent only declared community destinations to the
+  system browser, denied all other popups and navigations, and kept it mutually
+  exclusive with the isolated Wealthy Exile view.
+- Rewrote the project README and product website around the current feature
+  set, trust boundaries, installation path, and data sources, with fresh
+  screenshots from the 2.9.1 interface.
+
 ## 2.9.0
 
 - Audited every supported economy route against the live poe.ninja catalogue,

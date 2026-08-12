@@ -9,14 +9,14 @@
     <meta name="robots" content="index, follow">
     <meta
       name="description"
-      content="Download GloamCore for Windows: Ctrl+D PoE 1 price checks, current economy tracking, item research, PoB build planning, stash wealth, and player tools."
+      content="Download GloamCore for Windows: Ctrl+D PoE 1 price checks, live economy context, PoB build planning, Craft of Exile, stash wealth, and player tools."
     >
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="GloamCore">
     <meta property="og:title" content="GloamCore | PoE 1 Price Checker & Economy App">
     <meta
       property="og:description"
-      content="One focused Windows companion for PoE 1 price checks, economy context, item research, stash wealth, build planning, and player tools."
+      content="One focused Windows companion for PoE 1 price checks, economy context, build planning, Craft of Exile, stash wealth, and player tools."
     >
     <meta property="og:url" content="https://senkokg.github.io/gloamcore/">
     <meta property="og:image" content="https://senkokg.github.io/gloamcore/assets/img/og.png">
@@ -40,7 +40,7 @@
       rel="stylesheet"
     >
     <link rel="icon" type="image/png" href="assets/img/logo.png">
-    <link rel="stylesheet" href="assets/css/styles.css?v=20260812-2">
+    <link rel="stylesheet" href="assets/css/styles.css?v=20260812-3">
     <title>GloamCore | PoE 1 Price Checker & Economy App</title>
     <script type="application/ld+json">
       {
@@ -52,12 +52,13 @@
         "downloadUrl": "https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe",
         "url": "https://senkokg.github.io/gloamcore/",
         "codeRepository": "https://github.com/seNkoKG/gloamcore",
-        "description": "A Path of Exile 1 companion for one-key price checks, economy tracking, item research, stash wealth, build planning, and player tools.",
+        "description": "A Path of Exile 1 companion for one-key price checks, economy tracking, item research, build planning, isolated crafting and stash workspaces, and player tools.",
         "featureList": [
           "Ctrl+D item price checks",
           "Current league economy tracking",
           "PoE Wiki item research",
           "Path of Building workspace",
+          "Isolated Craft of Exile workspace",
           "Isolated Wealthy Exile session",
           "Player toolkit"
         ]
@@ -110,10 +111,10 @@
             <h1>One desktop.<br><span>Every PoE decision.</span></h1>
             <p class="hero__promise">Read the market. Price the item. Plan the build.</p>
             <p class="hero__lede">
-              GloamCore turns one Ctrl+D item copy into a compact, roll-aware local check.
-              Tune an exact query plan locally, then open it on the official Trade website
-              with one deliberate click. Economy tracking, item research, stash wealth,
-              build planning, and practical player tools stay together.
+              Turn one Ctrl+D item copy into a compact, roll-aware local check.
+              Read the league, research the item, work on a PoB build, craft in the real
+              Craft of Exile interface, and inspect Wealthy Exile without rebuilding your
+              workflow from browser tabs.
             </p>
             <div class="hero__actions">
               <a class="button button--primary" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>
@@ -137,10 +138,10 @@
                 <span>— □ ×</span>
               </div>
               <img
-                src="assets/img/example-market.jpg?v=20260812"
+                src="assets/img/example-market.png?v=20260812-3"
                 alt="GloamCore Market Explorer showing current Path of Exile currency values, trends, liquidity, and league controls"
-                width="1798"
-                height="1144"
+                width="1870"
+                height="1159"
               >
             </div>
             <figcaption>
@@ -152,7 +153,7 @@
 
           <div class="hero-metrics" data-reveal>
             <div><small>First action</small><strong>Ctrl + D</strong><span>Hover an item</span></div>
-            <div><small>Connected workspaces</small><strong>Six</strong><span>One focused app</span></div>
+            <div><small>Connected workspaces</small><strong>Seven</strong><span>One focused app</span></div>
             <div><small>Item capture</small><strong>One copy</strong><span>Parsed locally</span></div>
             <div><small>Public release</small><strong data-version-label>Latest stable</strong><span>GitHub Releases</span></div>
           </div>
@@ -213,8 +214,9 @@
               <h2>Less tab juggling.<br>Better calls.</h2>
             </div>
             <p>
-              Six focused workspaces put the item, the market, the reference data,
-              the stash, the build, and the tools beside each other without blurring their trust boundaries.
+              Seven focused workspaces put pricing, the market, reference data,
+              crafting, stash wealth, builds, and practical tools beside each other
+              without blurring their trust boundaries.
             </p>
           </div>
 
@@ -246,7 +248,7 @@
               <div class="intel-lines" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
             </article>
 
-            <article class="feature-card feature-card--build" data-reveal>
+            <article class="feature-card feature-card--wide feature-card--build" data-reveal>
               <div class="feature-card__top"><span>04</span><small>PoB-compatible workspace</small></div>
               <p class="feature-card__label">Build Lab</p>
               <h3>Work with the build, then send it home.</h3>
@@ -254,16 +256,24 @@
               <div class="node-map" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><b></b><b></b><b></b></div>
             </article>
 
-            <article class="feature-card feature-card--wealth" data-reveal>
+            <article class="feature-card feature-card--craft" data-reveal>
               <div class="feature-card__top"><span>05</span><small>Isolated browser session</small></div>
+              <p class="feature-card__label">Craft of Exile</p>
+              <h3>Craft in the real interface without leaving GloamCore.</h3>
+              <p>The current Craft of Exile experience fills the desktop workspace in its own sandboxed profile. A cached ads-only filter stays on Craft pages and turns off for Patreon sign-in.</p>
+              <div class="boundary-badge"><span aria-hidden="true">◇</span><div><strong>Site-owned session</strong><small>No Node, downloads, or clipboard reads</small></div></div>
+            </article>
+
+            <article class="feature-card feature-card--wealth" data-reveal>
+              <div class="feature-card__top"><span>06</span><small>Isolated browser session</small></div>
               <p class="feature-card__label">Stash Wealth</p>
               <h3>Keep Wealthy Exile inside your workspace.</h3>
               <p>Its sign-in, cookies, OAuth tokens, and stash responses stay inside a dedicated browser profile that GloamCore cannot read.</p>
               <div class="boundary-badge"><span aria-hidden="true">◇</span><div><strong>Session boundary</strong><small>Persistent and isolated</small></div></div>
             </article>
 
-            <article class="feature-card feature-card--wide feature-card--tools" data-reveal>
-              <div class="feature-card__top"><span>06</span><small>Practical utilities</small></div>
+            <article class="feature-card feature-card--tools" data-reveal>
+              <div class="feature-card__top"><span>07</span><small>Practical utilities</small></div>
               <div>
                 <p class="feature-card__label">Player Toolkit</p>
                 <h3>The small tools that usually cost five tabs.</h3>
@@ -325,22 +335,27 @@
           <div class="gallery" data-gallery data-reveal>
             <div class="gallery-tabs" role="tablist" aria-label="GloamCore application screenshots">
               <button type="button" role="tab" aria-selected="true" aria-controls="panel-market" id="tab-market" data-gallery-tab="market"><span>01</span> Market Explorer</button>
-              <button type="button" role="tab" aria-selected="false" aria-controls="panel-build" id="tab-build" data-gallery-tab="build"><span>02</span> Build Lab</button>
-              <button type="button" role="tab" aria-selected="false" aria-controls="panel-regex" id="tab-regex" data-gallery-tab="regex"><span>03</span> Regex Workbench</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="panel-craft" id="tab-craft" data-gallery-tab="craft"><span>02</span> Craft of Exile</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="panel-build" id="tab-build" data-gallery-tab="build"><span>03</span> Build Lab</button>
+              <button type="button" role="tab" aria-selected="false" aria-controls="panel-regex" id="tab-regex" data-gallery-tab="regex"><span>04</span> Regex Workbench</button>
             </div>
 
             <div class="gallery-stage">
               <figure class="gallery-panel" id="panel-market" role="tabpanel" aria-labelledby="tab-market" tabindex="0" data-gallery-panel="market">
-                <img src="assets/img/example-market.jpg?v=20260812" alt="GloamCore Market Explorer dashboard" width="1798" height="1144" loading="lazy">
+                <img src="assets/img/example-market.png?v=20260812-3" alt="GloamCore Market Explorer dashboard with the Craft of Exile workspace in the sidebar" width="1870" height="1159" loading="lazy">
                 <figcaption><span>01 / MARKET</span><div><strong>Read the current league</strong><p>Values, movement, liquidity, filters, watch targets, source age, and labelled fallback data.</p></div></figcaption>
+              </figure>
+              <figure class="gallery-panel" id="panel-craft" role="tabpanel" aria-labelledby="tab-craft" tabindex="0" data-gallery-panel="craft">
+                <img src="assets/img/example-craft.png?v=20260812-3" alt="Craft of Exile running edge-to-edge inside the GloamCore desktop workspace" width="1870" height="1159" loading="lazy">
+                <figcaption><span>02 / CRAFT</span><div><strong>Keep crafting in the workspace</strong><p>The real Craft of Exile interface, a dedicated site-owned session, strict navigation, and ads-only filtering scoped to Craft pages.</p></div></figcaption>
               </figure>
               <figure class="gallery-panel" id="panel-build" role="tabpanel" aria-labelledby="tab-build" tabindex="0" data-gallery-panel="build">
                 <img src="assets/img/example-buildlab.jpg?v=20260812" alt="GloamCore Build Lab passive tree workspace" width="1798" height="1144" loading="lazy">
-                <figcaption><span>02 / BUILD</span><div><strong>Work inside the passive tree</strong><p>PoB import, passive allocations, masteries, saved specs, equipment and skill sets, comparison, and export.</p></div></figcaption>
+                <figcaption><span>03 / BUILD</span><div><strong>Work inside the passive tree</strong><p>PoB import, passive allocations, masteries, saved specs, equipment and skill sets, comparison, and export.</p></div></figcaption>
               </figure>
               <figure class="gallery-panel" id="panel-regex" role="tabpanel" aria-labelledby="tab-regex" tabindex="0" data-gallery-panel="regex">
                 <img src="assets/img/example-regex.jpg?v=20260812" alt="GloamCore source-tracked regex workbench" width="1798" height="1144" loading="lazy">
-                <figcaption><span>03 / TOOLKIT</span><div><strong>Build rules you can explain</strong><p>Safe full-tooltip output by default, experimental compact tokens, explicit WANT and AVOID choices, and source provenance.</p></div></figcaption>
+                <figcaption><span>04 / TOOLKIT</span><div><strong>Build rules you can explain</strong><p>Safe full-tooltip output by default, experimental compact tokens, explicit WANT and AVOID choices, and source provenance.</p></div></figcaption>
               </figure>
             </div>
           </div>
@@ -362,7 +377,7 @@
           <div class="boundary-grid">
             <article data-reveal><span>LOCAL</span><div><h3>Copied item parsing</h3><p>Ctrl+D performs one ordinary item copy and parses the resulting text locally. It does not inspect game memory or inject into PoE.</p></div></article>
             <article data-reveal><span>NONE</span><div><h3>No PoE account authorization</h3><p>Trade filters are built locally and open only through a user-clicked browser handoff. GloamCore asks for neither POESESSID nor Path of Exile account authorization.</p></div></article>
-            <article data-reveal><span>BOUND</span><div><h3>Isolated Wealthy Exile session</h3><p>Wealthy Exile owns its login, cookies, OAuth tokens, and stash responses inside a dedicated browser profile.</p></div></article>
+            <article data-reveal><span>BOUND</span><div><h3>Two isolated site sessions</h3><p>Craft of Exile and Wealthy Exile use different persistent profiles. Each site owns its login, cookies, storage, and private responses; neither profile is exposed to the app renderer or the other site.</p></div></article>
             <article data-reveal><span>OPEN</span><div><h3>Inspectable releases</h3><p>The source-available repository, release notes, installers, portable builds, updater metadata, and checksums are published together.</p></div></article>
           </div>
         </div>
@@ -459,6 +474,10 @@
               <p>Most of GloamCore does not. Full Build Lab tree and recalculation workflows use a separately installed, supported Path of Building Community installation and fail closed when the engine is unknown.</p>
             </details>
             <details>
+              <summary>What can the embedded websites access?<span aria-hidden="true">+</span></summary>
+              <p>Craft of Exile and Wealthy Exile run in separate sandboxed browser profiles without Node, Electron, filesystem, download, or clipboard-read access. Craft of Exile may write an explicit export to the clipboard. Ads-only filtering is scoped to each site and disabled on its sign-in hosts.</p>
+            </details>
+            <details>
               <summary>Installer or portable build?<span aria-hidden="true">+</span></summary>
               <p>The installer supports the normal update path. New versions download in the background only when enabled, and installation waits for an explicit Restart &amp; install action. Portable users replace the executable manually.</p>
             </details>
@@ -488,7 +507,7 @@
           <img src="assets/img/logo.png" alt="" width="108" height="108">
           <p class="eyebrow">One focused companion</p>
           <h2>Know more before you click Trade.</h2>
-          <p>Price the item, read the league, research the drop, inspect the stash, and work on the build without rebuilding your workflow from browser tabs.</p>
+          <p>Price the item, read the league, research the drop, craft the project, inspect the stash, and work on the build without rebuilding your workflow from browser tabs.</p>
           <div>
             <a class="button button--primary" href="https://github.com/seNkoKG/gloamcore/releases/latest/download/GloamCore-Setup-x64.exe" data-download-installer>Download for Windows x64</a>
             <a class="button button--quiet" href="https://github.com/seNkoKG/gloamcore">View repository</a>
@@ -515,6 +534,6 @@
       </div>
     </footer>
 
-    <script src="assets/js/main.js?v=20260812-2" defer></script>
+    <script src="assets/js/main.js?v=20260812-3" defer></script>
   </body>
 </html>

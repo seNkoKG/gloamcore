@@ -85,6 +85,8 @@ describe("mobile network helpers", () => {
     expect(trustedExternalUrl("https://poe.ninja:444/poe1/economy")).toBeNull();
     expect(trustedExternalUrl("https://www.craftofexile.com/en/"))
       .not.toBeNull();
+    expect(trustedExternalUrl("https://beta.craftofexile.com/?game=poe1"))
+      .not.toBeNull();
     expect(trustedExternalUrl("https://craftofexile.com.evil.example/en/"))
       .toBeNull();
     expect(trustedExternalUrl("https://poedb.tw/us/Divine_Orb")).not.toBeNull();

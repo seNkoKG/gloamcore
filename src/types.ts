@@ -13,6 +13,7 @@ export type AppMode =
   | "watchlist"
   | "toolkit"
   | "planner"
+  | "craft"
   | "stash";
 export type TrendFilter = "all" | "gainers" | "losers" | "stable";
 export type SortDirection = "asc" | "desc";
@@ -1140,6 +1141,9 @@ export interface PoeWidgetBridge {
   openWealthyExile(bounds?: EmbeddedViewBounds): Promise<boolean>;
   hideWealthyExile(): Promise<boolean>;
   controlWealthyExile(action: "reload"): Promise<boolean>;
+  openCraftOfExile(bounds?: EmbeddedViewBounds): Promise<boolean>;
+  hideCraftOfExile(): Promise<boolean>;
+  controlCraftOfExile(action: "reload"): Promise<boolean>;
   openToolkitText(kind: "filter" | "build" | "text"): Promise<ToolkitTextFile | null>;
   openToolkitImage(): Promise<{ name: string; dataUrl: string } | null>;
   saveToolkitText(request: {

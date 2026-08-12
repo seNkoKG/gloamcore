@@ -4,10 +4,22 @@ GloamCore is the economy, intelligence, one-key in-game price-check, and exact
 official Trade browser-handoff baseline. New knowledge work remains isolated
 from the price dashboard until its data, performance, and accuracy checks pass.
 
-Older sections below record what earlier releases shipped. Version 2.9.0
+Older sections below record what earlier releases shipped. Version 2.9.1
 explicitly supersedes any retired transport or data-source behavior.
 
-## Current in 2.9.0
+## Current in 2.9.1
+
+- Added the real Craft of Exile interface as a desktop-only, edge-to-edge
+  workspace. It runs in a dedicated sandboxed browser profile with strict
+  navigation, popup, download, clipboard, and session boundaries. Cached
+  ads-only filtering is scoped to Craft pages and disabled on Patreon.
+- Kept Craft of Exile and Wealthy Exile as independent site-owned sessions;
+  GloamCore does not read, transform, or reuse their cookies, credentials, or
+  private responses.
+- Reorganized the public website and README around the complete current
+  workflow, supported platforms, data provenance, and explicit trust model.
+
+## Shipped in 2.9.0
 
 - Removed the unapproved Path of Exile OAuth, account-character, and native
   stash integration completely after the application was rejected. Current

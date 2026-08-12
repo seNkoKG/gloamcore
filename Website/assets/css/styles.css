@@ -1049,17 +1049,14 @@ section[id] {
   text-transform: uppercase;
 }
 
-.feature-card--price,
-.feature-card--tools {
+.feature-card--price {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 34px;
 }
 
 .feature-card--price .feature-card__top,
-.feature-card--tools .feature-card__top,
-.feature-card--price .chip-list,
-.feature-card--tools .tool-list {
+.feature-card--price .chip-list {
   grid-column: 1 / -1;
 }
 
@@ -1074,6 +1071,12 @@ section[id] {
 .feature-card--market {
   background:
     radial-gradient(circle at 75% 90%, rgba(53, 227, 176, 0.11), transparent 42%),
+    linear-gradient(145deg, rgba(18, 27, 24, 0.88), rgba(7, 11, 10, 0.94));
+}
+
+.feature-card--craft {
+  background:
+    radial-gradient(circle at 78% 86%, rgba(214, 168, 74, 0.12), transparent 44%),
     linear-gradient(145deg, rgba(18, 27, 24, 0.88), rgba(7, 11, 10, 0.94));
 }
 
@@ -1356,7 +1359,7 @@ section[id] {
 
 .gallery.is-enhanced .gallery-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
   border-bottom: 1px solid var(--border);

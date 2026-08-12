@@ -1,18 +1,42 @@
 "use strict";
 
-const fs = require("node:fs/promises");
-const path = require("node:path");
+const {
+  AD_BLOCK_LOAD_TIMEOUT_MS,
+  loadWealthyExileAdBlocker,
+} = require("./wealthy-exile-window.cjs");
 
-const WEALTHY_EXILE_URL = "https://wealthyexile.com/stash";
-const WEALTHY_EXILE_PARTITION = "persist:gloamcore-wealthy-exile";
-const AD_BLOCK_CACHE_FILE = "ads-only.bin";
-const AD_BLOCK_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const AD_BLOCK_LOAD_TIMEOUT_MS = 10_000;
-const WEALTHY_EXILE_LOAD_TIMEOUT_MS = 30_000;
+const CRAFT_OF_EXILE_URL = "https://beta.craftofexile.com/?game=poe1";
+const CRAFT_OF_EXILE_PARTITION = "persist:gloamcore-craft-of-exile";
+const CRAFT_OF_EXILE_LOAD_TIMEOUT_MS = 30_000;
+
+const CRAFT_OF_EXILE_HOSTS = new Set([
+  "beta.craftofexile.com",
+  "craftofexile.com",
+  "www.craftofexile.com",
+]);
+const CRAFT_OF_EXILE_AUTH_HOSTS = new Set([
+  "patreon.com",
+  "www.patreon.com",
+]);
+const CRAFT_OF_EXILE_EXTERNAL_HOSTS = new Set([
+  "arpg.info",
+  "discord.gg",
+  "poe-vault.com",
+  "poe.ninja",
+  "pohx.net",
+  "www.arpg.info",
+  "www.pathofexile.com",
+  "www.poe-vault.com",
+  "www.poewiki.net",
+  "www.pohx.net",
+  "www.youtube.com",
+  "youtube.com",
+  "youtu.be",
+]);
 const configuredSessions = new WeakSet();
 const sessionAdBlockers = new WeakMap();
 
-function allowedNavigationUrl(value) {
+function strictHttpsUrl(value) {
   try {
     const url = new URL(value);
     if (
@@ -21,13 +45,28 @@ function allowedNavigationUrl(value) {
       url.username ||
       url.password
     ) return null;
-    if (url.hostname === "wealthyexile.com") return url;
-    if (url.hostname === "pathofexile.com" || url.hostname === "www.pathofexile.com") return url;
-    if (url.hostname === "steamcommunity.com") return url;
-    return null;
+    return url;
   } catch {
     return null;
   }
+}
+
+function isCraftOfExileUrl(value) {
+  const url = strictHttpsUrl(value);
+  return Boolean(url && CRAFT_OF_EXILE_HOSTS.has(url.hostname));
+}
+
+function allowedNavigationUrl(value) {
+  const url = strictHttpsUrl(value);
+  if (!url) return null;
+  if (CRAFT_OF_EXILE_HOSTS.has(url.hostname)) return url;
+  if (CRAFT_OF_EXILE_AUTH_HOSTS.has(url.hostname)) return url;
+  return null;
+}
+
+function allowedExternalUrl(value) {
+  const url = strictHttpsUrl(value);
+  return url && CRAFT_OF_EXILE_EXTERNAL_HOSTS.has(url.hostname) ? url : null;
 }
 
 function fitViewBounds(value, container) {
@@ -42,53 +81,19 @@ function fitViewBounds(value, container) {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-function shouldBlockAds(value) {
-  return allowedNavigationUrl(value)?.hostname === "wealthyexile.com";
+function canWriteClipboard(permission, value) {
+  return permission === "clipboard-sanitized-write" && isCraftOfExileUrl(value);
 }
 
-async function loadWealthyExileAdBlocker(session, dependencies = {}) {
-  const ElectronBlocker = dependencies.ElectronBlocker
-    || require("@ghostery/adblocker-electron").ElectronBlocker;
-  const readFile = dependencies.readFile || fs.readFile;
-  const writeFile = dependencies.writeFile || fs.writeFile;
-  const stat = dependencies.stat || fs.stat;
-  const mkdir = dependencies.mkdir || fs.mkdir;
-  const now = dependencies.now || Date.now;
-  const cachePath = session.storagePath
-    ? path.join(session.storagePath, AD_BLOCK_CACHE_FILE)
-    : null;
-  let cached = null;
-  let cacheFresh = false;
+function shouldBlockAds(value) {
+  return isCraftOfExileUrl(value);
+}
 
-  if (cachePath) {
-    try {
-      const [serialized, cacheStat] = await Promise.all([readFile(cachePath), stat(cachePath)]);
-      cached = ElectronBlocker.deserialize(serialized);
-      cacheFresh = now() - cacheStat.mtimeMs < AD_BLOCK_CACHE_MAX_AGE_MS;
-    } catch {
-      cached = null;
-    }
-  }
-  if (cached && cacheFresh) return cached;
-
-  try {
-    const blocker = await ElectronBlocker.fromPrebuiltAdsOnly(dependencies.fetchImpl);
-    if (cachePath) {
-      try {
-        await mkdir(path.dirname(cachePath), { recursive: true });
-        await writeFile(cachePath, blocker.serialize());
-      } catch (cause) {
-        console.warn(
-          `Unable to cache ${dependencies.cacheLabel || "Wealthy Exile"} ad filters:`,
-          cause,
-        );
-      }
-    }
-    return blocker;
-  } catch (cause) {
-    if (cached) return cached;
-    throw cause;
-  }
+function loadCraftOfExileAdBlocker(session, dependencies = {}) {
+  return loadWealthyExileAdBlocker(session, {
+    ...dependencies,
+    cacheLabel: "Craft of Exile",
+  });
 }
 
 function syncAdBlocking(blocker, session, value) {
@@ -98,7 +103,7 @@ function syncAdBlocking(blocker, session, value) {
   else blocker.disableBlockingInSession(session);
 }
 
-function getSessionAdBlocker(session, loadAdBlocker, timeoutMs = AD_BLOCK_LOAD_TIMEOUT_MS) {
+function getSessionAdBlocker(session, loadAdBlocker, timeoutMs) {
   const existing = sessionAdBlockers.get(session);
   if (existing) return existing;
   let timeout;
@@ -113,16 +118,19 @@ function getSessionAdBlocker(session, loadAdBlocker, timeoutMs = AD_BLOCK_LOAD_T
   ]).finally(() => clearTimeout(timeout));
   sessionAdBlockers.set(session, pending);
   void pending.catch(() => {
-    if (sessionAdBlockers.get(session) === pending) sessionAdBlockers.delete(session);
+    if (sessionAdBlockers.get(session) === pending) {
+      sessionAdBlockers.delete(session);
+    }
   });
   return pending;
 }
 
-function createWealthyExileView({
+function createCraftOfExileView({
   WebContentsView,
-  loadAdBlocker = loadWealthyExileAdBlocker,
+  openExternal = () => undefined,
+  loadAdBlocker = loadCraftOfExileAdBlocker,
   adBlockTimeoutMs = AD_BLOCK_LOAD_TIMEOUT_MS,
-  loadTimeoutMs = WEALTHY_EXILE_LOAD_TIMEOUT_MS,
+  loadTimeoutMs = CRAFT_OF_EXILE_LOAD_TIMEOUT_MS,
 }) {
   const view = new WebContentsView({
     webPreferences: {
@@ -131,7 +139,8 @@ function createWealthyExileView({
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
-      partition: WEALTHY_EXILE_PARTITION,
+      backgroundThrottling: true,
+      partition: CRAFT_OF_EXILE_PARTITION,
     },
   });
 
@@ -151,25 +160,33 @@ function createWealthyExileView({
   });
   readyTimer = setTimeout(() => settleReady(false), loadTimeoutMs);
   readyTimer.unref?.();
-  view.wealthyExileReady = ready;
+  view.craftOfExileReady = ready;
   contents.once("did-finish-load", () => settleReady(true));
   contents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
     if (isMainFrame !== false) settleReady(false);
   });
+
+  const openAllowedExternal = (value) => {
+    const url = allowedExternalUrl(value);
+    if (!url) return false;
+    void Promise.resolve(openExternal(url.toString())).catch(() => undefined);
+    return true;
+  };
   const navigate = (value) => {
     const url = allowedNavigationUrl(value);
-    if (!url) return false;
+    if (!url) return openAllowedExternal(value);
     if (adBlocker) syncAdBlocking(adBlocker, session, url);
     void contents.loadURL(url.toString()).catch(() => undefined);
     return true;
   };
   const guardNavigation = (event, value) => {
     const url = allowedNavigationUrl(value);
-    if (!url) {
-      event.preventDefault();
+    if (url) {
+      if (adBlocker) syncAdBlocking(adBlocker, session, url);
       return;
     }
-    if (adBlocker) syncAdBlocking(adBlocker, session, url);
+    event.preventDefault();
+    openAllowedExternal(value);
   };
 
   contents.on("will-navigate", guardNavigation);
@@ -179,8 +196,16 @@ function createWealthyExileView({
     navigate(url);
     return { action: "deny" };
   });
+  session.setPermissionCheckHandler(
+    (requestingContents, permission, requestingOrigin, details) =>
+      requestingContents === contents &&
+      canWriteClipboard(permission, details?.requestingUrl || requestingOrigin),
+  );
   session.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => callback(false),
+    (requestingContents, permission, callback, details) => callback(
+      requestingContents === contents &&
+      canWriteClipboard(permission, details?.requestingUrl),
+    ),
   );
   if (!configuredSessions.has(session)) {
     configuredSessions.add(session);
@@ -189,29 +214,31 @@ function createWealthyExileView({
       void session.cookies.flushStore().catch(() => undefined);
     });
   }
+
   getSessionAdBlocker(session, loadAdBlocker, adBlockTimeoutMs)
     .then((blocker) => {
       if (contents.isDestroyed()) return;
       adBlocker = blocker;
-      navigate(WEALTHY_EXILE_URL);
+      navigate(CRAFT_OF_EXILE_URL);
     })
     .catch((cause) => {
-      console.warn("Wealthy Exile ad blocking unavailable:", cause);
-      if (!contents.isDestroyed()) navigate(WEALTHY_EXILE_URL);
+      console.warn("Craft of Exile ad blocking unavailable:", cause);
+      if (!contents.isDestroyed()) navigate(CRAFT_OF_EXILE_URL);
     });
   return view;
 }
 
 module.exports = {
-  AD_BLOCK_CACHE_MAX_AGE_MS,
-  AD_BLOCK_LOAD_TIMEOUT_MS,
-  WEALTHY_EXILE_LOAD_TIMEOUT_MS,
-  WEALTHY_EXILE_PARTITION,
-  WEALTHY_EXILE_URL,
+  CRAFT_OF_EXILE_LOAD_TIMEOUT_MS,
+  CRAFT_OF_EXILE_PARTITION,
+  CRAFT_OF_EXILE_URL,
+  allowedExternalUrl,
   allowedNavigationUrl,
-  createWealthyExileView,
+  canWriteClipboard,
+  createCraftOfExileView,
   fitViewBounds,
-  loadWealthyExileAdBlocker,
+  isCraftOfExileUrl,
+  loadCraftOfExileAdBlocker,
   shouldBlockAds,
   syncAdBlocking,
 };

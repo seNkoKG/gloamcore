@@ -31,6 +31,7 @@ import { Titlebar } from "./components/Titlebar";
 import { WatchlistPanel } from "./components/WatchlistPanel";
 import { ToolkitPanel } from "./components/ToolkitPanel";
 import { BuildPlannerPanel } from "./components/BuildPlannerPanel";
+import { CraftOfExilePanel } from "./components/CraftOfExilePanel";
 import { StashWealthPanel } from "./components/StashWealthPanel";
 import PriceCheckApp from "./PriceCheckApp";
 import { resetPriceCheckSurfaceScroll } from "./components/PriceCheckSurface";
@@ -1524,7 +1525,9 @@ export default function App() {
         <main
           className={clsx(
             "main-content",
-            !isMobileApp && mode === "stash" && "main-content--edge-to-edge",
+            !isMobileApp &&
+              (mode === "stash" || mode === "craft") &&
+              "main-content--edge-to-edge",
           )}
           ref={mainContentRef}
         >
@@ -1549,6 +1552,8 @@ export default function App() {
             <ToolkitPanel league={league} />
           ) : mode === "planner" ? (
             <BuildPlannerPanel />
+          ) : mode === "craft" ? (
+            <CraftOfExilePanel />
           ) : mode === "stash" ? (
             <StashWealthPanel league={league} />
           ) : (
