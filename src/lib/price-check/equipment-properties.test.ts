@@ -409,6 +409,13 @@ Item Level: 86
         values: [100],
       })),
     }, 10).filters[0];
+    const singleBoundLegacy = planEquipmentPropertyFilters({
+      ...uniqueItem,
+      modifiers: uniqueItem.modifiers.map((modifier) => ({
+        ...modifier,
+        text: modifier.text.replace("90(80-100)", "90(80)"),
+      })),
+    }, 10).filters[0];
 
     expect(rare).toMatchObject({
       copiedValue: 228,
@@ -422,6 +429,11 @@ Item Level: 86
     });
     expect(magic).toMatchObject({ copiedValue: 228, min: 228 });
     expect(perfectUnique).toMatchObject({ copiedValue: 240, min: 240 });
+    expect(singleBoundLegacy).toMatchObject({
+      copiedValue: 228,
+      min: 228,
+      bounds: { min: 216, max: 228 },
+    });
 
     const selected = [{ ...unique, enabled: true }];
     const query = buildPriceCheckQueryPlan(uniqueItem, "Allflame", {

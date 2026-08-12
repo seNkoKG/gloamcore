@@ -273,13 +273,13 @@ function canonicalCopiedRollBounds(
   if ((modifier.sourceValues?.length ?? modifier.values.length) > 1) {
     return undefined;
   }
-  const match = /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\)/.exec(
+  const match = /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?))?\s*\)/.exec(
     modifier.text,
   );
   if (!match) return undefined;
   const copiedValue = Number(match[1].replace(/,/g, ""));
   let left = Number(match[2].replace(/,/g, ""));
-  let right = Number(match[3].replace(/,/g, ""));
+  let right = Number((match[3] ?? match[2]).replace(/,/g, ""));
   if (![copiedValue, left, right].every(Number.isFinite)) return undefined;
 
   // Catalog matcher semantics can negate a positive copied display roll

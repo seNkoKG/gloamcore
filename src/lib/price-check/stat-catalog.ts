@@ -142,7 +142,7 @@ function normalized(value: string) {
     // from raw display text before catalog lookup, so strip that range before
     // replacing numeric tokens or the result becomes the invalid `#(#-#)`.
     .replace(
-      /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*[-+]?\d[\d,]*(?:\.\d+)?\s*[\u002d\u2013\u2014\u2212]\s*[-+]?\d[\d,]*(?:\.\d+)?\s*\)/g,
+      /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*[-+]?\d[\d,]*(?:\.\d+)?(?:\s*[\u002d\u2013\u2014\u2212]\s*[-+]?\d[\d,]*(?:\.\d+)?)?\s*\)/g,
       "$1",
     )
     .replace(/[-+]?\d[\d,]*(?:\.\d+)?/g, "#")
@@ -776,20 +776,20 @@ function semanticRollBounds(
     return undefined;
   }
   const tokens: SourceRollBound[] = [];
-  const tokenPattern = /([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\))?/g;
+  const tokenPattern = /([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?))?\s*\))?/g;
   for (const match of text.matchAll(tokenPattern)) {
     const current = Number(match[1].replace(/,/g, ""));
     const left = match[2] == null
       ? current
       : Number(match[2].replace(/,/g, ""));
     const right = match[3] == null
-      ? current
+      ? left
       : Number(match[3].replace(/,/g, ""));
     if (![current, left, right].every(Number.isFinite)) return undefined;
     tokens.push({
       min: Math.min(left, right),
       max: Math.max(left, right),
-      ranged: match[2] != null && match[3] != null,
+      ranged: match[2] != null,
     });
   }
   if (tokens.length !== values.length) {
@@ -826,7 +826,7 @@ function semanticRollHasDecimal(
     return false;
   }
   const decimals = [...text.matchAll(
-    /([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\))?/g,
+    /([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?))?\s*\))?/g,
   )].map((match) => [match[1], match[2], match[3]].some(
     (token) => token?.includes("."),
   ));
@@ -1555,11 +1555,11 @@ function renderPseudoText(template: string, value: number) {
 function inlineSingleRollBounds(modifier: ParsedPoeModifier) {
   if (modifier.values.length !== 1) return undefined;
   const matches = [...modifier.text.matchAll(
-    /[-+]?\d[\d,]*(?:\.\d+)?\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\)/g,
+    /[-+]?\d[\d,]*(?:\.\d+)?\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?))?\s*\)/g,
   )];
   if (matches.length !== 1) return undefined;
   const left = Number(matches[0][1].replace(/,/g, ""));
-  const right = Number(matches[0][2].replace(/,/g, ""));
+  const right = Number((matches[0][2] ?? matches[0][1]).replace(/,/g, ""));
   const copied = modifier.values[0];
   return Number.isFinite(left) && Number.isFinite(right) && Number.isFinite(copied)
     ? {

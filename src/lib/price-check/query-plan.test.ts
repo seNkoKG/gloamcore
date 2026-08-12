@@ -353,6 +353,21 @@ describe("modifier filter planner", () => {
       min: 18,
       bounds: { min: 18, max: 20 },
     });
+
+    const singleBoundLegacy = {
+      ...unique,
+      modifiers: [{
+        ...unique.modifiers[0],
+        text: "+1170(1000) to maximum Life",
+        normalizedText: "# to maximum life",
+        values: [1170],
+      }],
+    };
+    expect(planPriceCheckFilters(singleBoundLegacy, 10)[0]).toMatchObject({
+      mode: "range",
+      min: 1170,
+      bounds: { min: 1000, max: 1170 },
+    });
   });
 
   it("pins visible unique rolls without Advanced bounds to their copied thresholds", () => {

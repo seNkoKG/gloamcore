@@ -20,8 +20,8 @@ function expectOrdered(...fragments: string[]) {
 }
 
 describe("native price-check smoke harness", () => {
-  it("binds source and packaged runs to the current 3.4.2 release identity", () => {
-    expect(packageMetadata.version).toBe("3.4.2");
+  it("binds source and packaged runs to the current 3.4.3 release identity", () => {
+    expect(packageMetadata.version).toBe("3.4.3");
     expect(smoke).toContain('(Join-Path $projectRoot "package.json")');
     expect(smoke).toContain(").version)");
     expect(smoke).toContain("$provenance.gitHead -ne $snapshotHead.Trim()");
@@ -133,6 +133,20 @@ describe("native price-check smoke harness", () => {
     );
     expect(smoke).toContain(
       "The complete modifier list retained an internal scrollbar:",
+    );
+  });
+
+  it("locks the legacy Unique renderer scenario to its copied Life roll", () => {
+    expect(smoke).toContain("[switch]$LegacyUnique");
+    expect(smoke).toContain("+1170(1000) to maximum Life");
+    expect(smoke).toContain('$expectedItemName = if ($Wand)');
+    expect(smoke).toContain('"Kaom\'s Heart"');
+    expect(smoke).toContain('$result.result.editorHeading -ne "2/3 STATS"');
+    expect(smoke).toContain('"1170 total maximum Life"');
+    expect(smoke).toContain('$env:GLOAMCORE_QA_SKIP_MODIFIER_INTERACTION = "1"');
+    expect(smoke).toContain('$result.postInteractionTradeState.marketRows -lt 1');
+    expect(smoke).toContain(
+      "Legacy Kaom's Heart did not render its bounded Life filter with live Trade prices.",
     );
   });
 

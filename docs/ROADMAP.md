@@ -33,12 +33,24 @@ explicitly supersedes any retired transport or data-source behavior.
 7. **3.4.2 — Latest-selection Trade settlement.** Correct official rate-window
    handling, supersede obsolete queued filters, bounded renderer recovery, and
    native visual proof for the reported four-stat wand query.
+8. **3.4.3 — Legacy unique roll accuracy.** Parse Path of Exile's single-bound
+   Advanced Description rolls, retain the copied value and historic domain,
+   map official pseudo stats, and prevent unfiltered legacy-unique searches.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.2
+## Current in 3.4.3
+
+- Interpret a copied roll such as `+1170(1000)` as the current `1170` value
+  plus a single historic endpoint, never as two independent modifier values.
+- Carry that grammar through pseudo-stat resolution, range planning, rendered
+  controls, and the exact official Trade payload.
+- Guard the correction with exact Kaom's Heart parser, query, UI, browser
+  payload, and optional desktop smoke regressions.
+
+## Shipped in 3.4.2
 
 - Keep only the newest modifier selection eligible to search and fetch; queued
   intermediate checkbox states are superseded before they can consume another

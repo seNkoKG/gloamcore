@@ -1,6 +1,6 @@
 {
   "name": "gloamcore",
-  "version": "3.4.2",
+  "version": "3.4.3",
   "packageManager": "pnpm@11.16.0",
   "private": true,
   "type": "module",
@@ -30,6 +30,7 @@
     "data:build-game": "node scripts/build-game-data-packs.mjs",
     "test:tray": "electron scripts/tray-smoke.cjs",
     "test:price-check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1",
+    "test:price-check:legacy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1 -LegacyUnique",
     "test:price-check:rare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1 -Rare",
     "test:price-check:wand": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/price-check-smoke.ps1 -Wand",
     "release:qa": "pnpm test && pnpm build && pnpm test:tray && pnpm test:price-check && pnpm test:price-check:rare && pnpm test:price-check:wand",

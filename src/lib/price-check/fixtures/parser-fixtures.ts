@@ -562,6 +562,31 @@ Item Level: 86
 { Suffix Modifier "Legacy Range" (Tier: 1) — Attack, Speed }
 25(10-20)% increased Attack Speed`;
 
+/** Exact 3.29 Advanced shape for a legacy Unique roll with one source bound. */
+export const kaomsHeartLegacyFixture = `Item Class: Body Armours
+Rarity: Unique
+Kaom's Heart
+Glorious Plate
+--------
+Quality: +20% (augmented)
+Armour: 1012 (augmented)
+--------
+Requirements:
+Level: 68
+Str: 191 (unmet)
+--------
+Item Level: 80
+--------
+{ Unique Modifier \u2014 Life }
++1170(1000) to maximum Life
+{ Unique Modifier }
+Has no Sockets
+--------
+The warrior who
+fears will fall.
+--------
+Corrupted`;
+
 export const lowQualityWeaponFixture = rareWeaponFixture.replace(
   "Quality: +20% (augmented)",
   "Quality: +10% (augmented)",

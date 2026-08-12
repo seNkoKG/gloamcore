@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import actualCatalog from "../../../public/data/price-check/stats-v1.json";
 import {
+  kaomsHeartLegacyFixture,
   magebloodAdvancedFixture,
   malachaisLoopVestigialFixture,
 } from "./fixtures/parser-fixtures";
@@ -21,6 +22,45 @@ function decodedBrowserPayload(plan: ReturnType<typeof buildPriceCheckQueryPlan>
 }
 
 describe("Awakened unique equipment filter parity", () => {
+  it("prices single-bound legacy Kaom's Heart by its total Life roll", () => {
+    const parsed = parsePoeItem(kaomsHeartLegacyFixture);
+    const item = applyTradeStatCatalog(parsed, catalog);
+    const life = item.modifiers.find(
+      (modifier) => modifier.tradeId === "pseudo.pseudo_total_life",
+    );
+
+    expect(life).toMatchObject({
+      kind: "pseudo",
+      text: "+1170 total maximum Life",
+      values: [1170],
+      tradeBounds: { min: 1000, max: 1170 },
+      selectedByDefault: true,
+    });
+
+    const plan = buildPriceCheckQueryPlan(item, "Allflame", {
+      mode: "similar",
+      rollTolerance: 10,
+      status: "onlineleague",
+    });
+    const filter = plan.filters.find(
+      (candidate) => candidate.tradeId === "pseudo.pseudo_total_life",
+    );
+    expect(filter).toMatchObject({
+      enabled: true,
+      copiedValue: 1170,
+      bounds: { min: 1000, max: 1170 },
+      min: 1170,
+    });
+    const serialized = (plan.tradeQuery as any).query.stats
+      .flatMap((group: any) => group.filters)
+      .find((candidate: any) => candidate.id === "pseudo.pseudo_total_life");
+    expect(serialized).toEqual({
+      id: "pseudo.pseudo_total_life",
+      value: { min: 1170 },
+    });
+    expect(decodedBrowserPayload(plan)).toEqual(plan.tradeQuery);
+  });
+
   it("ports Mageblood through Awakened's generic pseudo and invariant-stat passes", () => {
     const parsed = parsePoeItem(magebloodAdvancedFixture);
     expect(parsed).toMatchObject({

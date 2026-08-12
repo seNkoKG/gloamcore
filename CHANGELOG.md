@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 3.4.3
+
+- Fixed Path of Exile's single-bound Advanced Description grammar for legacy
+  rolls such as `+1170(1000)`, so legacy uniques retain the copied value and
+  historic roll domain through parsing, pseudo totals, UI thresholds, and the
+  official Trade browser query instead of falling back to unfiltered prices.
+- Added parser, catalog, query, equipment-property, rendered-overlay, and
+  optional desktop smoke regressions for the affected grammar without changing
+  the bounded seller snapshot or restoring full official Trade listings.
+- Kept Craft of Exile and all existing dashboard behavior intact.
+
 ## 3.4.2
 
 - Corrected Grinding Gear Games rate-header handling so an available request

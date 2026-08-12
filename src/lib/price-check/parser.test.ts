@@ -19,6 +19,7 @@ import {
   gemFixture,
   golemSpellKineticWandFixture,
   influencedStatusFixture,
+  kaomsHeartLegacyFixture,
   lethalPrideKaomAdvancedFixture,
   malachaisLoopVestigialFixture,
   malformedCorruptedUniqueFixture,
@@ -367,6 +368,26 @@ describe("PoE copied-item parser", () => {
     expect(legacy).toMatchObject({
       text: "25(10-20)% increased Attack Speed",
       values: [25],
+    });
+  });
+
+  it("parses a single-bound legacy Unique roll without inventing a second value", () => {
+    const item = parsePoeItem(kaomsHeartLegacyFixture);
+
+    expect(item).toMatchObject({
+      valid: true,
+      rarity: "unique",
+      name: "Kaom's Heart",
+      baseType: "Glorious Plate",
+      corrupted: true,
+    });
+    expect(item.modifiers).toHaveLength(2);
+    expect(item.modifiers[0]).toMatchObject({
+      kind: "explicit",
+      text: "+1170(1000) to maximum Life",
+      normalizedText: "# to maximum life",
+      values: [1170],
+      advanced: true,
     });
   });
 

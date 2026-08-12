@@ -61,6 +61,21 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
+## New in 3.4.3: accurate legacy unique rolls
+
+The price checker now understands Path of Exile's single-bound Advanced
+Description grammar, such as `+1170(1000) to maximum Life` on a legacy Kaom's
+Heart. It retains only the copied `1170` roll as the item value, preserves the
+historic bound, maps the modifier to the official total-Life pseudo stat, and
+sends a minimum of `1170` instead of falling back to an unfiltered unique-item
+search.
+
+The same handling applies across modifier parsing, pseudo-stat composition,
+equipment-property planning, the compact editor, and the official Trade browser
+payload. Regression coverage verifies the visible selected value and bounded
+seller-row surface. Craft of Exile remains intact, and the retired full
+official-trade-listings subsystem remains absent.
+
 ## New in 3.4.2: selected Trade prices settle visibly
 
 Selected modifier changes now supersede older queued searches, so the seller

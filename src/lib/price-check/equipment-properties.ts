@@ -196,13 +196,13 @@ function parsedNumber(value: string) {
 function inlineAdvancedRolls(modifier: ParsedPoeModifier) {
   if (!modifier.advanced) return [];
   const matches = modifier.text.matchAll(
-    /([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*\))?/g,
+    /([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*\(\s*([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*[\u002d\u2013\u2014\u2212]\s*([-+]?\d[\d,]*(?:\.\d+)?))?\s*\))?/g,
   );
   const rolls: InlineAdvancedRoll[] = [];
   for (const match of matches) {
     const value = parsedNumber(match[1]);
     const left = match[2] == null ? value : parsedNumber(match[2]);
-    const right = match[3] == null ? value : parsedNumber(match[3]);
+    const right = match[3] == null ? left : parsedNumber(match[3]);
     if (![value, left, right].every(finite)) return [];
     rolls.push({
       value: value!,
@@ -211,7 +211,7 @@ function inlineAdvancedRolls(modifier: ParsedPoeModifier) {
       decimal: [match[1], match[2], match[3]].some(
         (token) => token?.includes("."),
       ),
-      ranged: match[2] != null && match[3] != null,
+      ranged: match[2] != null,
     });
   }
   return rolls;

@@ -330,6 +330,9 @@ const QA_EXPAND_OPTIONAL_STATS = Boolean(
 const QA_SELECT_WAND_STATS = Boolean(
   QA_NATIVE_CAPTURE && process.env.GLOAMCORE_QA_SELECT_WAND_STATS === "1",
 );
+const QA_SKIP_MODIFIER_INTERACTION = Boolean(
+  QA_RUNTIME && process.env.GLOAMCORE_QA_SKIP_MODIFIER_INTERACTION === "1",
+);
 const FOCUS_TRACE_ENABLED = DEV_RUNTIME && process.env.GLOAMCORE_FOCUS_TRACE === "1";
 const mainCommandQueue = createRendererCommandQueue();
 
@@ -3684,8 +3687,10 @@ const deadline = Date.now() + 150_000;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     console.log("PHASE gate-done");
-    let modifierInteraction = null;
-    if (result?.modifierEditor) {
+    let modifierInteraction = QA_SKIP_MODIFIER_INTERACTION
+      ? { ready: true, skipped: true }
+      : null;
+    if (result?.modifierEditor && !QA_SKIP_MODIFIER_INTERACTION) {
       try {
         modifierInteraction = await priceCheckWindow.webContents.executeJavaScript(`(async () => {
           let slider = document.querySelector('.crme-dual-range input[type="range"]:not(:disabled)');

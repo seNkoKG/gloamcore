@@ -8,6 +8,7 @@ import {
   gemFixture,
   golemSpellKineticWandFixture,
   influencedStatusFixture,
+  kaomsHeartLegacyFixture,
   lethalPrideKaomAdvancedFixture,
   magebloodAdvancedFixture,
   malachaisLoopVestigialFixture,
@@ -707,6 +708,52 @@ describe("compact empty market state", () => {
       },
     });
     expect(timeoutMarkup).toContain("TRADE TIMED OUT · RETRY");
+  });
+
+  it("renders a single-bound legacy Unique with its copied roll selected", () => {
+    const item = applyTradeStatCatalog(
+      parsePoeItem(kaomsHeartLegacyFixture),
+      actualCatalog as TradeStatCatalogPack,
+    );
+    const session: PriceCheckSession = {
+      id: "legacy-kaoms-heart",
+      capturedAt: Date.now(),
+      league: "Allflame",
+      status: "ready",
+      item,
+      matches: [],
+      estimate: null,
+      query: buildPriceCheckQueryPlan(item, "Allflame"),
+      sourceStale: false,
+      tradePriceSnapshot: {
+        listings: [{
+          id: "legacy-listing",
+          amount: 42,
+          currency: "divine",
+          seller: "LegacySeller",
+          indexed: new Date().toISOString(),
+          itemName: "Kaom's Heart",
+        }],
+        total: 63,
+        searchId: "legacy-search",
+        fetchedAt: Date.now(),
+        cached: false,
+      },
+    };
+
+    const markup = renderCompact(session);
+    expect(markup).toContain("1170 total maximum Life");
+    expect(markup).toContain(
+      'aria-label="Minimum value for 1170 total maximum Life"',
+    );
+    expect(markup).toMatch(
+      /aria-label="Minimum value for 1170 total maximum Life"[^>]*value="1170"/,
+    );
+    expect(markup).toContain(">CORRUPTED<");
+    expect(markup).toContain("42 DIVINE");
+    expect(markup).toContain("LegacySeller");
+    expect(markup).not.toContain("0 STATS");
+    expect(markup).not.toContain("UNMAPPED");
   });
 
   it("uses the trade-first editor for a unique state filter while hiding invariant fixed rolls", () => {

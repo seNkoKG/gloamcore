@@ -669,7 +669,7 @@ function normalizeModifierText(text: string): string {
     .replace(/<<[^>]+>>/g, "")
     .replace(/[−–—]/g, "-")
     .replace(
-      /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*[-+]?\d[\d,]*(?:\.\d+)?\s*-\s*[-+]?\d[\d,]*(?:\.\d+)?\s*\)/g,
+      /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*[-+]?\d[\d,]*(?:\.\d+)?(?:\s*[\u002d\u2013\u2014\u2212]\s*[-+]?\d[\d,]*(?:\.\d+)?)?\s*\)/g,
       "$1",
     )
     .replace(/[-+]?\d[\d,]*(?:\.\d+)?/g, "#")
@@ -680,9 +680,10 @@ function normalizeModifierText(text: string): string {
 
 function modifierValues(text: string): number[] {
   // Advanced descriptions put the rolled value before its possible range,
-  // e.g. +76(70-79). Keep the roll and discard the parenthesised range.
+  // e.g. +76(70-79). Legacy rolls can use one historic endpoint, e.g.
+  // +1170(1000); in both forms keep only the copied roll.
   const withoutRollRanges = text.replace(
-    /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*[-+]?\d[\d,]*(?:\.\d+)?\s*[-–]\s*[-+]?\d[\d,]*(?:\.\d+)?\s*\)/g,
+    /([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*[-+]?\d[\d,]*(?:\.\d+)?(?:\s*[\u002d\u2013\u2014\u2212]\s*[-+]?\d[\d,]*(?:\.\d+)?)?\s*\)/g,
     "$1",
   );
   const values: number[] = [];

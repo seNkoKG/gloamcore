@@ -2,18 +2,18 @@ param(
   [switch]$Visible,
   [switch]$Rare,
   [switch]$Wand,
+  [switch]$LegacyUnique,
   [string]$Executable
 )
 
 $ErrorActionPreference = "Stop"
 
-if ($Rare -and $Wand) {
-  throw "Choose either -Rare or -Wand, not both."
+if ((@($Rare, $Wand, $LegacyUnique) | Where-Object { $_ }).Count -gt 1) {
+  throw "Choose only one of -Rare, -Wand, or -LegacyUnique."
 }
-
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $artifactRoot = Join-Path $projectRoot "artifacts\qa"
-$scenario = if ($Wand) { "wand" } elseif ($Rare) { "rare" } else { "unique" }
+$scenario = if ($Wand) { "wand" } elseif ($Rare) { "rare" } elseif ($LegacyUnique) { "legacy-unique" } else { "unique" }
 $artifactResultPath = Join-Path $artifactRoot "price-check-smoke-$scenario.json"
 $artifactScreenshotPath = Join-Path $artifactRoot "price-check-smoke-$scenario.png"
 $expectedVersion = [string]((
@@ -139,6 +139,32 @@ Socketed Attacks have -20 to Total Mana Cost
 --------
 Hunter Item
 Fractured Item
+"@
+} elseif ($LegacyUnique) {
+@"
+Item Class: Body Armours
+Rarity: Unique
+Kaom's Heart
+Glorious Plate
+--------
+Quality: +20% (augmented)
+Armour: 1012 (augmented)
+--------
+Requirements:
+Level: 68
+Str: 191 (unmet)
+--------
+Item Level: 80
+--------
+{ Unique Modifier $emDash Life }
++1170(1000) to maximum Life
+{ Unique Modifier }
+Has no Sockets
+--------
+The warrior who
+fears will fall.
+--------
+Corrupted
 "@
 } else {
 @"
@@ -432,17 +458,23 @@ try {
     throw "Synthetic target failed native identity readiness with code $($identityProbe.ExitCode)."
   }
 
-  # Do not allow a parent shell's QA payload or expansion flag to bypass this
-  # scenario's native Ctrl+C fixture and initial UI contract.
+  # Do not allow a parent shell's QA payload or expansion flag to alter this
+  # scenario's selected capture contract.
   Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
   Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
   Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
   Remove-Item Env:GLOAMCORE_QA_SELECT_WAND_STATS -ErrorAction SilentlyContinue
+  Remove-Item Env:GLOAMCORE_QA_SKIP_MODIFIER_INTERACTION -ErrorAction SilentlyContinue
   $env:GLOAMCORE_QA_OPEN_SURFACE = "price-check"
   $env:GLOAMCORE_QA_RESULT_PATH = $resultPath
   $env:GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH = $nativeCloseSignalPath
   $env:GLOAMCORE_QA_TARGET_TITLE = $qaTargetTitle
   $env:GLOAMCORE_QA_CAPTURE_TEST = "1"
+  if ($LegacyUnique) {
+    # Preserve the copied roll and settled seller rows in the visual proof.
+    # Other native scenarios continue exercising the generic slider gesture.
+    $env:GLOAMCORE_QA_SKIP_MODIFIER_INTERACTION = "1"
+  }
   $env:GLOAMCORE_QA_USER_DATA_PATH = $qaRootFull
   if ($Wand) {
     $env:GLOAMCORE_QA_EXPAND_STATS = "1"
@@ -556,6 +588,8 @@ try {
     "Golem Spell"
   } elseif ($Rare) {
     "Damnation Pelt"
+  } elseif ($LegacyUnique) {
+    "Kaom's Heart"
   } else {
     "Mageblood"
   }
@@ -685,6 +719,44 @@ try {
       $result.result.matchModeSelects -ne 0
     ) {
       throw "Rare overlay did not render every ordinary stat without an optional-stat fold."
+    }
+  } elseif ($LegacyUnique) {
+    if (
+      -not $result.result.modifierEditor -or
+      $result.result.modifierRows -ne 1 -or
+      $result.result.rangeSliders -ne 2 -or
+      $result.result.marketRows -lt 1
+    ) {
+      throw "Legacy Kaom's Heart did not render its bounded Life filter with live Trade prices."
+    }
+    if (
+      $result.result.editorHeading -ne "2/3 STATS" -or
+      @($result.result.modifierLabels) -notcontains "1170 total maximum Life" -or
+      $result.result.text -match "\bUNMAPPED\b" -or
+      $result.result.matchModeSelects -ne 0
+    ) {
+      throw "Legacy Kaom's Heart did not preserve the copied Life roll in the compact editor."
+    }
+    if (@($result.result.stateLabels) -notcontains "CORRUPTED") {
+      throw "Legacy Kaom's Heart is missing its visible CORRUPTED state."
+    }
+    if (
+      $result.result.sourceLabel -ne "TRADE FILTERS" -or
+      [string]::IsNullOrWhiteSpace($result.result.estimateLabel)
+    ) {
+      throw "Legacy Kaom's Heart did not settle its Trade-backed price result."
+    }
+    if (
+      -not $result.modifierInteraction.ready -or
+      -not $result.modifierInteraction.skipped -or
+      -not $result.postInteractionTradeState -or
+      $result.postInteractionTradeState.editorHeading -ne "2/3 STATS" -or
+      $result.postInteractionTradeState.selectedCount -ne 1 -or
+      $result.postInteractionTradeState.marketRows -lt 1 -or
+      $result.postInteractionTradeState.loading -or
+      $result.postInteractionTradeState.statusText
+    ) {
+      throw "Legacy Kaom's Heart did not remain settled at its copied Life roll before capture."
     }
   } else {
     if (
@@ -1028,6 +1100,7 @@ try {
     Remove-Item Env:GLOAMCORE_QA_USER_DATA_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_SELECT_WAND_STATS -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_SKIP_MODIFIER_INTERACTION -ErrorAction SilentlyContinue
     Remove-Item Env:ELECTRON_ENABLE_LOGGING -ErrorAction SilentlyContinue
     if ($appProcess -and -not $appProcess.HasExited) {
       Stop-Process -Id $appProcess.Id -Force
