@@ -63,6 +63,15 @@
   --teal: #d9ad64;
   --teal-2: #bd8745;
   --accent-contrast: #1a1005;
+  --blue: #c29a62;
+  --poe-surface-0: #090704;
+  --poe-surface-1: #100c08;
+  --poe-surface-2: #17110b;
+  --poe-surface-3: #1e170e;
+  --poe-surface-4: #281e12;
+  --poe-surface-hover: #302416;
+  --poe-line: #493722;
+  --poe-line-strong: #674c2c;
 }
 
 :root[data-theme="wraeclast"] body {
@@ -81,6 +90,205 @@
 :root[data-theme="wraeclast"] .details-drawer { border-left-color: var(--line); background: radial-gradient(circle at 100% 0, var(--teal-wash), transparent 24%), var(--bg-1); }
 :root[data-theme="wraeclast"] .settings-heading { border-bottom-color: var(--line); background: rgba(18, 16, 12, 0.97); }
 :root[data-theme="wraeclast"] .settings-section { border-color: var(--line); background: var(--bg-2); }
+
+/* Wraeclast replaces the native blue-black material system without recolouring game art. */
+:root[data-theme="wraeclast"] .app-shell,
+:root[data-theme="wraeclast"] .main-content,
+:root[data-theme="wraeclast"] .filter-panel,
+:root[data-theme="wraeclast"] .economy-table-wrap,
+:root[data-theme="wraeclast"] .background-loading,
+:root[data-theme="wraeclast"] .stash-embedded-viewport,
+:root[data-theme="wraeclast"] .craft-embedded-viewport,
+:root[data-theme="wraeclast"] .pc-surface,
+:root[data-theme="wraeclast"] .pco,
+:root[data-theme="wraeclast"] .crme,
+:root[data-theme="wraeclast"] .planner-shell,
+:root[data-theme="wraeclast"] .upgrade-assistant,
+:root[data-theme="wraeclast"] .whiteboard-workspace,
+:root[data-theme="wraeclast"] .map-mod-result {
+  border-color: var(--poe-line);
+  background-color: var(--poe-surface-0);
+}
+
+:root[data-theme="wraeclast"] .titlebar,
+:root[data-theme="wraeclast"] .sidebar,
+:root[data-theme="wraeclast"] .filter-toolbar,
+:root[data-theme="wraeclast"] .economy-table th,
+:root[data-theme="wraeclast"] .economy-table tbody tr,
+:root[data-theme="wraeclast"] .details-drawer,
+:root[data-theme="wraeclast"] .settings-drawer,
+:root[data-theme="wraeclast"] .knowledge-drawer,
+:root[data-theme="wraeclast"] .mobile-category-sheet,
+:root[data-theme="wraeclast"] .quick-surface,
+:root[data-theme="wraeclast"] .tray-surface,
+:root[data-theme="wraeclast"] .pc-titlebar,
+:root[data-theme="wraeclast"] .pco-top,
+:root[data-theme="wraeclast"] .crme-heading,
+:root[data-theme="wraeclast"] .planner-header,
+:root[data-theme="wraeclast"] .planner-commandbar,
+:root[data-theme="wraeclast"] .planner-tabs,
+:root[data-theme="wraeclast"] .planner-items-panel,
+:root[data-theme="wraeclast"] .planner-skill-groups,
+:root[data-theme="wraeclast"] .planner-config-workbench > aside,
+:root[data-theme="wraeclast"] .planner-calcs-workbench > aside,
+:root[data-theme="wraeclast"] .planner-loadout-board,
+:root[data-theme="wraeclast"] .upgrade-hero,
+:root[data-theme="wraeclast"] .cluster-notable-menu,
+:root[data-theme="wraeclast"] .plugin-grid > main {
+  border-color: var(--poe-line);
+  background-color: var(--poe-surface-1);
+}
+
+:root[data-theme="wraeclast"] .league-picker,
+:root[data-theme="wraeclast"] .value-display,
+:root[data-theme="wraeclast"] .refresh-button,
+:root[data-theme="wraeclast"] .row-count,
+:root[data-theme="wraeclast"] .market-pulse-label,
+:root[data-theme="wraeclast"] .pulse-card,
+:root[data-theme="wraeclast"] .market-search,
+:root[data-theme="wraeclast"] .source-switch,
+:root[data-theme="wraeclast"] .trend-switch,
+:root[data-theme="wraeclast"] .advanced-toggle,
+:root[data-theme="wraeclast"] .advanced-filters,
+:root[data-theme="wraeclast"] .reset-filters,
+:root[data-theme="wraeclast"] .details-price,
+:root[data-theme="wraeclast"] .details-section,
+:root[data-theme="wraeclast"] .detail-stat,
+:root[data-theme="wraeclast"] .modifier-line,
+:root[data-theme="wraeclast"] .item-market-tooltip,
+:root[data-theme="wraeclast"] .settings-section,
+:root[data-theme="wraeclast"] .setting-choice > div,
+:root[data-theme="wraeclast"] .watch-stats > button,
+:root[data-theme="wraeclast"] .watch-search,
+:root[data-theme="wraeclast"] .watch-card,
+:root[data-theme="wraeclast"] .mobile-price-card,
+:root[data-theme="wraeclast"] .quick-search-input,
+:root[data-theme="wraeclast"] .quick-result,
+:root[data-theme="wraeclast"] .tray-rate-card,
+:root[data-theme="wraeclast"] .knowledge-hero,
+:root[data-theme="wraeclast"] .knowledge-search-shell,
+:root[data-theme="wraeclast"] .knowledge-capabilities article,
+:root[data-theme="wraeclast"] .knowledge-result-card,
+:root[data-theme="wraeclast"] .pc-item-facts > div,
+:root[data-theme="wraeclast"] .pc-estimate,
+:root[data-theme="wraeclast"] .pc-mode-tabs,
+:root[data-theme="wraeclast"] .pc-modifier-row,
+:root[data-theme="wraeclast"] .pc-item-filter,
+:root[data-theme="wraeclast"] .pc-availability > div,
+:root[data-theme="wraeclast"] .pco-item,
+:root[data-theme="wraeclast"] .pco-unique-resolver,
+:root[data-theme="wraeclast"] .pco-trade-options,
+:root[data-theme="wraeclast"] .pco-controls,
+:root[data-theme="wraeclast"] .pco-results,
+:root[data-theme="wraeclast"] .crme-states,
+:root[data-theme="wraeclast"] .crme-row,
+:root[data-theme="wraeclast"] .planner-loading,
+:root[data-theme="wraeclast"] .planner-import,
+:root[data-theme="wraeclast"] .planner-stat-collapse,
+:root[data-theme="wraeclast"] .timeless-lens,
+:root[data-theme="wraeclast"] .timeless-jewel-picker,
+:root[data-theme="wraeclast"] .timeless-results,
+:root[data-theme="wraeclast"] .timeless-priorities,
+:root[data-theme="wraeclast"] .planner-item-inspector,
+:root[data-theme="wraeclast"] .planner-skills-workbench,
+:root[data-theme="wraeclast"] .planner-config-workbench,
+:root[data-theme="wraeclast"] .planner-calcs-workbench,
+:root[data-theme="wraeclast"] .planner-items-empty-workbench,
+:root[data-theme="wraeclast"] .planner-item-text-editor,
+:root[data-theme="wraeclast"] .planner-skills-empty-shell,
+:root[data-theme="wraeclast"] .planner-custom-modifiers,
+:root[data-theme="wraeclast"] .planner-custom-mod-block,
+:root[data-theme="wraeclast"] .planner-socket-group-controls,
+:root[data-theme="wraeclast"] .upgrade-snapshot-card,
+:root[data-theme="wraeclast"] .upgrade-engine,
+:root[data-theme="wraeclast"] .upgrade-fact-evidence > div > div,
+:root[data-theme="wraeclast"] .upgrade-stat-group,
+:root[data-theme="wraeclast"] .cluster-back-config,
+:root[data-theme="wraeclast"] .cluster-back-results,
+:root[data-theme="wraeclast"] .regex-output-card > code,
+:root[data-theme="wraeclast"] .regex-chunks article,
+:root[data-theme="wraeclast"] .regex-provenance details code {
+  border-color: var(--poe-line);
+  background-color: var(--poe-surface-2);
+}
+
+:root[data-theme="wraeclast"] .economy-table tbody tr:nth-child(even),
+:root[data-theme="wraeclast"] .crme-row:nth-child(even),
+:root[data-theme="wraeclast"] .pco-row:nth-child(odd),
+:root[data-theme="wraeclast"] .planner-item-set-toolbar,
+:root[data-theme="wraeclast"] .planner-set-toolbar,
+:root[data-theme="wraeclast"] .planner-skill-group-actions,
+:root[data-theme="wraeclast"] .upgrade-stat-table .upgrade-stat-head {
+  background-color: var(--poe-surface-3);
+}
+
+:root[data-theme="wraeclast"] .economy-table tbody tr:hover,
+:root[data-theme="wraeclast"] .pulse-card:hover:not(:disabled),
+:root[data-theme="wraeclast"] .source-switch button:hover,
+:root[data-theme="wraeclast"] .trend-switch button:hover,
+:root[data-theme="wraeclast"] .reset-filters:hover,
+:root[data-theme="wraeclast"] .category-item:hover,
+:root[data-theme="wraeclast"] .sidebar-primary-item:hover,
+:root[data-theme="wraeclast"] .watch-stats > button:hover,
+:root[data-theme="wraeclast"] .knowledge-result-card:hover,
+:root[data-theme="wraeclast"] .quick-result.is-selected,
+:root[data-theme="wraeclast"] .pc-button:hover:not(:disabled),
+:root[data-theme="wraeclast"] .pc-mode-tabs button:hover,
+:root[data-theme="wraeclast"] .pco-details:hover,
+:root[data-theme="wraeclast"] .pco-trade:hover,
+:root[data-theme="wraeclast"] .pco-online:hover {
+  background-color: var(--poe-surface-hover);
+}
+
+:root[data-theme="wraeclast"] .app-shell :is(input, select, textarea),
+:root[data-theme="wraeclast"] select option,
+:root[data-theme="wraeclast"] kbd {
+  border-color: var(--poe-line);
+  color: var(--text);
+  background-color: var(--poe-surface-1);
+}
+
+:root[data-theme="wraeclast"] .economy-table :is(th, td),
+:root[data-theme="wraeclast"] .filter-toolbar,
+:root[data-theme="wraeclast"] .advanced-filters,
+:root[data-theme="wraeclast"] .market-pulse > *,
+:root[data-theme="wraeclast"] .category-icon,
+:root[data-theme="wraeclast"] .sidebar-footer,
+:root[data-theme="wraeclast"] .settings-section,
+:root[data-theme="wraeclast"] .details-section,
+:root[data-theme="wraeclast"] .watch-card,
+:root[data-theme="wraeclast"] .knowledge-capabilities article,
+:root[data-theme="wraeclast"] .knowledge-result-card {
+  border-color: var(--poe-line);
+}
+
+:root[data-theme="wraeclast"] .market-heading h1,
+:root[data-theme="wraeclast"] .watchlist-header h1,
+:root[data-theme="wraeclast"] .item-identity strong,
+:root[data-theme="wraeclast"] .value-primary strong,
+:root[data-theme="wraeclast"] .popular-pair strong,
+:root[data-theme="wraeclast"] .popular-pair em,
+:root[data-theme="wraeclast"] .pulse-card strong,
+:root[data-theme="wraeclast"] .freshness strong {
+  color: var(--text);
+}
+
+:root[data-theme="wraeclast"] .breadcrumbs,
+:root[data-theme="wraeclast"] .market-heading p,
+:root[data-theme="wraeclast"] .watchlist-header p,
+:root[data-theme="wraeclast"] .category-group h3,
+:root[data-theme="wraeclast"] .category-item,
+:root[data-theme="wraeclast"] .sidebar-tip,
+:root[data-theme="wraeclast"] .source-clock,
+:root[data-theme="wraeclast"] .pulse-card small,
+:root[data-theme="wraeclast"] .economy-table th,
+:root[data-theme="wraeclast"] .item-identity span,
+:root[data-theme="wraeclast"] .value-secondary {
+  color: var(--text-3);
+}
+
+:root[data-theme="wraeclast"] ::-webkit-scrollbar-thumb { background: var(--poe-line); background-clip: content-box; }
+:root[data-theme="wraeclast"] ::-webkit-scrollbar-thumb:hover { background: var(--poe-line-strong); background-clip: content-box; }
 * {
   box-sizing: border-box;
 }

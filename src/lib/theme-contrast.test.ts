@@ -50,4 +50,16 @@ describe("native interface theme contrast", () => {
     expect(contrast(variable(base, "text"), backgrounds[0])).toBeGreaterThanOrEqual(7);
     expect(contrast(variable(base, "text-3"), backgrounds[0])).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("keeps every Path of Exile native surface readable and fully scoped", () => {
+    const wraeclast = themeBlock("wraeclast");
+    for (const name of ["poe-surface-0", "poe-surface-1", "poe-surface-2", "poe-surface-3", "poe-surface-4"]) {
+      const surface = variable(wraeclast, name);
+      expect(contrast(variable(wraeclast, "text"), surface)).toBeGreaterThanOrEqual(7);
+      expect(contrast(variable(wraeclast, "teal"), surface)).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(css).toContain(':root[data-theme="wraeclast"] .economy-table tbody tr');
+    expect(css).toContain(':root[data-theme="wraeclast"] .planner-commandbar');
+    expect(css).not.toContain(':root:not([data-theme="wraeclast"]) .economy-table');
+  });
 });

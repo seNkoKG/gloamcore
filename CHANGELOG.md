@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 3.3.2
+
+- Rebuilt Atlas presentation from the current official GGG sprite layers:
+  framed nodes, textured paths, orbit rings, cluster backplates, readable
+  capped zoom, and a dedicated inspector now match the in-game visual grammar.
+- Retained official group/orbit geometry in patch-safe Atlas packs and reject
+  incomplete future art packs before activation, without changing graph,
+  point, allocation, refund, gateway, or URL rules.
+- Promoted named Atlas trees to visible Strategy Presets with persisted save,
+  replace, load, delete, comparison, 30-preset limits, and league migration.
+- Finished the Path of Exile theme across native market, League Center, Item
+  Intel, Toolkit, Build Lab, and overlay surfaces. Other themes and embedded
+  Craft of Exile/Stash Wealth site-owned presentation remain unchanged.
+- Kept Craft of Exile and the bounded Ctrl+D seller snapshot intact without
+  restoring the retired full official-trade-listings subsystem.
+
 ## 3.3.1
 
 - Reworked Atlas Command Center rendering so official node sprites scale with

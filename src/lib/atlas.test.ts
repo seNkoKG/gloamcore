@@ -15,6 +15,9 @@ import {
 function node(id: number, neighbors: number[], patch: Partial<AtlasDataNode> = {}): AtlasDataNode {
   return {
     id,
+    groupId: 0,
+    orbit: 0,
+    orbitIndex: 0,
     name: id === 1 ? "" : `Node ${id}`,
     icon: "Art/2DArt/SkillIcons/passives/AtlasTrees/Mapnode.png",
     stats: [],

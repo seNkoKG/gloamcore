@@ -28,7 +28,18 @@ Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.3.1
+## Current in 3.3.2
+
+- Composed the Atlas from GGG's current frame, connector, orbit, group
+  background, node, and Atlas background sprites using the official group and
+  orbit geometry retained by the patch-safe pack builder.
+- Promoted exact named Atlas trees to visible Strategy Presets with local
+  persistence, replacement, loading, deletion, comparison, and league-pack
+  node-ID migration.
+- Completed the Path of Exile palette across all native dashboard materials
+  while leaving the three other themes and third-party browser surfaces alone.
+
+## Shipped in 3.3.1
 
 - Reworked the Atlas view for proportional official sprite rendering,
   cursor-centred zoom, search focus, and a full-canvas floating inspector while

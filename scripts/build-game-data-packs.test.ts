@@ -11,7 +11,7 @@ describe("game data pack builder", () => {
       min_y: -100,
       max_x: 100,
       max_y: 100,
-      groups: { 1: { x: 0, y: 0 } },
+      groups: { 1: { x: 0, y: 0, orbits: [0, 1], nodes: ["1", "2", "3"] } },
       nodes: {
         root: { group: 1, orbit: 0, orbitIndex: 0, out: ["1"], in: [] },
         1: { name: "", stats: [], group: 1, orbit: 0, orbitIndex: 0, out: ["2", "3"], in: [] },
@@ -23,6 +23,8 @@ describe("game data pack builder", () => {
     expect(pack.totalPoints).toBe(132);
     expect(pack.nodes.find((node) => node.id === 2)).toMatchObject({ x: 100, y: 0, neighbors: [1] });
     expect(pack.nodes.find((node) => node.id === 1)?.neighbors).toEqual([2, 3]);
+    expect(pack.groups).toEqual([{ id: 1, x: 0, y: 0, orbits: [0, 1], nodeIds: [1, 2, 3] }]);
+    expect(pack.orbitRadii).toEqual([0, 100]);
   });
 
   it("keeps the league-start route and exact quest gem availability", () => {

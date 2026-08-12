@@ -1,7 +1,7 @@
-GLOAMCORE 3.3.1 — POE 1 ECONOMY + LEAGUE COMMAND CENTER ON YOUR PHONE
+GLOAMCORE 3.3.2 — POE 1 ECONOMY + LEAGUE COMMAND CENTER ON YOUR PHONE
 
 Android:
-1. Copy GloamCore-Android-3.3.1.apk to your phone.
+1. Copy GloamCore-Android-3.3.2.apk to your phone.
 2. Open it and approve “Install unknown apps” for your file/browser app.
 3. Launch GloamCore and allow notifications if you want price-target alerts.
 
@@ -15,7 +15,7 @@ What it includes:
 - Item Intel live search for items, bases, affixes, tiers, tags, and acquisition
 - Exact in-game item, currency, card, gem, map, and equipment artwork
 - League Navigator and the official-data Atlas planner with authentic PoE art,
-  exact point rules, official URL sharing, and saved loadouts
+  exact point rules, official URL sharing, and saved strategy presets
 - Snapshot-only Build Upgrade Assistant for two exported GloamCore builds;
   mobile labels stored PoB outputs non-authoritative and potentially stale
 - Safe PoE Wiki, PoEDB, and Craft of Exile handoff buttons

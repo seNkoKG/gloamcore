@@ -33,6 +33,9 @@ export interface GameDataManifest {
 
 export interface AtlasDataNode {
   id: number;
+  groupId: number;
+  orbit: number;
+  orbitIndex: number;
   name: string;
   icon: string;
   stats: string[];
@@ -46,6 +49,15 @@ export interface AtlasDataNode {
   mastery: boolean;
   gateway: boolean;
   grantedPoints: number;
+}
+
+export interface AtlasDataGroup {
+  id: number;
+  x: number;
+  y: number;
+  orbits: number[];
+  nodeIds: number[];
+  background?: string;
 }
 
 export type AtlasSpriteKind =
@@ -81,6 +93,8 @@ export interface AtlasDataPack {
   totalPoints: number;
   linkFormat: { version: number; url: string; sha256: string };
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  orbitRadii: number[];
+  groups: AtlasDataGroup[];
   sprites: Record<AtlasSpriteKind, AtlasSpriteSheet>;
   nodes: AtlasDataNode[];
 }
@@ -234,7 +248,12 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
     || !record(bounds) || !finite(bounds.minX) || !finite(bounds.minY)
     || !finite(bounds.maxX) || !finite(bounds.maxY)
     || bounds.minX >= bounds.maxX || bounds.minY >= bounds.maxY
+    || !Array.isArray(value.orbitRadii) || !value.orbitRadii.length || value.orbitRadii.length > 12
+    || !value.orbitRadii.every((radius) => finite(radius) && radius >= 0)
+    || !Array.isArray(value.groups) || !value.groups.length || value.groups.length > 500
     || !record(value.sprites) || !Array.isArray(value.nodes) || value.nodes.length < 900 || value.nodes.length > 1_500) return false;
+  const orbitRadii = value.orbitRadii as number[];
+  const rawGroups = value.groups as unknown[];
   const spriteKinds: AtlasSpriteKind[] = [
     "background", "normalActive", "notableActive", "keystoneActive", "wormholeActive",
     "normalInactive", "notableInactive", "keystoneInactive", "wormholeInactive", "mastery",
@@ -260,6 +279,8 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
     const id = candidate.id;
     const grantedPoints = candidate.grantedPoints;
     if (!safeInteger(id, 1) || ids.has(id)
+      || !safeInteger(candidate.groupId) || !safeInteger(candidate.orbit) || candidate.orbit >= orbitRadii.length
+      || !safeInteger(candidate.orbitIndex)
       || typeof candidate.name !== "string" || candidate.name.length > 300
       || typeof candidate.icon !== "string" || candidate.icon.length > 500
       || !textArray(candidate.stats) || !textArray(candidate.reminderText) || !textArray(candidate.flavourText)
@@ -275,6 +296,30 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
   const nodes = value.nodes as unknown as AtlasDataNode[];
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const sprites = value.sprites as unknown as AtlasDataPack["sprites"];
+  const requiredFrames = [
+    "WormholeFrameUnallocated", "WormholeFrameHighlight", "WormholeFrameCanAllocate", "WormholeFrameAllocated",
+    "KeystoneFrameUnallocated", "KeystoneFrameCanAllocate", "KeystoneFrameAllocated",
+    "NotableFrameUnallocated", "NotableFrameCanAllocate", "NotableFrameAllocated",
+    "PSSkillFrameHighlighted", "PSSkillFrameActive", "PSSkillFrame",
+  ];
+  const requiredLines = ["LineConnectorActive", "LineConnectorNormal", "LineConnectorIntermediate"];
+  if (!requiredFrames.every((key) => Boolean(sprites.frame.coords[key]))
+    || !requiredLines.every((key) => Boolean(sprites.line.coords[key]))) return false;
+  const groupIds = new Set<number>();
+  for (const candidate of rawGroups) {
+    if (!record(candidate) || !safeInteger(candidate.id) || groupIds.has(candidate.id)
+      || !finite(candidate.x) || !finite(candidate.y)
+      || !Array.isArray(candidate.orbits) || candidate.orbits.length > orbitRadii.length
+      || !candidate.orbits.every((orbit) => safeInteger(orbit) && orbit < orbitRadii.length)
+      || !Array.isArray(candidate.nodeIds) || candidate.nodeIds.length > 100
+      || !candidate.nodeIds.every((id) => safeInteger(id, 1) && ids.has(id))
+      || (candidate.background != null && (
+        !text(candidate.background, 100) || !sprites.groupBackground.coords[candidate.background]
+      ))) return false;
+    groupIds.add(candidate.id);
+  }
+  const groups = rawGroups as AtlasDataGroup[];
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
   return Boolean(sprites.startNode.coords.AtlasPassiveSkillScreenStart)
     && Boolean(sprites.atlasBackground.coords.AtlasPassiveBackground)
     && nodes.every((node) => {
@@ -292,7 +337,9 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
       const key = node.id === value.rootId
         ? "AtlasPassiveSkillScreenStart"
         : node.gateway ? "Wormhole" : node.icon;
-      return Boolean(sprites[kind].coords[key]) && node.neighbors.every((neighborId) =>
+      const group = groupsById.get(node.groupId);
+      return groupIds.has(node.groupId) && group?.nodeIds.includes(node.id)
+        && Boolean(sprites[kind].coords[key]) && node.neighbors.every((neighborId) =>
         neighborId !== node.id && byId.get(neighborId)?.neighbors.includes(node.id),
       );
     });

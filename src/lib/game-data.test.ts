@@ -57,4 +57,10 @@ describe("patch-safe game data", () => {
     atlas.nodes[0].neighbors = [999_999];
     expect(isAtlasDataPack(atlas, manifest.gameVersion)).toBe(false);
   });
+
+  it("rejects Atlas art packs that cannot render the official node and path layers", () => {
+    const atlas = JSON.parse(atlasBytes.toString("utf8"));
+    delete atlas.sprites.frame.coords.NotableFrameAllocated;
+    expect(isAtlasDataPack(atlas, manifest.gameVersion)).toBe(false);
+  });
 });

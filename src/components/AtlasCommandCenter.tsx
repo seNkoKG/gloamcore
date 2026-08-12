@@ -44,22 +44,111 @@ function spriteKey(node: AtlasDataNode) {
   return node.gateway ? "Wormhole" : node.icon;
 }
 
+function frameKey(node: AtlasDataNode, active: boolean, highlighted = false, canAllocate = false) {
+  if (node.gateway) {
+    if (active) return "WormholeFrameAllocated";
+    if (highlighted) return "WormholeFrameHighlight";
+    return canAllocate ? "WormholeFrameCanAllocate" : "WormholeFrameUnallocated";
+  }
+  if (node.keystone) {
+    if (active) return "KeystoneFrameAllocated";
+    return highlighted || canAllocate ? "KeystoneFrameCanAllocate" : "KeystoneFrameUnallocated";
+  }
+  if (node.notable) {
+    if (active) return "NotableFrameAllocated";
+    return highlighted || canAllocate ? "NotableFrameCanAllocate" : "NotableFrameUnallocated";
+  }
+  return active ? "PSSkillFrameActive" : highlighted || canAllocate ? "PSSkillFrameHighlighted" : "PSSkillFrame";
+}
+
+function nodeScale(zoom: number) {
+  return Math.min(1, Math.max(0.075, zoom / 0.45));
+}
+
 function AtlasNodeArt({ atlas, node, active }: { atlas: AtlasDataPack; node: AtlasDataNode; active: boolean }) {
   const sheet = atlas.sprites[spriteKind(node, active)];
   const coordinates = sheet.coords[spriteKey(node)];
   if (!coordinates) return <span className="atlas-node-art-fallback" />;
+  if (node.mastery) {
+    return (
+      <span
+        className="atlas-node-art atlas-node-art--mastery"
+        style={{
+          width: coordinates.w,
+          height: coordinates.h,
+          backgroundImage: `url("${sheet.filename}")`,
+          backgroundPosition: `-${coordinates.x}px -${coordinates.y}px`,
+          backgroundSize: `${sheet.width}px ${sheet.height}px`,
+        }}
+      />
+    );
+  }
+  const frameSheet = atlas.sprites.frame;
+  const frame = frameSheet.coords[frameKey(node, active)];
+  if (!frame) return <span className="atlas-node-art-fallback" />;
+  const displayScale = node.keystone || node.gateway ? 0.43 : node.notable ? 0.58 : 0.78;
   return (
     <span
       className="atlas-node-art"
       style={{
-        width: coordinates.w,
-        height: coordinates.h,
-        backgroundImage: `url("${sheet.filename}")`,
-        backgroundPosition: `-${coordinates.x}px -${coordinates.y}px`,
-        backgroundSize: `${sheet.width}px ${sheet.height}px`,
+        width: frame.w * displayScale,
+        height: frame.h * displayScale,
       }}
-    />
+    >
+      <span className="atlas-node-art-layers" style={{ width: frame.w, height: frame.h, transform: `translate(-50%, -50%) scale(${displayScale})` }}>
+        <span
+          className="atlas-node-art-icon"
+          style={{
+            width: coordinates.w,
+            height: coordinates.h,
+            marginLeft: -coordinates.w / 2,
+            marginTop: -coordinates.h / 2,
+            backgroundImage: `url("${sheet.filename}")`,
+            backgroundPosition: `-${coordinates.x}px -${coordinates.y}px`,
+            backgroundSize: `${sheet.width}px ${sheet.height}px`,
+          }}
+        />
+        <span
+          className="atlas-node-art-frame"
+          style={{
+            width: frame.w,
+            height: frame.h,
+            backgroundImage: `url("${frameSheet.filename}")`,
+            backgroundPosition: `-${frame.x}px -${frame.y}px`,
+            backgroundSize: `${frameSheet.width}px ${frameSheet.height}px`,
+          }}
+        />
+      </span>
+    </span>
   );
+}
+
+function drawConnector(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement | undefined,
+  coordinate: { x: number; y: number; w: number; h: number } | undefined,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  thickness: number,
+) {
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+  if (!coordinate || !image?.complete || length < 1) return false;
+  context.save();
+  context.translate(from.x, from.y);
+  context.rotate(Math.atan2(to.y - from.y, to.x - from.x));
+  context.drawImage(
+    image,
+    coordinate.x,
+    coordinate.y,
+    coordinate.w,
+    coordinate.h,
+    0,
+    -thickness / 2,
+    length,
+    thickness,
+  );
+  context.restore();
+  return true;
 }
 
 function atlasCenter(atlas: AtlasDataPack) {
@@ -152,8 +241,11 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
     const context = canvas.getContext("2d");
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
     context.clearRect(0, 0, size.width, size.height);
-    context.fillStyle = "#06090a";
+    const canvasStyles = getComputedStyle(canvas);
+    context.fillStyle = canvasStyles.getPropertyValue("--atlas-canvas-bg").trim() || "#06090a";
     context.fillRect(0, 0, size.width, size.height);
 
     const background = atlas.sprites.atlasBackground;
@@ -178,7 +270,57 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
       context.globalAlpha = 1;
     }
 
-    const accent = getComputedStyle(canvas).getPropertyValue("--teal").trim() || "#2ee6b8";
+    const accent = canvasStyles.getPropertyValue("--teal").trim() || "#2ee6b8";
+    const lineSheet = atlas.sprites.line;
+    const lineImage = imagesRef.current.get(lineSheet.filename);
+    const groupSheet = atlas.sprites.groupBackground;
+    const groupImage = imagesRef.current.get(groupSheet.filename);
+    for (const group of atlas.groups) {
+      const point = worldToScreen(group.x, group.y);
+      if (group.background) {
+        const coordinate = groupSheet.coords[group.background];
+        if (coordinate && groupImage?.complete) {
+          const width = (coordinate.w / 0.5) * viewport.zoom;
+          const height = (coordinate.h / 0.5) * viewport.zoom;
+          context.globalAlpha = 0.82;
+          context.drawImage(
+            groupImage,
+            coordinate.x,
+            coordinate.y,
+            coordinate.w,
+            coordinate.h,
+            point.x - width / 2,
+            point.y - height / 2,
+            width,
+            height,
+          );
+          context.globalAlpha = 1;
+        }
+      }
+      const groupNodes = group.nodeIds.map((id) => nodes.get(id)).filter((node) => node != null);
+      for (const orbit of group.orbits) {
+        if (orbit === 0) continue;
+        const orbitNodes = groupNodes.filter((node) => node.orbit === orbit);
+        const active = orbitNodes.some((node) => allocated.has(node.id));
+        const available = !active && orbitNodes.some((node) => node.neighbors.some((id) => id === atlas.rootId || allocated.has(id)));
+        const key = `Orbit${orbit}${active ? "Active" : available ? "Intermediate" : "Normal"}`;
+        const coordinate = lineSheet.coords[key];
+        if (!coordinate || !lineImage?.complete) continue;
+        const width = (coordinate.w / 0.5) * viewport.zoom;
+        const height = (coordinate.h / 0.5) * viewport.zoom;
+        context.drawImage(
+          lineImage,
+          coordinate.x,
+          coordinate.y,
+          coordinate.w,
+          coordinate.h,
+          point.x - width / 2,
+          point.y - height / 2,
+          width,
+          height,
+        );
+      }
+    }
     context.lineCap = "round";
     for (const node of atlas.nodes) {
       const from = worldToScreen(node.x, node.y);
@@ -189,12 +331,20 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         const to = worldToScreen(neighbor.x, neighbor.y);
         const active = (node.id === atlas.rootId || allocated.has(node.id))
           && (neighbor.id === atlas.rootId || allocated.has(neighbor.id));
-        context.strokeStyle = active ? accent : "rgba(88, 102, 104, 0.34)";
-        context.lineWidth = active ? 2 : 1;
-        context.beginPath();
-        context.moveTo(from.x, from.y);
-        context.lineTo(to.x, to.y);
-        context.stroke();
+        const available = !active && (
+          node.id === atlas.rootId || neighbor.id === atlas.rootId || allocated.has(node.id) || allocated.has(neighbor.id)
+        );
+        const lineKey = active ? "LineConnectorActive" : available ? "LineConnectorIntermediate" : "LineConnectorNormal";
+        const scale = nodeScale(viewport.zoom);
+        const textured = drawConnector(context, lineImage, lineSheet.coords[lineKey], from, to, Math.max(1.2, 17 * scale));
+        if (!textured) {
+          context.strokeStyle = active ? accent : available ? "rgba(176, 142, 83, 0.5)" : "rgba(88, 102, 104, 0.34)";
+          context.lineWidth = active ? 2 : 1;
+          context.beginPath();
+          context.moveTo(from.x, from.y);
+          context.lineTo(to.x, to.y);
+          context.stroke();
+        }
       }
     }
 
@@ -210,8 +360,9 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
       const image = imagesRef.current.get(sheet.filename);
       const matched = searchMatches.has(node.id);
       const selected = selectedId === node.id;
+      const scale = nodeScale(viewport.zoom);
+      const canAllocate = !active && node.neighbors.some((id) => id === atlas.rootId || allocated.has(id));
       if (coordinate && image?.complete) {
-        const scale = Math.max(0.075, viewport.zoom / 0.5);
         const drawWidth = coordinate.w * scale;
         const drawHeight = coordinate.h * scale;
         context.globalAlpha = node.mastery ? 0.32 : active ? 1 : 0.78;
@@ -228,17 +379,24 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         );
         context.globalAlpha = 1;
       }
-      if (matched || selected) {
-        const coordinate = sheet.coords[key];
-        const scale = Math.max(0.075, viewport.zoom / 0.5);
-        const ringRadius = coordinate
-          ? Math.max(7, Math.min(34, Math.max(coordinate.w, coordinate.h) * scale * 0.52))
-          : 9;
-        context.strokeStyle = selected ? accent : "#68a9ff";
-        context.lineWidth = selected ? 2.5 : 1.5;
-        context.beginPath();
-        context.arc(point.x, point.y, selected ? ringRadius + 2 : ringRadius, 0, Math.PI * 2);
-        context.stroke();
+      if (!node.mastery && node.id !== atlas.rootId) {
+        const frameSheet = atlas.sprites.frame;
+        const frame = frameSheet.coords[frameKey(node, active, matched || selected, canAllocate)];
+        const frameImage = imagesRef.current.get(frameSheet.filename);
+        if (frame && frameImage?.complete) {
+          const drawWidth = frame.w * scale;
+          const drawHeight = frame.h * scale;
+          if (matched || selected) {
+            context.save();
+            context.shadowColor = selected ? accent : "#68a9ff";
+            context.shadowBlur = selected ? 16 : 10;
+            context.globalAlpha = 0.95;
+            context.drawImage(frameImage, frame.x, frame.y, frame.w, frame.h, point.x - drawWidth / 2, point.y - drawHeight / 2, drawWidth, drawHeight);
+            context.restore();
+          } else {
+            context.drawImage(frameImage, frame.x, frame.y, frame.w, frame.h, point.x - drawWidth / 2, point.y - drawHeight / 2, drawWidth, drawHeight);
+          }
+        }
       }
     }
   }, [allocated, atlas, imageRevision, nodes, searchMatches, selectedId, size.height, size.width, viewport, worldToScreen]);
@@ -254,9 +412,10 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
       const point = worldToScreen(node.x, node.y);
       const kind = spriteKind(node, allocated.has(node.id));
       const coordinate = atlas.sprites[kind].coords[spriteKey(node)];
-      const scale = Math.max(0.075, viewport.zoom / 0.5);
-      const hitRadius = coordinate
-        ? Math.max(6, Math.min(28, Math.max(coordinate.w, coordinate.h) * scale * 0.42))
+      const frame = atlas.sprites.frame.coords[frameKey(node, allocated.has(node.id))];
+      const scale = nodeScale(viewport.zoom);
+      const hitRadius = frame || coordinate
+        ? Math.max(6, Math.min(40, Math.max(frame?.w || coordinate?.w || 0, frame?.h || coordinate?.h || 0) * scale * 0.48))
         : 8;
       const distance = Math.hypot(point.x - x, point.y - y);
       if (distance <= hitRadius && (!best || distance < best.distance)) best = { id: node.id, distance };
@@ -265,7 +424,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
   };
 
   const zoomBy = (factor: number, clientX?: number, clientY?: number) => setViewport((current) => {
-    const zoom = Math.max(current.fitZoom * 0.75, Math.min(current.fitZoom * 12, current.zoom * factor));
+    const zoom = Math.max(current.fitZoom * 0.75, Math.min(current.fitZoom * 14, current.zoom * factor));
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || clientX == null || clientY == null) return { ...current, zoom };
     const x = clientX - rect.left - size.width / 2;
@@ -388,13 +547,13 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
   const saveLoadout = () => {
     const name = loadoutName.trim().slice(0, 80);
     if (!name) {
-      setMessage("Enter a loadout name before saving.");
+      setMessage("Enter a strategy name before saving.");
       return;
     }
+    const existingId = workspace.loadouts.find((entry) => entry.name.toLocaleLowerCase() === name.toLocaleLowerCase())?.id;
     setWorkspace((current) => {
-      const existing = current.loadouts.find((entry) => entry.name.toLocaleLowerCase() === name.toLocaleLowerCase());
       const saved: AtlasLoadout = {
-        id: existing?.id || crypto.randomUUID(),
+        id: existingId || crypto.randomUUID(),
         name,
         gameVersion: atlas.gameVersion,
         basePoints: current.basePoints,
@@ -404,7 +563,7 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
       return { ...current, loadouts: [...current.loadouts.filter((entry) => entry.id !== saved.id), saved].slice(-30) };
     });
     setLoadoutName("");
-    setMessage(`Saved Atlas loadout “${name}” for PoE ${atlas.gameVersion}.`);
+    setMessage(`${existingId ? "Updated" : "Saved"} strategy preset “${name}” for PoE ${atlas.gameVersion}.`);
   };
 
   return (
@@ -481,6 +640,29 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
             </>
           ) : <p>Search or click the official Atlas tree to inspect exact stats and allocate the shortest connected route.</p>}
           <div className="atlas-status" role="status">{message}</div>
+          <section className="atlas-presets">
+            <header>
+              <span><small>STRATEGY PRESETS</small><strong>Save and switch trees</strong></span>
+              <em>{workspace.loadouts.length}/30</em>
+            </header>
+            <div className="atlas-save-row">
+              <input value={loadoutName} onChange={(event) => setLoadoutName(event.target.value)} placeholder="Strategy name" maxLength={80} />
+              <button type="button" onClick={saveLoadout}>Save current</button>
+            </div>
+            <div className="atlas-loadouts">
+              {workspace.loadouts.map((loadout) => (
+                <article key={loadout.id}>
+                  <span><strong>{loadout.name}</strong><small>{loadout.nodeIds.length} nodes · {loadout.basePoints} points · PoE {loadout.gameVersion}</small></span>
+                  <button type="button" onClick={() => {
+                    setWorkspace((current) => ({ ...current, basePoints: loadout.basePoints, nodeIds: loadout.nodeIds }));
+                    setMessage(`Loaded strategy “${loadout.name}”.`);
+                  }}>Load</button>
+                  <button type="button" className="is-delete" aria-label={`Delete ${loadout.name}`} onClick={() => setWorkspace((current) => ({ ...current, loadouts: current.loadouts.filter((entry) => entry.id !== loadout.id) }))}>Delete</button>
+                </article>
+              ))}
+              {!workspace.loadouts.length && <p>Save named trees for mapping, bosses, league mechanics, or any strategy you choose.</p>}
+            </div>
+          </section>
         </aside>
       </div>
 
@@ -517,30 +699,11 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
         </section>
 
         <section>
-          <small>LOCAL LOADOUTS</small>
-          <h3>Save and restore</h3>
-          <div className="atlas-save-row"><input value={loadoutName} onChange={(event) => setLoadoutName(event.target.value)} placeholder="Loadout name" maxLength={80} /><button type="button" onClick={saveLoadout}>Save current</button></div>
-          <div className="atlas-loadouts">
-            {workspace.loadouts.map((loadout) => (
-              <article key={loadout.id}>
-                <span><strong>{loadout.name}</strong><small>PoE {loadout.gameVersion} · {loadout.nodeIds.length} nodes · {loadout.basePoints} base points</small></span>
-                <button type="button" onClick={() => {
-                  setWorkspace((current) => ({ ...current, basePoints: loadout.basePoints, nodeIds: loadout.nodeIds }));
-                  setMessage(`Loaded “${loadout.name}”.`);
-                }}>Load</button>
-                <button type="button" onClick={() => setWorkspace((current) => ({ ...current, loadouts: current.loadouts.filter((entry) => entry.id !== loadout.id) }))}>Delete</button>
-              </article>
-            ))}
-            {!workspace.loadouts.length && <p>No Atlas loadouts saved yet.</p>}
-          </div>
-        </section>
-
-        <section>
-          <small>LOADOUT DIFFERENCE</small>
-          <h3>Compare exact nodes</h3>
+          <small>STRATEGY DIFFERENCE</small>
+          <h3>Compare saved presets</h3>
           <div className="atlas-compare-selects">
-            <select value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)}><option value="">First loadout</option>{workspace.loadouts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
-            <select value={compareRight} onChange={(event) => setCompareRight(event.target.value)}><option value="">Second loadout</option>{workspace.loadouts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
+            <select value={compareLeft} onChange={(event) => setCompareLeft(event.target.value)}><option value="">First preset</option>{workspace.loadouts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
+            <select value={compareRight} onChange={(event) => setCompareRight(event.target.value)}><option value="">Second preset</option>{workspace.loadouts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select>
           </div>
           {comparison ? (
             <div className="atlas-comparison">
@@ -548,7 +711,7 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
               {comparison.onlyLeft.length > 0 && <span>{leftLoadout?.name}: {nodeSummary(atlas, comparison.onlyLeft).join(", ")}</span>}
               {comparison.onlyRight.length > 0 && <span>{rightLoadout?.name}: {nodeSummary(atlas, comparison.onlyRight).join(", ")}</span>}
             </div>
-          ) : <p>Select two saved loadouts. Comparison reports node differences only; it does not invent strategy scores.</p>}
+          ) : <p>Select two saved presets. Comparison reports exact node differences without inventing strategy scores.</p>}
         </section>
       </div>
     </div>

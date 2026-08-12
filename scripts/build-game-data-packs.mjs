@@ -86,6 +86,7 @@ export function buildAtlasPack(raw, rawSha256 = ATLAS_SOURCE.sha256) {
   if (!Array.isArray(skillsPerOrbit) || !Array.isArray(orbitRadii)) {
     throw new Error("The official Atlas export is missing orbit geometry.");
   }
+  const normalizedOrbitRadii = orbitRadii.map((radius, index) => finite(radius, `Atlas orbit ${index} radius`));
   const nodes = Object.entries(raw.nodes).filter(([rawId]) => /^\d+$/.test(rawId)).map(([rawId, source]) => {
     const id = Number(rawId);
     const group = raw.groups[String(source.group)];
@@ -99,6 +100,9 @@ export function buildAtlasPack(raw, rawSha256 = ATLAS_SOURCE.sha256) {
     const angle = orbitIndex * Math.PI * 2 / slots;
     return {
       id,
+      groupId: Number(source.group),
+      orbit,
+      orbitIndex,
       name: String(source.name || ""),
       icon: String(source.icon || ""),
       stats: Array.isArray(source.stats) ? source.stats.map(String) : [],
@@ -115,6 +119,24 @@ export function buildAtlasPack(raw, rawSha256 = ATLAS_SOURCE.sha256) {
     };
   });
   const byId = new Map(nodes.map((node) => [node.id, node]));
+  const groups = Object.entries(raw.groups).filter(([rawId]) => /^\d+$/.test(rawId)).map(([rawId, source]) => {
+    const id = Number(rawId);
+    const orbits = Array.isArray(source.orbits) ? [...new Set(source.orbits.map(Number))] : [];
+    const nodeIds = Array.isArray(source.nodes)
+      ? [...new Set(source.nodes.map(Number).filter((nodeId) => Number.isSafeInteger(nodeId) && byId.has(nodeId)))]
+      : nodes.filter((node) => node.groupId === id).map((node) => node.id);
+    if (!Number.isSafeInteger(id) || !orbits.every((orbit) => Number.isSafeInteger(orbit) && orbit >= 0 && orbit < normalizedOrbitRadii.length)) {
+      throw new Error(`Atlas group ${rawId} has invalid orbit geometry.`);
+    }
+    return {
+      id,
+      x: finite(source.x, `Atlas group ${rawId} x`),
+      y: finite(source.y, `Atlas group ${rawId} y`),
+      orbits: orbits.sort((left, right) => left - right),
+      nodeIds: nodeIds.sort((left, right) => left - right),
+      ...(source.background?.image ? { background: String(source.background.image) } : {}),
+    };
+  }).sort((left, right) => left.id - right.id);
   for (const node of nodes) {
     for (const neighborId of node.neighbors) {
       const neighbor = byId.get(neighborId);
@@ -147,6 +169,8 @@ export function buildAtlasPack(raw, rawSha256 = ATLAS_SOURCE.sha256) {
       maxX: finite(raw.max_x, "Atlas max_x"),
       maxY: finite(raw.max_y, "Atlas max_y"),
     },
+    orbitRadii: normalizedOrbitRadii,
+    groups,
     sprites: Object.fromEntries([
       "background",
       "normalActive",

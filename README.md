@@ -61,6 +61,21 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
+## New in 3.3.2: authentic Atlas and a finished Path of Exile theme
+
+Atlas Command Center now composes GGG's current official node icons, ornate
+frames, connector textures, orbit rings, cluster backplates, and Atlas
+background at their real graph positions. Nodes stay crisp at high zoom, the
+tree has its own non-overlapping inspector, and named Strategy Presets can be
+saved, replaced, loaded, deleted, compared, and migrated by exact node IDs when
+an approved league data pack changes.
+
+The Path of Exile palette now reaches every native dashboard surface instead
+of stopping at the title bar and sidebar. Market tables, League Center, Item
+Intel, Player Toolkit, Build Lab, drawers, controls, and overlays use one
+contrast-checked Wraeclast material system. Other themes are unchanged; Craft
+of Exile and Stash Wealth remain intentionally site-owned browser surfaces.
+
 ## New in 3.3.1: clean Atlas and coordinated themes
 
 Atlas Command Center now scales official node art with the graph, zooms around
