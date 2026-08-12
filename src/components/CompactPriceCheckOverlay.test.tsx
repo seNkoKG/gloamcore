@@ -144,11 +144,11 @@ describe("compact overlay sizing", () => {
       query: buildPriceCheckQueryPlan(item, "Allflame"),
       sourceStale: false,
     };
-    expect(compactPriceCheckPanelHeight(base)).toBe(175);
+    expect(compactPriceCheckPanelHeight(base)).toBe(226);
     expect(compactPriceCheckPanelHeight({
       ...base,
       matches: [{ row: marketRow(), kind: "exact", score: 1, reasons: [] }],
-    })).toBe(175);
+    })).toBe(226);
     expect(compactPriceCheckPanelHeight({
       ...base,
       matches: Array.from({ length: 20 }, (_value, index) => ({
@@ -157,7 +157,7 @@ describe("compact overlay sizing", () => {
         score: 1,
         reasons: [],
       })),
-    })).toBe(175);
+    })).toBe(226);
     expect(compactPriceCheckPanelHeight({ ...base, status: "resolving" })).toBe(72);
   });
 
@@ -522,12 +522,12 @@ describe("compact overlay sizing", () => {
     expect(markup).not.toContain('aria-label="Match mode for');
     expect(markup).not.toContain("CALCULATED PROPERTY");
     expect(compactPriceCheckPanelHeight(session)).toBe(
-      230 + compactPriceCheckModifierRowsHeight(item, filters),
+      281 + compactPriceCheckModifierRowsHeight(item, filters),
     );
 
     const constrainedMarkup = renderCompact(session, 752);
     expect(constrainedMarkup.match(/class="crme-row/g)).toHaveLength(11);
-    expect(compactPriceCheckUsesConstrainedModifierRows(session, 752)).toBe(false);
+    expect(compactPriceCheckUsesConstrainedModifierRows(session, 752)).toBe(true);
     expect(compactPriceCheckUsesConstrainedModifierRows(session, 1_064)).toBe(false);
     expect(constrainedMarkup).not.toContain('aria-label="Range slider for');
     expect(constrainedMarkup).toContain(
@@ -597,7 +597,7 @@ describe("compact empty market state", () => {
       item,
       session.query!.filters,
     );
-    expect(compactPriceCheckPanelHeight(session)).toBe(221 + filterHeight);
+    expect(compactPriceCheckPanelHeight(session)).toBe(272 + filterHeight);
     expect(markup).toContain('data-rows="2"');
     expect(markup).toContain("TRADE FILTERS");
     expect(markup).toContain('aria-label="Refresh market data"');
@@ -617,8 +617,63 @@ describe("compact empty market state", () => {
     expect(markup).toContain("STATS");
     expect(markup).not.toContain('aria-label="Match mode for');
     expect(markup).not.toContain("CALCULATED PROPERTY");
-    expect(markup).not.toContain('class="pco-row"');
+    expect(markup).toContain('aria-label="Live Trade prices"');
+    expect(markup).toContain("NO LIVE LISTINGS");
     expect(markup).not.toContain("5 DIVINE");
+  });
+
+  it("shows refreshed seller prices below selected rare modifiers", () => {
+    const parsed = parsePoeItem(advancedRareFixture);
+    const item = {
+      ...parsed,
+      modifiers: parsed.modifiers.map((modifier, index) => ({
+        ...modifier,
+        tradeId: `explicit.stat_${1000 + index}`,
+      })),
+    };
+    const session: PriceCheckSession = {
+      id: "rare-live-prices",
+      capturedAt: Date.now(),
+      league: "Allflame",
+      status: "ready",
+      item,
+      matches: [],
+      estimate: null,
+      query: buildPriceCheckQueryPlan(item, "Allflame", { identity: "exact" }),
+      sourceStale: false,
+      tradePriceSnapshot: {
+        listings: [
+          {
+            id: "listing-1",
+            amount: 8,
+            currency: "divine",
+            seller: "WandSeller",
+            indexed: new Date().toISOString(),
+            itemName: "Golem Spell",
+          },
+          {
+            id: "listing-2",
+            amount: 1_250,
+            currency: "chaos",
+            seller: "ChaosSeller",
+            indexed: new Date().toISOString(),
+            itemName: "Golem Spell",
+          },
+        ],
+        total: 34,
+        searchId: "search-1",
+        fetchedAt: Date.now(),
+        cached: false,
+      },
+    };
+
+    const markup = renderCompact(session);
+    expect(markup).toContain('aria-label="Item modifier filters"');
+    expect(markup).toContain('aria-label="Live Trade prices"');
+    expect(markup).toContain("8 DIVINE");
+    expect(markup).toContain("1.25k CHAOS");
+    expect(markup).toContain("WandSeller");
+    expect(markup).toContain("ChaosSeller");
   });
 
   it("uses the trade-first editor for a unique state filter while hiding invariant fixed rolls", () => {
@@ -660,7 +715,7 @@ describe("compact empty market state", () => {
       session.query!.filters,
     );
     expect(filterHeight).toBe(0);
-    expect(compactPriceCheckPanelHeight(session)).toBe(175);
+    expect(compactPriceCheckPanelHeight(session)).toBe(226);
     expect(markup).toContain("TRADE FILTERS");
     expect(markup).toContain('aria-label="Refresh market data"');
     expect(markup).not.toContain("5 DIVINE");

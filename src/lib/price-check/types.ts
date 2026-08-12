@@ -277,6 +277,30 @@ export interface PriceCheckQueryPlan {
   tradeApi?: "trade" | "exchange";
 }
 
+export interface TradePriceListing {
+  id: string;
+  amount: number;
+  currency: string;
+  seller: string;
+  indexed: string;
+  itemName: string;
+}
+
+export interface TradePriceSnapshot {
+  listings: TradePriceListing[];
+  total: number;
+  searchId: string;
+  fetchedAt: number;
+  cached: boolean;
+  error?: string;
+}
+
+export interface TradePriceSnapshotRequest {
+  league: string;
+  tradeQuery: Record<string, unknown>;
+  force?: boolean;
+}
+
 export interface PriceCheckIdentitySearchState {
   label: string;
   query: Record<string, unknown>;
@@ -348,6 +372,8 @@ export interface PriceCheckSession {
   query: PriceCheckQueryPlan | null;
   sourceFetchedAt?: number;
   sourceStale: boolean;
+  tradePriceSnapshot?: TradePriceSnapshot;
+  tradePriceLoading?: boolean;
   message?: string;
 }
 

@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("poeWidget", {
     ipcRenderer.invoke("price-check:get-overlay-state"),
   getTradeStatCatalog: () =>
     ipcRenderer.invoke("price-check:get-trade-stat-catalog"),
+  getTradePriceSnapshot: (request) =>
+    ipcRenderer.invoke("price-check:get-trade-price-snapshot", request),
   openExternal: (url) => ipcRenderer.invoke("app:open-external", url),
   openWealthyExile: (bounds) => ipcRenderer.invoke("app:open-wealthy-exile", bounds),
   hideWealthyExile: () => ipcRenderer.invoke("app:hide-wealthy-exile"),

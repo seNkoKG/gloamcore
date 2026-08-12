@@ -23,8 +23,9 @@ describe("desktop platform release boundaries", () => {
     expect(subscriptions.filter((channel) => !senders.includes(`"${channel}"`))).toEqual([]);
   });
 
-  it("ships only browser handoffs for GGG Trade searches", () => {
+  it("keeps the deleted listing client out and isolates current price snapshots", () => {
     expect(existsSync(join(root, "electron/official-trade-listings.cjs"))).toBe(false);
+    expect(existsSync(join(root, "electron/trade-price-snapshot.cjs"))).toBe(true);
     const runtime = [
       "electron/main.cjs",
       "electron/preload.cjs",
@@ -37,6 +38,14 @@ describe("desktop platform release boundaries", () => {
     }
     expect(runtime).not.toContain(["price-check:get", "official-listings"].join("-"));
     expect(runtime).not.toContain(["get", "Official", "Trade", "Listings"].join(""));
+    expect(runtime).toContain("price-check:get-trade-price-snapshot");
+    expect(runtime).toContain("getTradePriceSnapshot");
+
+    const client = read("electron/trade-price-snapshot.cjs");
+    expect(client).toContain('const TRADE_ORIGIN = "https://www.pathofexile.com"');
+    expect(client).toContain('const SEARCH_PATH = "/api/trade/search/"');
+    expect(client).toContain('const FETCH_PATH = "/api/trade/fetch/"');
+    expect(client).not.toContain("/api/trade/exchange/");
   });
 
   it("has no rejected GGG account/OAuth runtime or example credential debris", () => {

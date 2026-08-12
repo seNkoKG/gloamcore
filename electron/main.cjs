@@ -73,6 +73,9 @@ const {
 } = require("./game-window-policy.cjs");
 const { fetchTrustedLimited } = require("./bounded-remote-fetch.cjs");
 const {
+  createTradePriceSnapshotService,
+} = require("./trade-price-snapshot.cjs");
+const {
   isPoeNinjaMirrorManifest,
   MAX_ACTIONABLE_MIRROR_AGE_MS,
   mirrorEnvelopeTimes,
@@ -125,6 +128,9 @@ app.setName("GloamCore");
 const WIKI_API_ROOT = "https://www.poewiki.net/w/api.php";
 const FAUSTUS_API_ROOT = "https://web.poecdn.com/api/currency-exchange";
 const USER_AGENT = `GloamCore/${app.getVersion()} (+https://github.com/seNkoKG/gloamcore)`;
+const getTradePriceSnapshot = createTradePriceSnapshotService({
+  userAgent: USER_AGENT,
+});
 const pobEngineDispatcher = createPobEngineDispatcher({
   engineOptions: { resourcesPath: process.resourcesPath },
 });
@@ -3302,10 +3308,12 @@ const deadline = Date.now() + 150_000;
           const presetHeight = presets?.getBoundingClientRect().height || 0;
           const tradeOptionsHeight = tradeOptions?.getBoundingClientRect().height || 0;
           const uniqueResolverHeight = uniqueResolver?.getBoundingClientRect().height || 0;
+          const results = document.querySelector('.pco-results');
           const desiredHeight = modifierEditor
             ? presetHeight + tradeOptionsHeight + uniqueResolverHeight + 115 + stateStripHeight +
               (modifierHeading?.getBoundingClientRect().height || 0) +
-              (modifierList ? modifierRowsHeight : 0)
+              (modifierList ? modifierRowsHeight : 0) +
+              (results?.getBoundingClientRect().height || 0)
             : Math.min(520, presetHeight + tradeOptionsHeight + uniqueResolverHeight + 137 + Math.max(1, Math.min(8, marketRows)) * 28);
           const expectedHeight = Math.min(
             desiredHeight,
@@ -3315,7 +3323,6 @@ const deadline = Date.now() + 150_000;
             .map((row) => row.querySelector(':scope > span:not(.pco-listed)')?.textContent?.trim() || '')
             .filter(Boolean);
           const facts = document.querySelector('.pco-facts');
-          const results = document.querySelector('.pco-results');
           const sourceLabel = document.querySelector('.pco-matched')?.textContent?.trim() || '';
           const matchLabel = document.querySelector('.pco-source')?.textContent?.trim() || '';
           const editorHeading = document.querySelector('.crme-heading strong')?.textContent?.trim() || '';
@@ -6022,6 +6029,19 @@ ipcMain.handle("price-check:get-trade-stat-catalog", (event) => {
     throw new Error("Only the dashboard and price-check overlay can read the bundled Trade catalog.");
   }
   return loadBundledTradeStatCatalog();
+});
+
+ipcMain.handle("price-check:get-trade-price-snapshot", (event, request) => {
+  assertTrustedSender(event);
+  if (
+    !canReadPriceCheckCapture(event.sender, {
+      mainWindow,
+      priceCheckWindow,
+    })
+  ) {
+    throw new Error("Only the dashboard and price-check overlay can request Trade prices.");
+  }
+  return getTradePriceSnapshot(request);
 });
 
 ipcMain.handle("settings:get", (event) => {

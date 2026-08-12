@@ -253,6 +253,7 @@ export default function PriceCheckApp({
   const [manualText, setManualText] = useState("");
   const [manualError, setManualError] = useState("");
   const [hotkeyError, setHotkeyError] = useState("");
+  const [tradePriceRefresh, setTradePriceRefresh] = useState(0);
   const [overlayState, setOverlayState] = useState<PriceCheckOverlayState>(
     INACTIVE_OVERLAY_STATE,
   );
@@ -261,6 +262,8 @@ export default function PriceCheckApp({
   const overlayPanelDrag = useRef<OverlayPanelDrag | null>(null);
   const overlayDialog = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
+  const tradePriceRequestId = useRef(0);
+  const forceTradePriceRefresh = useRef(false);
   const sessionRef = useRef(session);
   const leagueRef = useRef(session.league);
   const settingsRef = useRef(settings);
@@ -285,6 +288,16 @@ export default function PriceCheckApp({
   const lastRefreshAttempt = useRef(0);
   const leagueRequest = useRef<Promise<Awaited<ReturnType<typeof bridge.getLeagues>>> | null>(null);
   const warmedLeague = useRef("");
+
+  const tradePriceQueryKey =
+    session.status === "ready" &&
+    session.query?.tradeApi !== "exchange" &&
+    session.league
+      ? JSON.stringify({
+          league: session.league,
+          tradeQuery: session.query?.tradeQuery,
+        })
+      : "";
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -514,6 +527,67 @@ export default function PriceCheckApp({
       active = false;
     };
   }, [desktopOverlay, resolveLeague]);
+
+  useEffect(() => {
+    const getSnapshot = bridge.getTradePriceSnapshot;
+    if (!desktopOverlay || !getSnapshot || !tradePriceQueryKey) return;
+    const targetSessionId = session.id;
+    const targetLeague = session.league;
+    const targetQuery = session.query!.tradeQuery;
+    const generation = ++tradePriceRequestId.current;
+    const force = forceTradePriceRefresh.current;
+    forceTradePriceRefresh.current = false;
+    let active = true;
+    setSession((current) => current.id === targetSessionId
+      ? {
+          ...current,
+          tradePriceSnapshot: undefined,
+          tradePriceLoading: true,
+        }
+      : current);
+    const timer = window.setTimeout(() => {
+      void getSnapshot({
+        league: targetLeague,
+        tradeQuery: targetQuery,
+        force,
+      }).then((snapshot) => {
+        if (!active || generation !== tradePriceRequestId.current) return;
+        setSession((current) =>
+          current.id === targetSessionId &&
+          JSON.stringify({
+            league: current.league,
+            tradeQuery: current.query?.tradeQuery,
+          }) === tradePriceQueryKey
+            ? {
+                ...current,
+                tradePriceSnapshot: snapshot,
+                tradePriceLoading: false,
+              }
+            : current,
+        );
+      }).catch((reason) => {
+        if (!active || generation !== tradePriceRequestId.current) return;
+        setSession((current) => current.id === targetSessionId
+          ? {
+              ...current,
+              tradePriceSnapshot: {
+                listings: [],
+                total: 0,
+                searchId: "",
+                fetchedAt: Date.now(),
+                cached: false,
+                error: reason instanceof Error ? reason.message : String(reason),
+              },
+              tradePriceLoading: false,
+            }
+          : current);
+      });
+    }, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [desktopOverlay, tradePriceQueryKey, tradePriceRefresh]);
 
   const checkText = useCallback(
     async (
@@ -1607,6 +1681,15 @@ export default function PriceCheckApp({
         });
       }}
       onRetry={() => {
+        if (
+          session.status === "ready" &&
+          session.query?.tradeApi !== "exchange" &&
+          bridge.getTradePriceSnapshot
+        ) {
+          forceTradePriceRefresh.current = true;
+          setTradePriceRefresh((value) => value + 1);
+          return;
+        }
         if (session.status === "invalid") void readClipboard(true);
         else if (lastCapture.current) {
           void checkText(

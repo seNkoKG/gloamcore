@@ -199,8 +199,8 @@
               <span class="step-grid__number">03</span>
               <div class="step-grid__visual step-grid__visual--signal" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
               <h3>Compare and decide</h3>
-              <p>Tune exact modifiers locally, review aggregate market context, then open the encoded query on the official Trade website.</p>
-              <small>No in-app seller lookup</small>
+              <p>Tune exact modifiers and watch a bounded public seller-price snapshot refresh below the editor, then open the complete encoded query on the official Trade website.</p>
+              <small>Automatic live price refresh</small>
             </li>
           </ol>
         </div>
@@ -310,11 +310,13 @@
             <h2>A result you can inspect, not a magic number.</h2>
             <p>
               GloamCore keeps the copied state visible. You can see which modifiers are active,
-              tune their ranges, change availability, and inspect the evidence before acting.
+              tune their ranges, change availability, and compare a refreshed public seller-price
+              snapshot before acting.
             </p>
             <ul class="check-list">
               <li><span>01</span><div><strong>Identity and item state</strong><p>Corruption, influences, links, item level, map state, and other relevant context stay explicit.</p></div></li>
               <li><span>02</span><div><strong>Editable roll-aware filters</strong><p>Enable the stats that define value and adjust supported minimums, maximums, and exact matches.</p></div></li>
+              <li><span>03</span><div><strong>Live public price rows</strong><p>Selected query changes refresh a small, sanitized snapshot of seller prices, names, and listing dates directly below the modifier editor.</p></div></li>
               <li><span>03</span><div><strong>Official Trade handoff</strong><p>Open the complete encoded query on the official Trade website and inspect current results there.</p></div></li>
             </ul>
             <p class="accuracy-note"><span aria-hidden="true">i</span> Aggregate values and completed-hour evidence are context, not guaranteed sale prices. Verify valuable items on the official Trade website.</p>
@@ -376,7 +378,7 @@
 
           <div class="boundary-grid">
             <article data-reveal><span>LOCAL</span><div><h3>Copied item parsing</h3><p>Ctrl+D performs one ordinary item copy and parses the resulting text locally. It does not inspect game memory or inject into PoE.</p></div></article>
-            <article data-reveal><span>NONE</span><div><h3>No PoE account authorization</h3><p>Trade filters are built locally and open only through a user-clicked browser handoff. GloamCore asks for neither POESESSID nor Path of Exile account authorization.</p></div></article>
+            <article data-reveal><span>PUBLIC</span><div><h3>Bounded Trade snapshot</h3><p>Selected filters use fixed official Path of Exile search and fetch routes for a small public price snapshot. GloamCore asks for neither POESESSID nor Path of Exile account authorization.</p></div></article>
             <article data-reveal><span>BOUND</span><div><h3>Two isolated site sessions</h3><p>Craft of Exile and Wealthy Exile use different persistent profiles. Each site owns its login, cookies, storage, and private responses; neither profile is exposed to the app renderer or the other site.</p></div></article>
             <article data-reveal><span>OPEN</span><div><h3>Inspectable releases</h3><p>The source-available repository, release notes, installers, portable builds, updater metadata, and checksums are published together.</p></div></article>
           </div>
@@ -459,7 +461,7 @@
           <div class="faq__items" data-reveal>
             <details>
               <summary>What does Ctrl+D actually do?<span aria-hidden="true">+</span></summary>
-              <p>It performs one ordinary copy action on the hovered item, parses the copied English item text locally, and opens a compact result. It does not call undocumented Trade website APIs. It also does not inspect game memory, inject into PoE, automate gameplay, or send whispers.</p>
+              <p>It performs one ordinary copy action on the hovered item, parses the copied English item text locally, and opens a compact result. Supported selected filters request a bounded public seller-price snapshot from fixed official Path of Exile Trade routes. It does not inspect game memory, inject into PoE, automate gameplay, request POESESSID, or send whispers.</p>
             </details>
             <details>
               <summary>Why does the overlay need Borderless or Windowed Fullscreen?<span aria-hidden="true">+</span></summary>

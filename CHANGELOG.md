@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2.9.3
+
+- Restored automatic live seller-price snapshots below the Ctrl+D modifier
+  editor whenever the selected rare, unique, or crafted-item query changes.
+- Added bounded, token-free Path of Exile Trade search and fetch requests with
+  fixed official origins, strict payload limits, timeouts, sanitization, and a
+  short-lived cache.
+- Kept Craft of Exile intact and prohibited the retired listing subsystem from
+  returning to source or packaged releases.
+- Expanded native overlay smoke coverage to require real price rows after
+  modifier changes and account for their height without clipping.
+
 ## 2.9.2
 
 - Restored main active-skill selection before fresh Path of Building metadata

@@ -30,7 +30,7 @@ Exile, stash wealth, and practical player tools.
 
 | Workspace | What it does |
 | --- | --- |
-| **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware local check. Edit the query plan locally, then deliberately open it on the official Trade website. |
+| **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware check. Selected modifiers automatically refresh a bounded public seller-price snapshot, while the complete query remains available on the official Trade website. |
 | **Market Explorer** | Browse current poe.ninja markets, trends, liquidity, source age, watch targets, and documented Public Currency Exchange completed-hour evidence from Faustus. |
 | **Item Intel** | Search PoE Wiki item and modifier data without leaving the market workflow. |
 | **Build Lab** | Import, inspect, edit, compare, recalculate with a verified local PoB engine, and export PoB-compatible builds. |
@@ -74,6 +74,10 @@ shows a compact overlay without taking keyboard focus away from the game.
 
 The checker keeps query-relevant state visible for uniques, rares, magic
 items, maps, gems, jewels, weapons, armour, and other supported item families.
+For supported Trade queries, changing selected modifiers automatically refreshes
+up to five sanitized public seller prices below the editor. Requests use fixed
+official Path of Exile search and fetch routes, strict response limits, short
+timeouts, and a brief cache; they require no account authorization or POESESSID.
 Corruption implicits, influences, links, item level, map state, and supported
 roll ranges remain explicit. When the evidence is incomplete, GloamCore marks
 it incomplete instead of manufacturing a conversion or confidence signal.

@@ -1137,6 +1137,9 @@ export interface PoeWidgetBridge {
   >;
   getPriceCheckOverlayState?(): Promise<PriceCheckOverlayState>;
   getTradeStatCatalog?(): Promise<string>;
+  getTradePriceSnapshot?(
+    request: import("./lib/price-check/types").TradePriceSnapshotRequest,
+  ): Promise<import("./lib/price-check/types").TradePriceSnapshot>;
   openExternal(url: string): Promise<void>;
   openWealthyExile(bounds?: EmbeddedViewBounds): Promise<boolean>;
   hideWealthyExile(): Promise<boolean>;

@@ -112,6 +112,21 @@ function marketAge(fetchedAt?: number) {
   return `POE.NINJA ${Math.round(minutes / 60)} HR`;
 }
 
+function listingAge(indexed: string) {
+  const milliseconds = Date.now() - Date.parse(indexed);
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "NOW";
+  const minutes = Math.max(0, Math.round(milliseconds / 60_000));
+  if (minutes < 1) return "NOW";
+  if (minutes < 60) return `${minutes}M`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `${hours}H` : `${Math.round(hours / 24)}D`;
+}
+
+function tradePriceResultsHeight(session: PriceCheckSession) {
+  const rows = Math.min(5, session.tradePriceSnapshot?.listings.length || 0);
+  return 23 + Math.max(1, rows) * 28;
+}
+
 function itemTitle(session: PriceCheckSession) {
   return session.item?.name || session.item?.baseType || "ITEM";
 }
@@ -225,7 +240,8 @@ export function compactPriceCheckPanelHeight(
     // rendered editor row and never creates an inner modifier scrollbar.
     return presetHeight + tradeOptionsHeight + resolverHeight + 115 +
       stateStripHeight +
-      (hasVisibleStats ? 24 + rowHeight : 0);
+      (hasVisibleStats ? 24 + rowHeight : 0) +
+      tradePriceResultsHeight(session);
   }
   const rowCount = session.sourceStale
     ? 0
@@ -277,7 +293,8 @@ export function compactPriceCheckUsesConstrainedModifierRows(
     session.query.filters,
   );
   const fullShellHeight = presetHeight + tradeOptionsHeight + resolverHeight +
-    115 + stateStripHeight + 24 + fullEditorHeight;
+    115 + stateStripHeight + 24 + fullEditorHeight +
+    tradePriceResultsHeight(session);
   return fullShellHeight > panelHeight;
 }
 
@@ -350,6 +367,7 @@ export function CompactPriceCheckOverlay({
   const matchSummary = validMatches.length > matches.length
     ? `${matches.length} OF ${validMatches.length}`
     : `${matches.length} ${matches.length === 1 ? "MATCH" : "MATCHES"}`;
+  const tradePriceRows = session.tradePriceSnapshot?.listings.slice(0, 5) || [];
 
   return (
     <section className="pco" aria-label="PoE item price check">
@@ -568,7 +586,32 @@ export function CompactPriceCheckOverlay({
             </div>
           ) : null}
 
-          {!modifierEditor ? <div className="pco-results">
+          {modifierEditor ? (
+            <div className="pco-results pco-trade-price-results" aria-label="Live Trade prices">
+              <div className="pco-results-head">
+                <span>PRICE</span>
+                <span>SELLER</span>
+                <span>LISTED</span>
+              </div>
+              {session.tradePriceLoading ? (
+                <div className="pco-no-results">CHECKING LIVE PRICES</div>
+              ) : session.tradePriceSnapshot?.error ? (
+                <div className="pco-no-results" title={session.tradePriceSnapshot.error}>
+                  TRADE SEARCH FAILED
+                </div>
+              ) : tradePriceRows.length ? (
+                tradePriceRows.map((listing) => (
+                  <div className="pco-row" key={listing.id}>
+                    <b>{shortNumber(listing.amount)} {listing.currency.toUpperCase()}</b>
+                    <span title={listing.seller}>{listing.seller}</span>
+                    <span className="pco-listed">{listingAge(listing.indexed)}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="pco-no-results">NO LIVE LISTINGS</div>
+              )}
+            </div>
+          ) : <div className="pco-results">
             <div className="pco-results-head">
               <span>VALUE</span>
               <span>MATCH</span>
@@ -601,7 +644,7 @@ export function CompactPriceCheckOverlay({
             ) : (
               <div className="pco-no-results">NO MATCH</div>
             )}
-          </div> : null}
+          </div>}
         </>
       )}
     </section>

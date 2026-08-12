@@ -4,10 +4,18 @@ GloamCore is the economy, intelligence, one-key in-game price-check, and exact
 official Trade browser-handoff baseline. New knowledge work remains isolated
 from the price dashboard until its data, performance, and accuracy checks pass.
 
-Older sections below record what earlier releases shipped. Version 2.9.2
+Older sections below record what earlier releases shipped. Version 2.9.3
 explicitly supersedes any retired transport or data-source behavior.
 
-## Current in 2.9.2
+## Current in 2.9.3
+
+- Restored the bounded public Trade price snapshot below the Ctrl+D modifier
+  editor. Selected query changes refresh automatically through fixed
+  Path of Exile search and fetch routes; responses are size-limited,
+  sanitized, cached briefly, and never use a player session or POESESSID.
+- Kept the snapshot intentionally narrow: it shows a small set of public
+  seller prices and dates, does not send whispers, and leaves the complete
+  encoded query available through the explicit official Trade handoff.
 
 - Added the real Craft of Exile interface as a desktop-only, edge-to-edge
   workspace. It runs in a dedicated sandboxed browser profile with strict

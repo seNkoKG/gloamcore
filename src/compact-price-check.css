@@ -449,6 +449,11 @@
   scrollbar-color: #394b58 #101820;
 }
 
+.pco-trade-price-results {
+  flex: 0 0 auto;
+  max-height: 163px;
+}
+
 .pco-results-head,
 .pco-row {
   display: grid;

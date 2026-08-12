@@ -565,9 +565,9 @@ try {
       -not $result.result.modifierEditor -or
       $result.result.modifierRows -ne 9 -or
       $result.result.rangeSliders -ne 0 -or
-      $result.result.marketRows -ne 0
+      $result.result.marketRows -lt 1
     ) {
-      throw "Crafted wand did not render its complete nine-row compact editor."
+      throw "Crafted wand did not render its complete editor with live Trade prices."
     }
     $modifierLabels = @($result.result.modifierLabels)
     $expectedWeaponPropertyLabels = @(
@@ -616,9 +616,9 @@ try {
       -not $result.result.modifierEditor -or
       $result.result.modifierRows -lt 1 -or
       $result.result.rangeSliders -ne 0 -or
-      $result.result.marketRows -ne 0
+      $result.result.marketRows -lt 1
     ) {
-      throw "Rare modifier editor did not replace misleading base-market rows."
+      throw "Rare modifier editor did not render live Trade prices."
     }
     if (
       $result.result.text -match "\bUNMAPPED\b" -or
@@ -667,9 +667,9 @@ try {
       -not $result.result.modifierEditor -or
       $result.result.modifierRows -ne 4 -or
       $result.result.rangeSliders -ne 8 -or
-      $result.result.marketRows -ne 0
+      $result.result.marketRows -lt 1
     ) {
-      throw "Canonical Mageblood did not render exactly four bounded visible stats."
+      throw "Canonical Mageblood did not render its four stats with live Trade prices."
     }
     if ($result.result.editorHeading -ne "1/7 STATS") {
       throw "Canonical Mageblood did not preserve Awakened's one-of-seven stat summary."

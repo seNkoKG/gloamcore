@@ -52,10 +52,12 @@ const FORBIDDEN_APP_CONTENT = [
   { label: "rejected PoE account import worker", pattern: /["']import-character["']/i },
   { label: "rejected PoE character OAuth scope", pattern: /account:characters/i },
   { label: "unsupported second-game", pattern: SINGLE_GAME_CONTENT_PATTERN },
-  ...["search", "fetch", "exchange"].map((route) => ({
-    label: `undocumented Trade ${route}`,
+  ...["search", "fetch"].map((route) => ({
+    label: `Trade ${route} outside the price snapshot client`,
     pattern: new RegExp(`/api/trade/${route}`, "i"),
+    allowedPath: /^electron\/trade-price-snapshot\.cjs$/i,
   })),
+  { label: "undocumented Trade exchange", pattern: /\/api\/trade\/exchange/i },
   { label: "undocumented Trade data", pattern: /\/api\/trade\/data(?:\/|\b)/i },
 ];
 
@@ -1734,9 +1736,11 @@ function assertAsarFileMatches(asar, root, relativePath) {
   }
 }
 
-function assertNoForbiddenText(label, buffer, _relativePath = "") {
+function assertNoForbiddenText(label, buffer, relativePath = "") {
   const text = buffer.toString("utf8");
+  const normalizedPath = normalizeRelative(relativePath);
   for (const forbidden of FORBIDDEN_APP_CONTENT) {
+    if (forbidden.allowedPath?.test(normalizedPath)) continue;
     if (forbidden.pattern.test(text)) {
       fail(`${label} contains forbidden ${forbidden.label} content.`);
     }
