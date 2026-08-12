@@ -10,7 +10,7 @@ mobile-supported filters, trackers, item descriptions, trends, and trade links.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-3.1.0.apk`
+`deliverables/mobile/GloamCore-Android-3.2.0.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -32,7 +32,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-3.1.0.zip`
+`deliverables/mobile/GloamCore-iOS-Source-3.2.0.zip`
 
 On a Mac:
 
@@ -65,6 +65,9 @@ There is intentionally no unsigned IPA: iOS will not install one.
 - Atlas Command Center uses the same validated pack for authentic official
   sprites, the exact graph and point budget, current official URL sharing, and
   migration of connected saved loadouts after a league update.
+- Build Upgrade Assistant can import and compare two exported GloamCore build
+  snapshots. Mobile cannot run Path of Building, so every stored numeric value
+  is explicitly marked snapshot-only, non-authoritative, and potentially stale.
 - Item Intel searches live PoE Wiki Cargo item and modifier records, then
   keeps the last good result available from cache.
 - The price-check tab parses manually pasted in-game item text locally and

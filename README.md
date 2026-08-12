@@ -34,7 +34,7 @@ planning, Craft of Exile, stash wealth, and practical player tools.
 | **Market Explorer** | Browse current poe.ninja markets, trends, liquidity, source age, watch targets, and documented Public Currency Exchange completed-hour evidence from Faustus. |
 | **Item Intel** | Search PoE Wiki item and modifier data without leaving the market workflow. |
 | **League Command Center** | Follow a source-pinned campaign route, find class-correct gems, and plan the official Atlas with authentic art, exact points, shortest paths, URL sharing, and saved loadouts. |
-| **Build Lab** | Import, inspect, edit, compare, recalculate with a verified local PoB engine, and export PoB-compatible builds. |
+| **Build Lab** | Import, inspect, edit, and export PoB-compatible builds. Its Upgrade Assistant compares a baseline with a candidate and only calls numeric evidence authoritative after both exact states recalculate through the same verified local PoB engine. |
 | **Craft of Exile** | Run the real Craft of Exile interface edge-to-edge in a dedicated, sandboxed desktop browser profile with scoped ads-only filtering. |
 | **Stash Wealth** | Keep the real Wealthy Exile website in a different isolated profile that remembers its own sign-in. |
 | **Player Toolkit** | Use Map Mod Check, PoE Event Log, Cluster Back, regex and filter workbenches, socket tools, audits, and opt-in overlays. |

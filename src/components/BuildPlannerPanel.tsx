@@ -42,14 +42,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { bridge } from "../lib/bridge";
+import { bridge, isDesktop } from "../lib/bridge";
 import {
   emptyPobBuild,
   importedPobGemArtworkKey,
   parsePobXml,
-  pobStatCategory,
-  pobStatLabel,
-  pobStatPercent,
   itemsWithPassiveSpecLoadout,
   serializePobXml,
   specsWithActiveJewelLoadout,
@@ -77,6 +74,7 @@ import {
 import { readMigratedStorage } from "../lib/storage-migration";
 import { materializeImportedPassiveSpec, materializeImportedPassiveTree } from "../lib/planner/cluster-jewel-graph";
 import { PlannerAsyncRevisionGuard, type PlannerAsyncRequestToken } from "../lib/planner/planner-async-guard";
+import { buildWithEngineCalculation } from "../lib/planner/build-upgrade";
 import {
   jewelSocketOverlayName,
   timelessJewelSprites,
@@ -109,8 +107,6 @@ import type {
   PobEngineConfigInput,
   PobEngineDiagnostic,
   PobEngineGemCatalogEntry,
-  PobEngineScalar,
-  PobEngineSkillGroup,
   PobNodePower,
   PobTimelessAffectedNode,
   PobTimelessHuntResultEntry,
@@ -126,6 +122,7 @@ import {
   PlannerSkillsPanel,
   presentPlannerItem,
 } from "./PlannerPanels";
+import { BuildUpgradeAssistant } from "./BuildUpgradeAssistant";
 import "../planner.css";
 
 type PlannerTab = PlannerWorkspaceTab;
@@ -143,7 +140,7 @@ type MasteryPicker = { nodeId: number; path: number[] };
 type NodePowerMetric = "blend" | "offence" | "defence";
 type TreeViewCommand = { action: "zoom-in" | "zoom-out" | "fit" | "focus"; nodeId?: number; nonce: number };
 
-const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "builds", "notes", "history"];
+const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "upgrade", "builds", "notes", "history"];
 
 async function resolvePlannerArtwork(items: PlannerItemArtworkRequest["items"]) {
   const sources = new Map<number, string>();
@@ -168,6 +165,7 @@ function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
     case "skills": return <Swords size={14}/>;
     case "config": return <Settings2 size={14}/>;
     case "calcs": return <Activity size={14}/>;
+    case "upgrade": return <Sparkles size={14}/>;
     case "builds": return <Boxes size={14}/>;
     case "notes": return <BookOpen size={14}/>;
     case "history": return <History size={14}/>;
@@ -194,59 +192,6 @@ function railValue(stat: ReturnType<typeof railStat>, suffix = "") {
     ? Math.round(stat.value).toLocaleString("en-US")
     : Number(stat.value.toFixed(Math.abs(stat.value) < 10 ? 2 : 1)).toLocaleString("en-US");
   return `${value}${stat.percent ? "%" : suffix}`;
-}
-
-function playerStatsFromEngine(stats: Record<string, PobEngineScalar>) {
-  return Object.entries(stats)
-    .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]))
-    .map(([name, value]) => ({
-      name,
-      label: pobStatLabel(name),
-      value,
-      category: pobStatCategory(name),
-      percent: pobStatPercent(name),
-    }));
-}
-
-function buildWithEngineCalculation(
-  build: ImportedPobBuild,
-  calculation: {
-    stats: Record<string, PobEngineScalar>;
-    mainSocketGroup: number | null;
-    skillGroups: PobEngineSkillGroup[];
-    items?: Array<{ id: number; raw: string; primarySlot: string }>;
-    className?: string | null;
-    ascendancyName?: string | null;
-  },
-) {
-  const metadata = new Map(calculation.skillGroups.map((group) => [group.index, group]));
-  return {
-    ...build,
-    className: calculation.className || build.className,
-    ascendancyName: calculation.ascendancyName && calculation.ascendancyName !== "None"
-      ? calculation.ascendancyName
-      : build.ascendancyName,
-    mainSocketGroup: calculation.mainSocketGroup || build.mainSocketGroup,
-    skillGroups: build.skillGroups.map((group, index) => {
-      const engineGroup = metadata.get(index + 1);
-      return engineGroup ? {
-        ...group,
-        mainActiveSkill: engineGroup.mainActiveSkill,
-        activeSkills: engineGroup.activeSkills.map((skill) => ({
-          index: skill.index,
-          name: skill.name,
-          ...(skill.parts.length ? { parts: skill.parts } : {}),
-          ...(skill.sourceGemIndex > 0 ? { sourceGemIndex: skill.sourceGemIndex } : {}),
-          ...(skill.stages ? { stages: skill.stages } : {}),
-          ...(skill.mine ? { mine: true } : {}),
-          ...(skill.minions.length ? { minions: skill.minions } : {}),
-          ...(skill.minionSkills.length ? { minionSkills: skill.minionSkills } : {}),
-        })),
-      } : group;
-    }),
-    playerStats: playerStatsFromEngine(calculation.stats),
-    statSource: "pob-engine" as const,
-  };
 }
 
 function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calculating }: {
@@ -2616,8 +2561,26 @@ export function BuildPlannerPanel() {
 
   const baseline = savedBuilds.find((entry) => entry.id === baselineId) || null;
   const comparison = baseline ? comparePlannerBuilds({ build, allocated: [...allocated] }, baseline) : null;
+  const upgradeCurrent = currentSnapshot("Current working build", [], "current-working-build");
+  const importUpgradeSnapshot = (raw: string) => {
+    try {
+      if (new TextEncoder().encode(raw).byteLength > 4 * 1024 * 1024) {
+        throw new Error("The snapshot is larger than the supported 4 MB local-library limit.");
+      }
+      const snapshot = sanitizePlannerSnapshot(JSON.parse(raw));
+      if (!snapshot?.build) throw new Error("This is not a complete Path of Exile 1 GloamCore build snapshot.");
+      if (!persistSavedBuilds(upsertSavedPlannerBuild(savedBuilds, snapshot))) {
+        return { ok: false, message: "The snapshot could not be added to the local comparison library." };
+      }
+      setMessage(`Imported ${snapshot.name} for snapshot comparison.`);
+      return { ok: true, message: `Imported ${snapshot.name}.` };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  };
 
   if (busy && !tree) return <div className="planner-loading"><LoaderCircle className="is-spinning" /><strong>Loading authoritative Path of Building tree…</strong></div>;
+  if (!tree && !isDesktop) return <section className="planner-shell"><BuildUpgradeAssistant current={null} savedBuilds={savedBuilds} engineCapability={engineCapability} onOpenBuilds={() => undefined} onImportSnapshot={importUpgradeSnapshot}/></section>;
   if (!tree) return <div className="toolkit-empty"><Network size={34} /><h2>Passive tree unavailable</h2><p>{message}</p></div>;
   let timelessXml = "";
   if (timelessOpen) {
@@ -2647,7 +2610,7 @@ export function BuildPlannerPanel() {
           <label className="planner-context-card"><small>Ascendancy · LV {build?.level || 1}</small><select aria-label="Ascendancy" value={ascendancyId} onChange={(event) => changeAscendancy(Number(event.target.value))}><option value={0}>None</option>{currentClass?.ascendancies.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
           <label className="planner-context-card planner-context-spec"><small>Tree spec</small><span><select value={activeSpecId} onChange={(event) => { void selectSpec(event.target.value); }}><option value="">Current tree</option>{specs.map((spec) => <option key={spec.id} value={spec.id}>{spec.title}</option>)}</select><button type="button" aria-label="Duplicate tree spec" onClick={addSpec}><Plus size={12}/></button></span></label>
         </div>
-        <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">{PLANNER_TABS.slice(0, 6).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}><PlannerTabGlyph tab={value}/><span>{value}</span></button>)}</nav>
+        <nav className="planner-tabs" aria-label="Build planner sections" role="tablist">{PLANNER_TABS.slice(0, 7).map((value) => <button type="button" role="tab" aria-selected={tab === value} key={value} className={tab === value ? "is-active" : ""} onClick={() => setTab(value)}><PlannerTabGlyph tab={value}/><span>{value}</span></button>)}</nav>
         <div className="planner-command-actions">
           {Boolean(tree.alternateAscendancies?.length) && <label className="planner-bloodline-select"><select aria-label="Bloodline" value={secondaryAscendancyId} onChange={(event) => changeSecondaryAscendancy(Number(event.target.value))}><option value={0}>No bloodline</option>{tree.alternateAscendancies?.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
           <button type="button" onClick={recalculateWithPob} disabled={calculating || engineCapability?.ok !== true} title="Recalculate with the verified local Path of Building engine">{calculating ? <LoaderCircle className="is-spinning" size={14}/> : <RefreshCw size={14}/>}<span>Recalculate</span></button>
@@ -2716,6 +2679,7 @@ export function BuildPlannerPanel() {
         {tab === "skills" && <PlannerSkillsPanel build={build} artwork={gemArtwork} catalog={gemCatalog} onChange={editBuild} />}
         {tab === "config" && <PlannerConfigPanel build={build} catalog={configCatalog} onChange={editBuild} />}
         {tab === "calcs" && <PlannerCalcsPanel build={build} editedSinceImport={editedSinceImport} comparison={comparison} />}
+        {tab === "upgrade" && upgradeCurrent && <BuildUpgradeAssistant current={upgradeCurrent} savedBuilds={savedBuilds} engineCapability={engineCapability} onOpenBuilds={() => setTab("builds")} onImportSnapshot={importUpgradeSnapshot} />}
         {tab === "builds" && <PlannerBuildsPanel builds={savedBuilds} activeId={activeSavedId} baselineId={baselineId} libraryError={savedLibraryError} recoveringLibrary={recoveringSavedLibrary} onRecoverLibrary={recoverSavedLibrary} onSave={saveToLibrary} onLoad={loadSnapshot} onDelete={(id) => { if (!persistSavedBuilds(savedBuilds.filter((entry) => entry.id !== id))) return; if (activeSavedId === id) setActiveSavedId(""); if (baselineId === id) setBaselineId(""); }} onDuplicate={duplicateSnapshot} onBaseline={setBaselineId} onExport={exportSnapshot} />}
         {tab === "notes" && <div className="planner-notes"><textarea aria-label="Build notes" value={build?.notes || ""} placeholder="Build notes, campaign reminders, gearing steps…" onChange={(event) => editNotes(event.target.value)} /></div>}
         {tab === "history" && <div className="planner-history"><header><History size={16} /><strong>Tree timeline</strong><button type="button" onClick={() => { const initial = history[0]; if (initial) { restoreHistory(0); setHistory([initial]); } }}><RotateCcw size={13} /> Reset to start</button></header>{[...history].reverse().map((entry, reverseIndex) => { const index = history.length - reverseIndex - 1; return <button type="button" key={`${entry.at}-${index}`} className={index === historyIndex ? "is-active" : ""} onClick={() => restoreHistory(index)}><span>{entry.label}</span><small>{historyPointLabel(entry)} · {new Date(entry.at).toLocaleTimeString()}</small></button>; })}</div>}

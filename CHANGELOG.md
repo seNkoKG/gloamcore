@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 3.2.0
+
+- Added a deterministic Upgrade Assistant inside Build Lab with a logical
+  baseline-to-candidate flow, exact equipment/gem/passive differences, and no
+  invented score, ranking, DPS, effective hit pool, or recommendation.
+- Made authoritative desktop results require two successful recalculations of
+  the exact serialized builds through the same verified installed Path of
+  Building engine. Partial failures, engine changes, build edits during a run,
+  empty outputs, and cross-tree-version comparisons fail closed.
+- Added clearly separated saved-snapshot preview on Windows and snapshot-only
+  comparison on mobile. Mobile can import exported GloamCore build snapshots,
+  but always labels their stored values stale-capable and non-authoritative.
+- Kept League Navigator, Atlas Command Center, Craft of Exile, and the bounded
+  Ctrl+D seller snapshot intact without restoring the retired full listing
+  system.
+
 ## 3.1.0
 
 - Added Atlas Command Center inside the League Command Center with the exact

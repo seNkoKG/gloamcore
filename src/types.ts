@@ -963,16 +963,26 @@ export interface PobEngineDiagnosticSuccess {
 
 export type PobEngineDiagnostic = PobEngineDiagnosticSuccess | PobEngineFailure;
 
+export interface PobEngineRuntimeIdentity {
+  name: string;
+  version: string;
+  branch: string;
+  platform: string;
+  runtimeArchitecture: string;
+}
+
+export interface PobEngineCalculationIdentity extends PobEngineRuntimeIdentity {
+  root: string;
+  manifestFingerprint: string;
+  sourceFingerprint: string;
+  hostFingerprint: string;
+  bridgeFingerprint: string;
+}
+
 export interface PobEngineCalculationSuccess {
   ok: true;
   authoritative: true;
-  engine: {
-    name: string;
-    version: string;
-    branch: string;
-    platform: string;
-    runtimeArchitecture: string;
-  };
+  engine: PobEngineCalculationIdentity;
   calculation: {
     scalarCount: number;
     stats: Record<string, PobEngineScalar>;
@@ -1013,7 +1023,7 @@ export interface PobNodePower {
 export interface PobNodeAnalysisSuccess {
   ok: true;
   authoritative: true;
-  engine: PobEngineCalculationSuccess["engine"];
+  engine: PobEngineRuntimeIdentity;
   analysis: {
     maxPoints: number;
     nodePowers: PobNodePower[];
@@ -1039,7 +1049,7 @@ export interface PobTimelessAffectedNode {
 export interface PobTimelessPreviewSuccess {
   ok: true;
   authoritative: true;
-  engine: PobEngineCalculationSuccess["engine"];
+  engine: PobEngineRuntimeIdentity;
   preview: {
     jewelType: number;
     jewelName: string;
@@ -1084,7 +1094,7 @@ export interface PobTimelessHuntResultEntry {
 export interface PobTimelessHuntSuccess {
   ok: true;
   authoritative: true;
-  engine: PobEngineCalculationSuccess["engine"];
+  engine: PobEngineRuntimeIdentity;
   hunt: {
     jewelType: number;
     jewelName: string;

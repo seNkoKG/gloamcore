@@ -28,7 +28,18 @@ Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.1.0
+## Current in 3.2.0
+
+- Added the deterministic Upgrade Assistant described above as a dedicated
+  Build Lab tab instead of adding another top-level workspace.
+- Desktop comparisons serialize and independently recalculate both selected
+  states through isolated installed PoB processes, require identical engine
+  identities, and expose every PoB warning and raw numeric difference.
+- Mobile remains deliberately snapshot-only and can import saved GloamCore
+  build JSON. Its stored outputs are always marked non-authoritative and
+  potentially stale.
+
+## Shipped in 3.1.0
 
 - Added the Atlas Command Center described above using all official Atlas
   sprite categories needed by normal, notable, keystone, gateway, mastery,
