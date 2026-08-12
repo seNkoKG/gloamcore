@@ -30,6 +30,28 @@ $latestPath = [System.IO.Path]::GetFullPath((Join-Path $deliverables "latest.yml
 $provenancePath = [System.IO.Path]::GetFullPath(
   (Join-Path $deliverables "windows-release-provenance.json")
 )
+
+function Test-SourceContentClean {
+  & git diff --quiet --exit-code -- .
+  $unstagedExit = $LASTEXITCODE
+  if ($unstagedExit -gt 1) {
+    throw "Git could not inspect unstaged source changes."
+  }
+
+  & git diff --cached --quiet --exit-code -- .
+  $stagedExit = $LASTEXITCODE
+  if ($stagedExit -gt 1) {
+    throw "Git could not inspect staged source changes."
+  }
+
+  $untracked = @(git ls-files --others --exclude-standard)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Git could not inspect untracked source files."
+  }
+
+  return $unstagedExit -eq 0 -and $stagedExit -eq 0 -and $untracked.Count -eq 0
+}
+
 foreach ($target in @($winUnpacked, $setupPath, $portablePath, $blockmapPath, $latestPath, $provenancePath)) {
   if (-not $target.StartsWith("$deliverables\", [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Refusing to replace a Windows release target outside deliverables: $target"
@@ -38,11 +60,7 @@ foreach ($target in @($winUnpacked, $setupPath, $portablePath, $blockmapPath, $l
 
 Push-Location $projectRoot
 try {
-  $changes = @(git status --porcelain --untracked-files=all)
-  if ($LASTEXITCODE -ne 0) {
-    throw "Git status failed before the Windows release build."
-  }
-  if ($changes.Count -gt 0) {
+  if (-not (Test-SourceContentClean)) {
     throw "Commit the audited release before building Windows artifacts so provenance can bind them to current HEAD."
   }
   & (Join-Path $PSScriptRoot "assert-release-toolchain.ps1")
@@ -86,11 +104,7 @@ try {
     }
   }
 
-  $changes = @(git status --porcelain --untracked-files=all)
-  if ($LASTEXITCODE -ne 0) {
-    throw "Git status failed after the Windows release build."
-  }
-  if ($changes.Count -gt 0) {
+  if (-not (Test-SourceContentClean)) {
     throw "The Windows release build changed committed source. Review and commit it, then rebuild."
   }
   & $nodePath (Join-Path $PSScriptRoot "verify-release-artifacts.mjs") record-windows `

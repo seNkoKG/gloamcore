@@ -26,6 +26,13 @@ describe("Windows release publication boundary", () => {
       windowsReleaseScript.indexOf('"verify-release-artifacts.mjs"'),
     );
   });
+
+  it("checks real source content instead of Windows stat-cache noise", () => {
+    expect(windowsReleaseScript).toContain("git diff --quiet --exit-code -- .");
+    expect(windowsReleaseScript).toContain("git diff --cached --quiet --exit-code -- .");
+    expect(windowsReleaseScript).toContain("git ls-files --others --exclude-standard");
+    expect(windowsReleaseScript).not.toContain("git status --porcelain --untracked-files=all");
+  });
 });
 
 function minimalAsar(jsonText: string, extraPayloadBytes = 0) {
@@ -43,19 +50,32 @@ function minimalAsar(jsonText: string, extraPayloadBytes = 0) {
 }
 
 describe("desktop release Trade endpoint policy", () => {
-  it("rejects undocumented Trade routes from every packaged runtime path", () => {
-    for (const relativePath of [
-      "electron/main.cjs",
-      "electron/official-trade-listings.cjs",
-      "dist/assets/index.js",
-    ]) {
-      for (const route of ["search", "fetch", "exchange", "data"]) {
+  it("permits search and fetch only in the current price snapshot client", () => {
+    for (const route of ["search", "fetch"]) {
+      const payload = Buffer.from(["/api/trade", route, ""].join("/"));
+      expect(() => assertNoForbiddenText(
+        "price snapshot client",
+        payload,
+        "electron/trade-price-snapshot.cjs",
+      )).not.toThrow();
+      for (const relativePath of [
+        "electron/main.cjs",
+        "electron/official-trade-listings.cjs",
+        "dist/assets/index.js",
+      ]) {
         expect(() => assertNoForbiddenText(
           relativePath,
-          Buffer.from(["/api/trade", route, ""].join("/")),
+          payload,
           relativePath,
-        )).toThrow(/undocumented Trade/i);
+        )).toThrow(/outside the price snapshot client/i);
       }
+    }
+    for (const route of ["exchange", "data"]) {
+      expect(() => assertNoForbiddenText(
+        "price snapshot client",
+        Buffer.from(["/api/trade", route, ""].join("/")),
+        "electron/trade-price-snapshot.cjs",
+      )).toThrow(/Trade/i);
     }
   });
 
