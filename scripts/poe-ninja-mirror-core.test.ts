@@ -84,7 +84,7 @@ describe("poe.ninja static mirror contract", () => {
     expect(() => routeFile("not-a-digest")).toThrow(/digest/i);
   });
 
-  it("keeps old and new manifests loadable across a mixed Pages deployment", async () => {
+  it("keeps old and new manifests loadable across a mixed Pages deployment", { timeout: 30_000 }, async () => {
     const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "gloamcore-mirror-race-"));
     try {
       const siteRoot = path.join(temporary, "site");

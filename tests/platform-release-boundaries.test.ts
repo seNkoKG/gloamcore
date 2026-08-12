@@ -97,6 +97,25 @@ describe("desktop platform release boundaries", () => {
     expect(workflows).toContain("version: 11.16.0");
   });
 
+  it("verifies AAPT2 executables for Windows generation and Linux CI", () => {
+    const androidBuild = read("android/build.gradle");
+    const verification = read("android/gradle/verification-metadata.xml");
+    const agpVersion = androidBuild.match(
+      /classpath\s+['"]com[.]android[.]tools[.]build:gradle:([^'"]+)['"]/,
+    )?.[1];
+    expect(agpVersion).toBeTruthy();
+
+    const component = [...verification.matchAll(
+      /<component group="com[.]android[.]tools[.]build" name="aapt2" version="([^"]+)">([\s\S]*?)<\/component>/g,
+    )].find((match) => match[1].startsWith(`${agpVersion}-`));
+    expect(component).toBeDefined();
+    for (const platform of ["linux", "windows"]) {
+      expect(component?.[2]).toContain(
+        `<artifact name="aapt2-${component?.[1]}-${platform}.jar">`,
+      );
+    }
+  });
+
   it("revalidates the complete PoE window identity immediately before stash-scroll input", () => {
     const source = read("native/GloamCoreInput.cs");
     const hook = source.slice(
