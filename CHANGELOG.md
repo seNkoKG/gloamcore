@@ -11,6 +11,8 @@
   rather than whichever group is open in the editor.
 - Update both PoB main-skill selector fields together so recalculated DPS uses
   the visible skill choice instead of a stale `mainActiveSkillCalcs` value.
+- Avoid rewriting byte-identical generated notice files so clean release builds
+  do not report false source drift on Windows.
 
 ## 2.9.1
 

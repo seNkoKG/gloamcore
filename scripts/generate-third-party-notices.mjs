@@ -19,6 +19,18 @@ export function resolvePackageManagerInvocation(
     : { command: packageManager, leadingArgs: [] };
 }
 
+export function writeTextIfChanged(filePath, content, fileSystem = fs) {
+  let current;
+  try {
+    current = fileSystem.readFileSync(filePath, "utf8");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  if (current === content) return false;
+  fileSystem.writeFileSync(filePath, content, "utf8");
+  return true;
+}
+
 export function generateThirdPartyNotices() {
 const packageManager = process.env.npm_execpath || process.argv[2];
 
@@ -304,11 +316,10 @@ Shipped dependency license inventory
 ------------------------------------`;
 
 const notice = `${preamble}\n\n${sections.join("\n\n")}\n`;
-fs.writeFileSync(path.join(projectRoot, "public", "THIRD_PARTY_NOTICES.txt"), notice, "utf8");
-fs.writeFileSync(
+writeTextIfChanged(path.join(projectRoot, "public", "THIRD_PARTY_NOTICES.txt"), notice);
+writeTextIfChanged(
   path.join(projectRoot, "THIRD_PARTY_NOTICES.md"),
   `# Third-party notices\n\n${notice.slice("THIRD-PARTY NOTICES\n===================\n\n".length)}`,
-  "utf8",
 );
 
 console.log(`Wrote notices for ${packages.length} shipped packages.`);

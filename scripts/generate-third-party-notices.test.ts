@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePackageManagerInvocation } from "./generate-third-party-notices.mjs";
+import { resolvePackageManagerInvocation, writeTextIfChanged } from "./generate-third-party-notices.mjs";
 
 describe("third-party notice package-manager launcher", () => {
   it.each(["pnpm.js", "pnpm.cjs", "pnpm.mjs", "PNPM.CJS"])(
@@ -21,4 +21,28 @@ describe("third-party notice package-manager launcher", () => {
       });
     },
   );
+});
+
+describe("third-party notice writes", () => {
+  it("does not dirty an unchanged generated notice", () => {
+    const writes: unknown[][] = [];
+    const fileSystem = {
+      readFileSync: () => "same notice",
+      writeFileSync: (...args: unknown[]) => writes.push(args),
+    };
+
+    expect(writeTextIfChanged("notice.txt", "same notice", fileSystem)).toBe(false);
+    expect(writes).toEqual([]);
+  });
+
+  it("writes a changed generated notice", () => {
+    const writes: unknown[][] = [];
+    const fileSystem = {
+      readFileSync: () => "old notice",
+      writeFileSync: (...args: unknown[]) => writes.push(args),
+    };
+
+    expect(writeTextIfChanged("notice.txt", "new notice", fileSystem)).toBe(true);
+    expect(writes).toEqual([["notice.txt", "new notice", "utf8"]]);
+  });
 });
