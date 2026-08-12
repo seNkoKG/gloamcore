@@ -127,6 +127,11 @@ function tradePriceResultsHeight(session: PriceCheckSession) {
   return 23 + Math.max(1, rows) * 28;
 }
 
+function tradePriceErrorLabel(error: string) {
+  const cooldown = error.match(/Official Trade cooldown active\. Retry in ([0-9]+[smh])\./i);
+  return cooldown ? `TRADE COOLDOWN · ${cooldown[1].toUpperCase()}` : "TRADE SEARCH FAILED";
+}
+
 function itemTitle(session: PriceCheckSession) {
   return session.item?.name || session.item?.baseType || "ITEM";
 }
@@ -597,7 +602,7 @@ export function CompactPriceCheckOverlay({
                 <div className="pco-no-results">CHECKING LIVE PRICES</div>
               ) : session.tradePriceSnapshot?.error ? (
                 <div className="pco-no-results" title={session.tradePriceSnapshot.error}>
-                  TRADE SEARCH FAILED
+                  {tradePriceErrorLabel(session.tradePriceSnapshot.error)}
                 </div>
               ) : tradePriceRows.length ? (
                 tradePriceRows.map((listing) => (

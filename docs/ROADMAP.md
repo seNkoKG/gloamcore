@@ -27,12 +27,24 @@ explicitly supersedes any retired transport or data-source behavior.
    progression, organized portable Atlas presets, staged filter profiles and
    semantic diffs, workspace recovery, privacy-safe diagnostics, accessible
    display controls, and explicit stable/preview update channels.
+6. **3.4.1 — Rate-safe live Trade prices.** Settled filter edits, serialized
+   official Trade calls, shared identical in-flight work, dynamic server-header
+   pacing, local cooldown enforcement, and clear overlay cooldown feedback.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.0
+## Current in 3.4.1
+
+- Settle rapid modifier edits before refreshing live seller-price rows, then
+  serialize official Trade requests and share identical work already in flight.
+- Derive pacing and restrictions from Grinding Gear Games' response headers,
+  honor `Retry-After`, and make no requests during a known cooldown.
+- Show the remaining cooldown in the compact overlay while retaining the
+  30-second cache, ten-row boundary, and official Trade browser handoff.
+
+## Shipped in 3.4.0
 
 - Search native tools, validated PoE data, saved builds and presets, and loaded
   markets from one command surface; exact saved-resource IDs drive navigation.

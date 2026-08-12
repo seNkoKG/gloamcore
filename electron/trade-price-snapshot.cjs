@@ -11,6 +11,8 @@ const MAX_FETCH_BYTES = 4 * 1024 * 1024;
 const MAX_FETCH_IDS = 10;
 const TIMEOUT_MS = 10_000;
 const CACHE_MS = 30_000;
+const MIN_REQUEST_INTERVAL_MS = 750;
+const DEFAULT_RATE_LIMIT_MS = 60_000;
 const SAFE_LEAGUE = /^[A-Za-z0-9][A-Za-z0-9 ._'()-]{0,79}$/;
 const SAFE_TOKEN = /^[A-Za-z0-9_-]{1,128}$/;
 const BLOCKED_KEYS = new Set(["__proto__", "prototype", "constructor"]);
@@ -63,7 +65,72 @@ function validateRequest(value) {
   };
 }
 
-async function requestJson(fetchImpl, url, options, maximumBytes, userAgent) {
+function rateTriples(value) {
+  return typeof value === "string"
+    ? value.split(",").map((entry) => {
+        const values = entry.trim().split(":").map(Number);
+        return values.length === 3 && values.every(
+          (number) => Number.isFinite(number) && number >= 0,
+        ) ? values : null;
+      })
+    : [];
+}
+
+function retryAfterMilliseconds(value, now) {
+  if (!value) return 0;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1_000);
+  const deadline = Date.parse(value);
+  return Number.isFinite(deadline) ? Math.max(0, deadline - now) : 0;
+}
+
+function rateLimitTiming(headers, status, now) {
+  let spacingMs = 0;
+  let cooldownMs = retryAfterMilliseconds(headers.get("retry-after"), now);
+  const rules = (headers.get("x-rate-limit-rules") || "")
+    .split(",")
+    .map((rule) => rule.trim().toLowerCase())
+    .filter((rule) => /^[a-z][a-z0-9_-]{0,31}$/.test(rule));
+  for (const rule of rules) {
+    const limits = rateTriples(headers.get(`x-rate-limit-${rule}`));
+    const states = rateTriples(headers.get(`x-rate-limit-${rule}-state`));
+    for (let index = 0; index < Math.min(limits.length, states.length); index += 1) {
+      const limit = limits[index];
+      const state = states[index];
+      if (!limit || !state) continue;
+      const [maximumHits, periodSeconds] = limit;
+      const [, , restrictionSeconds] = state;
+      if (maximumHits > 0 && periodSeconds > 0) {
+        spacingMs = Math.max(spacingMs, Math.ceil(periodSeconds * 1_000 / maximumHits));
+      }
+      if (restrictionSeconds > 0) {
+        cooldownMs = Math.max(cooldownMs, restrictionSeconds * 1_000);
+      }
+    }
+  }
+  if (status === 429 && cooldownMs === 0) cooldownMs = DEFAULT_RATE_LIMIT_MS;
+  return { spacingMs, cooldownMs };
+}
+
+function cooldownError(milliseconds) {
+  const seconds = Math.max(1, Math.ceil(milliseconds / 1_000));
+  const duration = seconds >= 3_600
+    ? `${Math.ceil(seconds / 3_600)}h`
+    : seconds >= 60
+      ? `${Math.ceil(seconds / 60)}m`
+      : `${seconds}s`;
+  return new Error(`Official Trade cooldown active. Retry in ${duration}.`);
+}
+
+async function requestJson(
+  fetchImpl,
+  url,
+  options,
+  maximumBytes,
+  userAgent,
+  rateGate,
+) {
+  await rateGate.beforeRequest();
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(new Error("Official Trade timed out.")),
@@ -80,11 +147,12 @@ async function requestJson(fetchImpl, url, options, maximumBytes, userAgent) {
       redirect: "error",
       signal: controller.signal,
     });
+    rateGate.observe(response);
     if (response.url && response.url !== url) {
       throw new Error("Official Trade redirected unexpectedly.");
     }
     if (response.status === 429) {
-      throw new Error("Official Trade is rate-limiting searches. Retry shortly.");
+      throw rateGate.cooldownError();
     }
     if (!response.ok) {
       throw new Error(`Official Trade request failed (${response.status}).`);
@@ -129,53 +197,106 @@ function sanitizeListing(entry) {
   };
 }
 
-function createTradePriceSnapshotService({ fetchImpl = fetch, userAgent }) {
+function createTradePriceSnapshotService({
+  fetchImpl = fetch,
+  userAgent,
+  minimumIntervalMs = MIN_REQUEST_INTERVAL_MS,
+  nowImpl = Date.now,
+  waitImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+}) {
   const cache = new Map();
-  return async function getTradePriceSnapshot(rawRequest) {
+  const pending = new Map();
+  let queue = Promise.resolve();
+  let nextRequestAt = 0;
+  let blockedUntil = 0;
+  const safeMinimumInterval = Math.max(0, Math.round(Number(minimumIntervalMs) || 0));
+  const rateGate = {
+    async beforeRequest() {
+      const now = nowImpl();
+      if (blockedUntil > now) throw cooldownError(blockedUntil - now);
+      const delay = Math.max(0, nextRequestAt - now);
+      if (delay) await waitImpl(delay);
+      const resumedAt = nowImpl();
+      if (blockedUntil > resumedAt) throw cooldownError(blockedUntil - resumedAt);
+      nextRequestAt = Math.max(nextRequestAt, resumedAt + safeMinimumInterval);
+    },
+    observe(response) {
+      const now = nowImpl();
+      const timing = rateLimitTiming(response.headers, response.status, now);
+      nextRequestAt = Math.max(
+        nextRequestAt,
+        now + Math.max(safeMinimumInterval, timing.spacingMs),
+      );
+      if (timing.cooldownMs > 0) {
+        blockedUntil = Math.max(blockedUntil, now + timing.cooldownMs);
+      }
+    },
+    cooldownError() {
+      return cooldownError(Math.max(1, blockedUntil - nowImpl()));
+    },
+  };
+
+  return function getTradePriceSnapshot(rawRequest) {
     const request = validateRequest(rawRequest);
     const cacheKey = `${request.league}\n${request.body}`;
     const cached = cache.get(cacheKey);
     if (!request.force && cached && cached.expiresAt > Date.now()) {
-      return { ...cached.result, cached: true };
+      return Promise.resolve({ ...cached.result, cached: true });
     }
-    const league = encodeURIComponent(request.league);
-    const searchUrl = `${TRADE_ORIGIN}${SEARCH_PATH}${league}`;
-    const search = await requestJson(fetchImpl, searchUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: request.body,
-    }, MAX_SEARCH_BYTES, userAgent);
-    const searchId = cleanText(search?.id, 128);
-    if (!SAFE_TOKEN.test(searchId)) {
-      throw new Error("Official Trade returned an invalid search identifier.");
-    }
-    const ids = Array.isArray(search?.result)
-      ? search.result.filter((id) => typeof id === "string" && SAFE_TOKEN.test(id)).slice(0, MAX_FETCH_IDS)
-      : [];
-    let listings = [];
-    if (ids.length) {
-      const fetchUrl = `${TRADE_ORIGIN}${FETCH_PATH}${ids.join(",")}?query=${encodeURIComponent(searchId)}`;
-      const fetched = await requestJson(
-        fetchImpl,
-        fetchUrl,
-        { method: "GET" },
-        MAX_FETCH_BYTES,
-        userAgent,
-      );
-      listings = Array.isArray(fetched?.result)
-        ? fetched.result.map(sanitizeListing).filter(Boolean)
+    if (pending.has(cacheKey)) return pending.get(cacheKey);
+
+    const operation = queue.then(async () => {
+      const refreshed = cache.get(cacheKey);
+      if (!request.force && refreshed && refreshed.expiresAt > Date.now()) {
+        return { ...refreshed.result, cached: true };
+      }
+      const league = encodeURIComponent(request.league);
+      const searchUrl = `${TRADE_ORIGIN}${SEARCH_PATH}${league}`;
+      const search = await requestJson(fetchImpl, searchUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: request.body,
+      }, MAX_SEARCH_BYTES, userAgent, rateGate);
+      const searchId = cleanText(search?.id, 128);
+      if (!SAFE_TOKEN.test(searchId)) {
+        throw new Error("Official Trade returned an invalid search identifier.");
+      }
+      const ids = Array.isArray(search?.result)
+        ? search.result.filter((id) => typeof id === "string" && SAFE_TOKEN.test(id)).slice(0, MAX_FETCH_IDS)
         : [];
-    }
-    const result = {
-      listings,
-      total: Math.max(0, Math.min(1_000_000, Math.round(Number(search?.total) || ids.length))),
-      searchId,
-      fetchedAt: Date.now(),
-      cached: false,
-    };
-    if (cache.size >= 100) cache.delete(cache.keys().next().value);
-    cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_MS });
-    return result;
+      let listings = [];
+      if (ids.length) {
+        const fetchUrl = `${TRADE_ORIGIN}${FETCH_PATH}${ids.join(",")}?query=${encodeURIComponent(searchId)}`;
+        const fetched = await requestJson(
+          fetchImpl,
+          fetchUrl,
+          { method: "GET" },
+          MAX_FETCH_BYTES,
+          userAgent,
+          rateGate,
+        );
+        listings = Array.isArray(fetched?.result)
+          ? fetched.result.map(sanitizeListing).filter(Boolean)
+          : [];
+      }
+      const result = {
+        listings,
+        total: Math.max(0, Math.min(1_000_000, Math.round(Number(search?.total) || ids.length))),
+        searchId,
+        fetchedAt: Date.now(),
+        cached: false,
+      };
+      if (cache.size >= 100) cache.delete(cache.keys().next().value);
+      cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_MS });
+      return result;
+    });
+    pending.set(cacheKey, operation);
+    queue = operation.then(() => undefined, () => undefined);
+    operation.then(
+      () => pending.delete(cacheKey),
+      () => pending.delete(cacheKey),
+    );
+    return operation;
   };
 }
 

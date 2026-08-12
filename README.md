@@ -61,6 +61,19 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
+## New in 3.4.1: rate-safe live Trade prices
+
+Rapid modifier and item-filter edits now settle before the compact price
+checker requests another seller snapshot. GloamCore serializes official Trade
+requests, shares identical work already in flight, and follows Grinding Gear
+Games' current rate-limit and `Retry-After` headers. When the service asks the
+app to pause, the overlay shows the remaining cooldown and makes no further
+requests until it expires.
+
+The snapshot remains deliberately bounded to ten seller rows and cached for
+30 seconds. The full query is still handed off to the official Trade website;
+the retired full official-trade-listings subsystem has not been restored.
+
 ## New in 3.4.0: safer workflows and faster navigation
 
 Press `Ctrl+P` inside GloamCore—or use the configurable global instant-search

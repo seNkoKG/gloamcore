@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "applicationId": "io.github.senkokg.gloamcore",
-  "versionName": "3.4.0",
-  "versionCode": 48,
-  "previousPublishedVersionCode": 47
+  "versionName": "3.4.1",
+  "versionCode": 49,
+  "previousPublishedVersionCode": 48
 }

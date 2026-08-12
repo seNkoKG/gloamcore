@@ -113,6 +113,7 @@ interface OverlayPanelDrag {
 
 const AUTO_REFRESH_MS = 15 * 60 * 1000;
 const STALE_MARKET_MS = 2 * 60 * 60 * 1000;
+const TRADE_PRICE_SETTLE_MS = 1_200;
 const INACTIVE_OVERLAY_STATE: PriceCheckOverlayState = {
   revision: 0,
   active: false,
@@ -582,7 +583,7 @@ export default function PriceCheckApp({
             }
           : current);
       });
-    }, 350);
+    }, TRADE_PRICE_SETTLE_MS);
     return () => {
       active = false;
       window.clearTimeout(timer);

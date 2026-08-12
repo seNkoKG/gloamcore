@@ -674,6 +674,19 @@ describe("compact empty market state", () => {
     expect(markup).toContain("1.25k CHAOS");
     expect(markup).toContain("WandSeller");
     expect(markup).toContain("ChaosSeller");
+
+    const cooldownMarkup = renderCompact({
+      ...session,
+      tradePriceSnapshot: {
+        listings: [],
+        total: 0,
+        searchId: "",
+        fetchedAt: Date.now(),
+        cached: false,
+        error: "Official Trade cooldown active. Retry in 10s.",
+      },
+    });
+    expect(cooldownMarkup).toContain("TRADE COOLDOWN · 10S");
   });
 
   it("uses the trade-first editor for a unique state filter while hiding invariant fixed rolls", () => {

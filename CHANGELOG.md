@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 3.4.1
+
+- Prevented rapid Trade-filter edits from issuing overlapping official Trade
+  searches by settling edits, serializing requests, and sharing identical
+  requests already in flight.
+- Added local pacing from Grinding Gear Games' dynamic rate-limit headers,
+  respected `Retry-After` and active restrictions, and blocked requests during
+  a known cooldown instead of repeatedly contacting the Trade service.
+- Added a visible cooldown countdown state to the compact price checker while
+  preserving its 30-second cache, bounded ten-listing result set, and complete
+  official Trade browser handoff.
+- Kept Craft of Exile and the existing dashboard behavior intact without
+  restoring the retired full official-trade-listings subsystem.
+
 ## 3.4.0
 
 - Added unified command search across native workspaces, economy categories,
