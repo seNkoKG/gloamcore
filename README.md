@@ -61,6 +61,23 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
+## New in 3.4.2: selected Trade prices settle visibly
+
+Selected modifier changes now supersede older queued searches, so the seller
+rows correspond to the latest visible checkboxes instead of waiting behind
+intermediate states. GloamCore interprets Grinding Gear Games' rate headers as
+request ceilings within their declared windows and pauses only for a real
+restriction, a full window, or the app's small safety interval.
+
+The compact checker has a bounded request timeout and automatically retries
+after a server cooldown. Release QA now applies the exact four crafted-wand
+modifiers from the reported failure and rejects the build unless `4/10 STATS`
+and populated `PRICE / SELLER / LISTED` rows remain visible in the captured
+native Ctrl+D window.
+
+The ten-row boundary, 30-second cache, official Trade handoff, and retired
+full-listings prohibition remain unchanged.
+
 ## New in 3.4.1: rate-safe live Trade prices
 
 Rapid modifier and item-filter edits now settle before the compact price

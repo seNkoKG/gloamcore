@@ -114,6 +114,19 @@ interface OverlayPanelDrag {
 const AUTO_REFRESH_MS = 15 * 60 * 1000;
 const STALE_MARKET_MS = 2 * 60 * 60 * 1000;
 const TRADE_PRICE_SETTLE_MS = 1_200;
+const TRADE_PRICE_REQUEST_TIMEOUT_MS = 30_000;
+
+function tradePriceCooldownDelay(message: string) {
+  const match = message.match(
+    /Official Trade cooldown active\. Retry in ([0-9]+)([smh])\./i,
+  );
+  if (!match) return null;
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (!Number.isSafeInteger(amount) || amount < 1) return null;
+  const multiplier = unit === "h" ? 3_600_000 : unit === "m" ? 60_000 : 1_000;
+  return Math.min(3_600_000, amount * multiplier);
+}
 const INACTIVE_OVERLAY_STATE: PriceCheckOverlayState = {
   revision: 0,
   active: false,
@@ -539,6 +552,8 @@ export default function PriceCheckApp({
     const force = forceTradePriceRefresh.current;
     forceTradePriceRefresh.current = false;
     let active = true;
+    let requestTimeout: number | undefined;
+    let cooldownRetry: number | undefined;
     setSession((current) => current.id === targetSessionId
       ? {
           ...current,
@@ -547,11 +562,20 @@ export default function PriceCheckApp({
         }
       : current);
     const timer = window.setTimeout(() => {
-      void getSnapshot({
+      const snapshotRequest = getSnapshot({
         league: targetLeague,
         tradeQuery: targetQuery,
         force,
-      }).then((snapshot) => {
+      });
+      const boundedRequest = Promise.race([
+        snapshotRequest,
+        new Promise<never>((_resolve, reject) => {
+          requestTimeout = window.setTimeout(() => {
+            reject(new Error("Official Trade price request timed out."));
+          }, TRADE_PRICE_REQUEST_TIMEOUT_MS);
+        }),
+      ]);
+      void boundedRequest.then((snapshot) => {
         if (!active || generation !== tradePriceRequestId.current) return;
         setSession((current) =>
           current.id === targetSessionId &&
@@ -568,6 +592,7 @@ export default function PriceCheckApp({
         );
       }).catch((reason) => {
         if (!active || generation !== tradePriceRequestId.current) return;
+        const message = reason instanceof Error ? reason.message : String(reason);
         setSession((current) => current.id === targetSessionId
           ? {
               ...current,
@@ -577,16 +602,28 @@ export default function PriceCheckApp({
                 searchId: "",
                 fetchedAt: Date.now(),
                 cached: false,
-                error: reason instanceof Error ? reason.message : String(reason),
+                error: message,
               },
               tradePriceLoading: false,
             }
           : current);
+        const retryDelay = tradePriceCooldownDelay(message);
+        if (retryDelay != null) {
+          cooldownRetry = window.setTimeout(() => {
+            if (!active || generation !== tradePriceRequestId.current) return;
+            forceTradePriceRefresh.current = true;
+            setTradePriceRefresh((value) => value + 1);
+          }, retryDelay + 250);
+        }
+      }).finally(() => {
+        if (requestTimeout != null) window.clearTimeout(requestTimeout);
       });
     }, TRADE_PRICE_SETTLE_MS);
     return () => {
       active = false;
       window.clearTimeout(timer);
+      if (requestTimeout != null) window.clearTimeout(requestTimeout);
+      if (cooldownRetry != null) window.clearTimeout(cooldownRetry);
     };
   }, [desktopOverlay, tradePriceQueryKey, tradePriceRefresh]);
 

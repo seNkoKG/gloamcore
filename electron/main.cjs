@@ -327,6 +327,9 @@ const QA_NATIVE_CAPTURE = Boolean(
 const QA_EXPAND_OPTIONAL_STATS = Boolean(
   QA_NATIVE_CAPTURE && process.env.GLOAMCORE_QA_EXPAND_STATS === "1",
 );
+const QA_SELECT_WAND_STATS = Boolean(
+  QA_NATIVE_CAPTURE && process.env.GLOAMCORE_QA_SELECT_WAND_STATS === "1",
+);
 const FOCUS_TRACE_ENABLED = DEV_RUNTIME && process.env.GLOAMCORE_FOCUS_TRACE === "1";
 const mainCommandQueue = createRendererCommandQueue();
 
@@ -3410,6 +3413,7 @@ const deadline = Date.now() + 150_000;
     let lastObservedBounds = null;
     let lastMarketRows = -1;
     let optionalStatsExpanded = false;
+    let selectedWandStats = null;
     const pollTrace = [];
     while (Date.now() < deadline && priceCheckWindow && !priceCheckWindow.isDestroyed()) {
       try {
@@ -3427,6 +3431,50 @@ const deadline = Date.now() + 150_000;
             continue;
           }
         }
+        if (QA_SELECT_WAND_STATS && !selectedWandStats) {
+          const selection = await priceCheckWindow.webContents.executeJavaScript(`(async () => {
+            const targets = [
+              /^Attacks per Second:/i,
+              /^Critical Strike Chance:/i,
+              /Global Critical Strike Multiplier/i,
+              /Explicit Physical Modifier magnitudes/i,
+            ];
+            const rows = [...document.querySelectorAll('.crme-row')];
+            if (!rows.length) return { ready: false, selected: [], missing: [] };
+            const selected = [];
+            const missing = [];
+            for (const target of targets) {
+              const row = rows.find((entry) => target.test(
+                entry.querySelector('.crme-label')?.textContent?.trim() || '',
+              ));
+              const label = row?.querySelector('.crme-label')?.textContent?.trim() || target.source;
+              const checkbox = row?.querySelector('.crme-check input[type="checkbox"]');
+              if (!checkbox) {
+                missing.push(label);
+                continue;
+              }
+              if (!checkbox.checked) checkbox.click();
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              selected.push(label);
+            }
+            return {
+              ready: true,
+              selected,
+              missing,
+              heading: document.querySelector('.crme-heading strong')?.textContent?.trim() || '',
+            };
+          })()`);
+          if (selection?.ready) {
+            if (selection.missing?.length || selection.selected?.length !== 4) {
+              throw new Error(`Wand selected-stat QA could not apply every requested filter: ${JSON.stringify(selection)}`);
+            }
+            selectedWandStats = selection;
+            settledSince = 0;
+            lastMarketRows = -1;
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            continue;
+          }
+        }
         result = await priceCheckWindow.webContents.executeJavaScript(`(() => {
           const panel = document.querySelector('.pco');
           const surface = panel;
@@ -3436,6 +3484,9 @@ const deadline = Date.now() + 150_000;
           const buttons = [...document.querySelectorAll('button')].map((button) => button.textContent?.trim()).filter(Boolean);
           const style = panel ? getComputedStyle(panel) : null;
           const marketRows = document.querySelectorAll('.pco-row:not(.is-loading)').length;
+          const tradePriceLoading = /CHECKING\\s+\\d+\\s+SELECTED\\s+STATS?/i.test(
+            document.querySelector('.pco-trade-price-results .pco-no-results')?.textContent || '',
+          );
           const modifierEditor = document.querySelector('.crme');
           const modifierRows = [...document.querySelectorAll('.crme-row')];
           const modifierList = modifierEditor?.querySelector('.crme-list');
@@ -3484,10 +3535,12 @@ const deadline = Date.now() + 150_000;
               sourceLabel &&
               detailButton &&
               surfaceRect &&
-              Math.abs(surfaceRect.height - expectedHeight) <= 1
+              Math.abs(surfaceRect.height - expectedHeight) <= 1 &&
+              (${QA_SELECT_WAND_STATS ? "marketRows > 0 && !tradePriceLoading" : "true"})
             ),
             buttons,
             marketRows,
+            tradePriceLoading,
             tradeStatCatalog: document.documentElement.dataset.tradeStatCatalog || '',
             modifierEditor: Boolean(modifierEditor),
             modifierRows: modifierRows.length,
@@ -3638,7 +3691,11 @@ const deadline = Date.now() + 150_000;
           let slider = document.querySelector('.crme-dual-range input[type="range"]:not(:disabled)');
           let row = slider?.closest('.crme-row');
           let number = row?.querySelector('.crme-number');
-          if (!slider && ${QA_EXPAND_OPTIONAL_STATS ? "true" : "false"}) {
+          if (
+            !slider &&
+            ${QA_EXPAND_OPTIONAL_STATS ? "true" : "false"} &&
+            !${QA_SELECT_WAND_STATS ? "true" : "false"}
+          ) {
             row = [...document.querySelectorAll('.crme-row')].find(
               (entry) => {
                 const label = entry.querySelector('.crme-label')?.textContent?.trim() || '';
@@ -3690,6 +3747,32 @@ const deadline = Date.now() + 150_000;
       }
     }
     console.log("PHASE modifier-done");
+    let postInteractionTradeState = null;
+    if (result?.modifierEditor) {
+      try {
+        postInteractionTradeState = await priceCheckWindow.webContents.executeJavaScript(`(() => {
+          const resultSurface = document.querySelector('.pco-trade-price-results');
+          const rows = [...(resultSurface?.querySelectorAll('.pco-row') || [])];
+          const statusText = resultSurface?.querySelector('.pco-no-results')?.textContent?.trim() || '';
+          return {
+            editorHeading: document.querySelector('.crme-heading strong')?.textContent?.trim() || '',
+            selectedCount: document.querySelectorAll('.crme-row input[type="checkbox"]:checked').length,
+            marketRows: rows.length,
+            statusText,
+            loading: /^CHECKING\\s+\\d+\\s+SELECTED\\s+STATS?$/i.test(statusText),
+            columnLabels: [...(resultSurface?.querySelectorAll('.pco-results-head span') || [])]
+              .map((entry) => entry.textContent?.trim() || '')
+              .filter(Boolean),
+            rowCells: rows.map((row) => [...row.children]
+              .map((cell) => cell.textContent?.trim() || '')),
+          };
+        })()`);
+      } catch (error) {
+        postInteractionTradeState = {
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
     const resolvedResultPath = path.resolve(resultPath);
     const screenshotPath = path.join(path.dirname(resolvedResultPath), "price-check-smoke.png");
     fs.mkdirSync(path.dirname(resolvedResultPath), { recursive: true });
@@ -3721,10 +3804,12 @@ const deadline = Date.now() + 150_000;
       pollTrace,
       nativeCaptureTest: QA_NATIVE_CAPTURE,
       tradeCatalogProbe,
+      selectedWandStats,
       captureValid: Boolean(lastPriceCheckCapture?.validPrefix),
       timedOut: !result?.ready && !result?.error,
       result,
       modifierInteraction,
+      postInteractionTradeState,
       window: {
         visible: priceCheckWindow.isVisible(),
         focused: priceCheckWindow.isFocused(),

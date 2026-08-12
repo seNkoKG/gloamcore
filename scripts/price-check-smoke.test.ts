@@ -20,8 +20,8 @@ function expectOrdered(...fragments: string[]) {
 }
 
 describe("native price-check smoke harness", () => {
-  it("binds source and packaged runs to the current 3.4.1 release identity", () => {
-    expect(packageMetadata.version).toBe("3.4.1");
+  it("binds source and packaged runs to the current 3.4.2 release identity", () => {
+    expect(packageMetadata.version).toBe("3.4.2");
     expect(smoke).toContain('(Join-Path $projectRoot "package.json")');
     expect(smoke).toContain(").version)");
     expect(smoke).toContain("$provenance.gitHead -ne $snapshotHead.Trim()");
@@ -46,6 +46,7 @@ describe("native price-check smoke harness", () => {
       "Synthetic target failed native identity readiness with code $($identityProbe.ExitCode).",
     );
     expect(smoke).toContain("GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH");
+    expect(smoke).toContain('`$timer.Interval = 240000');
     expect(smoke).toContain("[GloamCoreQaWindow]::mouse_event(0x0002");
     expect(smoke).toContain("[GloamCoreQaWindow]::mouse_event(0x0004");
     expect(smoke).toContain(
@@ -102,9 +103,17 @@ describe("native price-check smoke harness", () => {
   });
 
   it("locks complete ordinary rows and the hidden crafted-helper denominator", () => {
-    expect(smoke).toContain('$result.result.editorHeading -ne "0/10 STATS"');
+    expect(smoke).toContain('$result.result.editorHeading -ne "4/10 STATS"');
     expect(smoke).toContain("$result.result.modifierRows -ne 9");
     expect(smoke).toContain("$result.result.rangeSliders -ne 0");
+    expect(smoke).toContain('GLOAMCORE_QA_SELECT_WAND_STATS = "1"');
+    expect(smoke).toContain("@($result.selectedWandStats.selected).Count -ne 4");
+    expect(smoke).toContain("$result.result.tradePriceLoading");
+    expect(smoke).toContain('$result.postInteractionTradeState.editorHeading -ne "4/10 STATS"');
+    expect(smoke).toContain("$result.postInteractionTradeState.selectedCount -ne 4");
+    expect(smoke).toContain("$result.postInteractionTradeState.marketRows -lt 1");
+    expect(smoke).toContain("$result.postInteractionTradeState.loading");
+    expect(smoke).toContain('"PRICE,SELLER,LISTED"');
     expectOrdered(
       '$expectedWeaponPropertyLabels = @(',
       '"Physical DPS"',

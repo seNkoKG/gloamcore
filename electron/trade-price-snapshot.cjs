@@ -99,12 +99,19 @@ function rateLimitTiming(headers, status, now) {
       const state = states[index];
       if (!limit || !state) continue;
       const [maximumHits, periodSeconds] = limit;
-      const [, , restrictionSeconds] = state;
-      if (maximumHits > 0 && periodSeconds > 0) {
-        spacingMs = Math.max(spacingMs, Math.ceil(periodSeconds * 1_000 / maximumHits));
-      }
+      const [currentHits, , restrictionSeconds] = state;
       if (restrictionSeconds > 0) {
         cooldownMs = Math.max(cooldownMs, restrictionSeconds * 1_000);
+      } else if (
+        maximumHits > 0 &&
+        periodSeconds > 0 &&
+        currentHits >= maximumHits
+      ) {
+        // GGG's rule is a hit ceiling inside a tested window, not a mandate
+        // to distribute every allowed hit evenly across that entire period.
+        // Once the state reaches the ceiling, stop locally for one complete
+        // window instead of issuing the request that would trigger a 429.
+        cooldownMs = Math.max(cooldownMs, periodSeconds * 1_000);
       }
     }
   }
@@ -122,6 +129,12 @@ function cooldownError(milliseconds) {
   return new Error(`Official Trade cooldown active. Retry in ${duration}.`);
 }
 
+function supersededError() {
+  const error = new Error("Trade price request superseded by newer filters.");
+  error.code = "ERR_TRADE_PRICE_SUPERSEDED";
+  return error;
+}
+
 async function requestJson(
   fetchImpl,
   url,
@@ -129,8 +142,13 @@ async function requestJson(
   maximumBytes,
   userAgent,
   rateGate,
+  ensureCurrent = () => undefined,
 ) {
   await rateGate.beforeRequest();
+  // A selection can change while this request is waiting for the official
+  // rate gate. Never spend a Trade request on a filter state the user has
+  // already replaced.
+  ensureCurrent();
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(new Error("Official Trade timed out.")),
@@ -207,6 +225,7 @@ function createTradePriceSnapshotService({
   const cache = new Map();
   const pending = new Map();
   let queue = Promise.resolve();
+  let newestGeneration = 0;
   let nextRequestAt = 0;
   let blockedUntil = 0;
   const safeMinimumInterval = Math.max(0, Math.round(Number(minimumIntervalMs) || 0));
@@ -239,15 +258,23 @@ function createTradePriceSnapshotService({
   return function getTradePriceSnapshot(rawRequest) {
     const request = validateRequest(rawRequest);
     const cacheKey = `${request.league}\n${request.body}`;
+    const existing = pending.get(cacheKey);
+    if (!request.force && existing?.generation === newestGeneration) {
+      return existing.operation;
+    }
+    const generation = ++newestGeneration;
+    const ensureCurrent = () => {
+      if (generation !== newestGeneration) throw supersededError();
+    };
     const cached = cache.get(cacheKey);
-    if (!request.force && cached && cached.expiresAt > Date.now()) {
+    if (!request.force && cached && cached.expiresAt > nowImpl()) {
       return Promise.resolve({ ...cached.result, cached: true });
     }
-    if (pending.has(cacheKey)) return pending.get(cacheKey);
 
     const operation = queue.then(async () => {
+      ensureCurrent();
       const refreshed = cache.get(cacheKey);
-      if (!request.force && refreshed && refreshed.expiresAt > Date.now()) {
+      if (!request.force && refreshed && refreshed.expiresAt > nowImpl()) {
         return { ...refreshed.result, cached: true };
       }
       const league = encodeURIComponent(request.league);
@@ -256,7 +283,11 @@ function createTradePriceSnapshotService({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: request.body,
-      }, MAX_SEARCH_BYTES, userAgent, rateGate);
+      }, MAX_SEARCH_BYTES, userAgent, rateGate, ensureCurrent);
+      // Search and fetch are separate rate-limited calls. If the user changed
+      // another checkbox while the search was in flight, skip its now-useless
+      // fetch so the final selection is not stuck behind stale work.
+      ensureCurrent();
       const searchId = cleanText(search?.id, 128);
       if (!SAFE_TOKEN.test(searchId)) {
         throw new Error("Official Trade returned an invalid search identifier.");
@@ -274,7 +305,9 @@ function createTradePriceSnapshotService({
           MAX_FETCH_BYTES,
           userAgent,
           rateGate,
+          ensureCurrent,
         );
+        ensureCurrent();
         listings = Array.isArray(fetched?.result)
           ? fetched.result.map(sanitizeListing).filter(Boolean)
           : [];
@@ -283,18 +316,23 @@ function createTradePriceSnapshotService({
         listings,
         total: Math.max(0, Math.min(1_000_000, Math.round(Number(search?.total) || ids.length))),
         searchId,
-        fetchedAt: Date.now(),
+        fetchedAt: nowImpl(),
         cached: false,
       };
       if (cache.size >= 100) cache.delete(cache.keys().next().value);
-      cache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_MS });
+      cache.set(cacheKey, { result, expiresAt: nowImpl() + CACHE_MS });
       return result;
     });
-    pending.set(cacheKey, operation);
+    const pendingEntry = { generation, operation };
+    pending.set(cacheKey, pendingEntry);
     queue = operation.then(() => undefined, () => undefined);
     operation.then(
-      () => pending.delete(cacheKey),
-      () => pending.delete(cacheKey),
+      () => {
+        if (pending.get(cacheKey) === pendingEntry) pending.delete(cacheKey);
+      },
+      () => {
+        if (pending.get(cacheKey) === pendingEntry) pending.delete(cacheKey);
+      },
     );
     return operation;
   };

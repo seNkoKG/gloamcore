@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 3.4.2
+
+- Corrected Grinding Gear Games rate-header handling so an available request
+  window no longer creates an unintended multi-second delay before every live
+  Trade call.
+- Made the newest modifier selection supersede obsolete queued searches and
+  skip their unused fetch calls, preventing rapid checkbox changes from
+  leaving the visible seller rows behind the selected filters.
+- Added a bounded renderer timeout plus automatic retry after a real official
+  Trade cooldown, with explicit retry states instead of indefinite loading.
+- Added a native release gate for the reported four-stat crafted wand query;
+  it must remain at `4/10 STATS` and visibly render settled price, seller, and
+  listed-age rows immediately before screenshot capture.
+- Kept Craft of Exile and existing dashboard behavior intact without restoring
+  the retired full official-trade-listings subsystem.
+
 ## 3.4.1
 
 - Prevented rapid Trade-filter edits from issuing overlapping official Trade

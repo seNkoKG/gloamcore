@@ -107,7 +107,7 @@ describe("Trade price snapshot", () => {
     ));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.1",
+      userAgent: "GloamCore/3.4.2",
       minimumIntervalMs: 0,
       nowImpl: () => now,
     });
@@ -142,7 +142,7 @@ describe("Trade price snapshot", () => {
     }));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.1",
+      userAgent: "GloamCore/3.4.2",
       minimumIntervalMs: 0,
     });
     const request = {
@@ -162,6 +162,51 @@ describe("Trade price snapshot", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("drops superseded queued filter searches and runs only the latest selection", async () => {
+    let finishFirst!: (value: ReturnType<typeof response>) => void;
+    const fetchImpl = vi.fn((url: string) => {
+      if (fetchImpl.mock.calls.length === 1) {
+        return new Promise<ReturnType<typeof response>>((resolve) => {
+          finishFirst = resolve;
+        });
+      }
+      return Promise.resolve(response({
+        id: "latest_search",
+        total: 0,
+        result: [],
+      }, url));
+    });
+    const service = createTradePriceSnapshotService({
+      fetchImpl,
+      userAgent: "GloamCore/3.4.2",
+      minimumIntervalMs: 0,
+    });
+    const request = (minimum: number) => ({
+      league: "Allflame",
+      tradeQuery: {
+        query: {
+          type: "Kinetic Wand",
+          filters: { weapon_filters: { filters: { aps: { min: minimum } } } },
+        },
+      },
+    });
+
+    const first = service(request(1.8)).catch((error: Error) => error);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    const stale = service(request(1.85)).catch((error: Error) => error);
+    const latest = service(request(1.9));
+    finishFirst(response({ id: "stale_search", total: 0, result: [] }, fetchImpl.mock.calls[0][0]));
+
+    await expect(first).resolves.toMatchObject({
+      message: expect.stringMatching(/superseded/i),
+    });
+    await expect(stale).resolves.toMatchObject({
+      message: expect.stringMatching(/superseded/i),
+    });
+    await expect(latest).resolves.toMatchObject({ searchId: "latest_search" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("follows dynamic rate-limit state before another request is sent", async () => {
     const fetchImpl = vi.fn(async (url: string) => response(
       { id: "search_at_limit", total: 0, result: [] },
@@ -175,7 +220,7 @@ describe("Trade price snapshot", () => {
     ));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.1",
+      userAgent: "GloamCore/3.4.2",
       minimumIntervalMs: 0,
       nowImpl: () => 1_000,
     });
@@ -188,6 +233,72 @@ describe("Trade price snapshot", () => {
       league: "Allflame",
       tradeQuery: { query: { type: "Prophecy Wand" } },
     })).rejects.toThrow(/Retry in 5s/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not turn an unrestricted rate window into a hidden per-request delay", async () => {
+    let now = 1_000;
+    const waits: number[] = [];
+    const fetchImpl = vi.fn(async (url: string) => response(
+      { id: `search_${fetchImpl.mock.calls.length}`, total: 0, result: [] },
+      url,
+      200,
+      {
+        "x-rate-limit-rules": "ip",
+        "x-rate-limit-ip": "10:60:120",
+        "x-rate-limit-ip-state": "1:60:0",
+      },
+    ));
+    const service = createTradePriceSnapshotService({
+      fetchImpl,
+      userAgent: "GloamCore/3.4.2",
+      minimumIntervalMs: 0,
+      nowImpl: () => now,
+      waitImpl: async (milliseconds: number) => {
+        waits.push(milliseconds);
+        now += milliseconds;
+      },
+    });
+
+    await service({
+      league: "Allflame",
+      tradeQuery: { query: { type: "Kinetic Wand" } },
+    });
+    await service({
+      league: "Allflame",
+      tradeQuery: { query: { type: "Prophecy Wand" } },
+    });
+
+    expect(waits).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops locally when an official rate window reaches its hit ceiling", async () => {
+    const fetchImpl = vi.fn(async (url: string) => response(
+      { id: "search_at_ceiling", total: 0, result: [] },
+      url,
+      200,
+      {
+        "x-rate-limit-rules": "ip",
+        "x-rate-limit-ip": "10:60:120",
+        "x-rate-limit-ip-state": "10:60:0",
+      },
+    ));
+    const service = createTradePriceSnapshotService({
+      fetchImpl,
+      userAgent: "GloamCore/3.4.2",
+      minimumIntervalMs: 0,
+      nowImpl: () => 1_000,
+    });
+
+    await expect(service({
+      league: "Allflame",
+      tradeQuery: { query: { type: "Kinetic Wand" } },
+    })).resolves.toMatchObject({ searchId: "search_at_ceiling" });
+    await expect(service({
+      league: "Allflame",
+      tradeQuery: { query: { type: "Prophecy Wand" } },
+    })).rejects.toThrow(/Retry in 1m/);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

@@ -687,6 +687,26 @@ describe("compact empty market state", () => {
       },
     });
     expect(cooldownMarkup).toContain("TRADE COOLDOWN · 10S");
+
+    const loadingMarkup = renderCompact({
+      ...session,
+      tradePriceSnapshot: undefined,
+      tradePriceLoading: true,
+    });
+    expect(loadingMarkup).toContain("CHECKING 1 SELECTED STAT");
+
+    const timeoutMarkup = renderCompact({
+      ...session,
+      tradePriceSnapshot: {
+        listings: [],
+        total: 0,
+        searchId: "",
+        fetchedAt: Date.now(),
+        cached: false,
+        error: "Official Trade price request timed out.",
+      },
+    });
+    expect(timeoutMarkup).toContain("TRADE TIMED OUT · RETRY");
   });
 
   it("uses the trade-first editor for a unique state filter while hiding invariant fixed rolls", () => {

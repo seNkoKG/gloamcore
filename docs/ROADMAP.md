@@ -30,12 +30,27 @@ explicitly supersedes any retired transport or data-source behavior.
 6. **3.4.1 — Rate-safe live Trade prices.** Settled filter edits, serialized
    official Trade calls, shared identical in-flight work, dynamic server-header
    pacing, local cooldown enforcement, and clear overlay cooldown feedback.
+7. **3.4.2 — Latest-selection Trade settlement.** Correct official rate-window
+   handling, supersede obsolete queued filters, bounded renderer recovery, and
+   native visual proof for the reported four-stat wand query.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.1
+## Current in 3.4.2
+
+- Keep only the newest modifier selection eligible to search and fetch; queued
+  intermediate checkbox states are superseded before they can consume another
+  official Trade request.
+- Treat GGG rate headers as request ceilings inside tested windows, retaining
+  the app's 750 ms safety interval and honoring real restrictions, full
+  windows, and `Retry-After` without inventing an even-distribution delay.
+- Time out an unresponsive renderer request, retry automatically after a real
+  cooldown, and require the four-stat crafted-wand native smoke to show settled
+  seller rows before capture and release.
+
+## Shipped in 3.4.1
 
 - Settle rapid modifier edits before refreshing live seller-price rows, then
   serialize official Trade requests and share identical work already in flight.

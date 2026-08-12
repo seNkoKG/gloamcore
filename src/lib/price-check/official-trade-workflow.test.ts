@@ -222,6 +222,54 @@ describe("Awakened-style price-check workflow", () => {
     }]);
   });
 
+  it("builds the reported four-stat wand selection as one exact official Trade query", () => {
+    const item = applyTradeStatCatalog(
+      parsePoeItem(golemSpellKineticWandFixture),
+      actualCatalog as TradeStatCatalogPack,
+    );
+    const initial = buildPriceCheckQueryPlan(item, "Allflame", {
+      mode: "similar",
+      rollTolerance: 10,
+    });
+    const selected = initial.filters.map((filter) => ({
+      ...filter,
+      enabled:
+        filter.equipmentProperty?.key === "aps" ||
+        filter.equipmentProperty?.key === "crit" ||
+        filter.tradeId === "pseudo.pseudo_global_critical_strike_multiplier" ||
+        filter.tradeId === "enchant.stat_1335369947",
+    }));
+    const plan = buildPriceCheckQueryPlan(item, "Allflame", {
+      mode: "similar",
+      rollTolerance: 10,
+      filters: selected,
+      itemFilters: { corrupted: false },
+    });
+    const query = plan.tradeQuery as any;
+    const activeStats = query.query.stats[0].filters.filter(
+      (filter: { disabled?: boolean }) => !filter.disabled,
+    );
+
+    expect(plan.filters.filter((filter) => filter.enabled)).toHaveLength(4);
+    expect(query.query.filters.type_filters.filters.category).toEqual({
+      option: "weapon.wand",
+    });
+    expect(query.query.filters.weapon_filters.filters).toMatchObject({
+      aps: { min: 1.86 },
+      crit: { min: 10 },
+    });
+    expect(activeStats).toEqual(expect.arrayContaining([
+      {
+        id: "pseudo.pseudo_global_critical_strike_multiplier",
+        value: { min: 25 },
+      },
+      {
+        id: "enchant.stat_1335369947",
+        value: { min: 8 },
+      },
+    ]));
+  });
+
   it("starts ordinary equipment at instant-buyout-only availability", () => {
     const item = parsePoeItem(advancedRareFixture);
     expect(defaultOfficialTradeStatusForItem(item)).toBe("securable");

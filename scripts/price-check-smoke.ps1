@@ -309,7 +309,10 @@ try {
   `$copySurface.Dock = [System.Windows.Forms.DockStyle]::Fill
   `$copySurface.Text = `$fixture
   `$form.Controls.Add(`$copySurface)
-  `$timer.Interval = 60000
+  # Keep the synthetic PoE target alive for the complete 240-second harness.
+  # Official Trade may legitimately expose a cooldown before the selected
+  # query retries, and target expiry must never masquerade as an app failure.
+  `$timer.Interval = 240000
   `$timer.Add_Tick({ `$form.Close() })
   `$form.Add_Shown({
     `$form.Activate()
@@ -434,6 +437,7 @@ try {
   Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_TEXT -ErrorAction SilentlyContinue
   Remove-Item Env:GLOAMCORE_QA_CLIPBOARD_BASE64 -ErrorAction SilentlyContinue
   Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
+  Remove-Item Env:GLOAMCORE_QA_SELECT_WAND_STATS -ErrorAction SilentlyContinue
   $env:GLOAMCORE_QA_OPEN_SURFACE = "price-check"
   $env:GLOAMCORE_QA_RESULT_PATH = $resultPath
   $env:GLOAMCORE_QA_NATIVE_CLOSE_SIGNAL_PATH = $nativeCloseSignalPath
@@ -442,6 +446,7 @@ try {
   $env:GLOAMCORE_QA_USER_DATA_PATH = $qaRootFull
   if ($Wand) {
     $env:GLOAMCORE_QA_EXPAND_STATS = "1"
+    $env:GLOAMCORE_QA_SELECT_WAND_STATS = "1"
   }
   $env:ELECTRON_ENABLE_LOGGING = "1"
   Push-Location $projectRoot
@@ -589,12 +594,31 @@ try {
       }
     }
     if (
-      $result.result.editorHeading -ne "0/10 STATS" -or
+      $result.result.editorHeading -ne "4/10 STATS" -or
       $result.result.text -match 'Weapon Damage|Total DPS|CALCULATED PROPERTY|EMPTY OR CRAFTED' -or
       $result.result.text -match "\b(?:SHOW|HIDE)\s+\d+\b" -or
       $result.result.matchModeSelects -ne 0
     ) {
       throw "Crafted wand compact summary did not keep its hidden helper in the ten-stat total."
+    }
+    if (
+      -not $result.selectedWandStats -or
+      @($result.selectedWandStats.selected).Count -ne 4 -or
+      @($result.selectedWandStats.missing).Count -ne 0 -or
+      $result.result.tradePriceLoading
+    ) {
+      throw "Crafted wand selected-stat refresh did not settle after all four reported filters: $($result.selectedWandStats | ConvertTo-Json -Compress)"
+    }
+    if (
+      -not $result.postInteractionTradeState -or
+      $result.postInteractionTradeState.editorHeading -ne "4/10 STATS" -or
+      $result.postInteractionTradeState.selectedCount -ne 4 -or
+      $result.postInteractionTradeState.marketRows -lt 1 -or
+      $result.postInteractionTradeState.loading -or
+      $result.postInteractionTradeState.statusText -or
+      (@($result.postInteractionTradeState.columnLabels) -join ",") -ne "PRICE,SELLER,LISTED"
+    ) {
+      throw "Crafted wand did not remain visibly settled immediately before screenshot capture: $($result.postInteractionTradeState | ConvertTo-Json -Compress -Depth 5)"
     }
     $stateLabels = @($result.result.stateLabels)
     foreach ($expectedState in @("ILVL", "NOT CORRUPTED")) {
@@ -975,6 +999,22 @@ try {
       Copy-Item -LiteralPath $diagnostic.Source -Destination (Join-Path $artifactRoot $diagnostic.Name) -Force
     }
   }
+  if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
+    try {
+      $failedResult = Get-Content -Raw -LiteralPath $resultPath | ConvertFrom-Json
+      if (
+        $failedResult.screenshotPath -and
+        (Test-Path -LiteralPath $failedResult.screenshotPath -PathType Leaf)
+      ) {
+        Copy-Item `
+          -LiteralPath $failedResult.screenshotPath `
+          -Destination (Join-Path $artifactRoot "price-check-smoke-$scenario-failed.png") `
+          -Force
+      }
+    } catch {
+      # Preserve the original smoke failure when optional screenshot recovery fails.
+    }
+  }
   throw
 } finally {
   try {
@@ -987,6 +1027,7 @@ try {
     Remove-Item Env:GLOAMCORE_QA_CAPTURE_TEST -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_USER_DATA_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:GLOAMCORE_QA_EXPAND_STATS -ErrorAction SilentlyContinue
+    Remove-Item Env:GLOAMCORE_QA_SELECT_WAND_STATS -ErrorAction SilentlyContinue
     Remove-Item Env:ELECTRON_ENABLE_LOGGING -ErrorAction SilentlyContinue
     if ($appProcess -and -not $appProcess.HasExited) {
       Stop-Process -Id $appProcess.Id -Force
