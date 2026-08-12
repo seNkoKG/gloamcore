@@ -123,6 +123,7 @@
 .data-health footer { grid-column: 1 / -1; color: #536267; font-size: 8px; line-height: 1.5; }
 .command-center--loading,
 .command-center--error { display: grid; place-content: center; text-align: center; }
+.command-atlas-loading { display: grid; min-height: 520px; place-content: center; gap: 10px; color: #78878b; font-size: 10px; text-align: center; }
 .command-loader { width: 32px; height: 32px; margin: 0 auto; border: 2px solid #2d393e; border-top-color: #b77b40; border-radius: 50%; animation: command-spin 0.8s linear infinite; }
 @keyframes command-spin { to { transform: rotate(360deg); } }
 

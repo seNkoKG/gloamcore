@@ -1,6 +1,6 @@
 {
   "name": "gloamcore",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "packageManager": "pnpm@11.16.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "dev": "vite",
     "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "tsc -b && vite build",
-    "test": "vitest run --exclude \"release-final/**\" --exclude \".pnpm-store-local/**\"",
+    "test": "vitest run --exclude \"release-final/**\" --exclude \".pnpm-store-local/**\" --maxWorkers=4",
     "audit:market": "node scripts/audit-live-market.mjs",
     "notices:generate": "node scripts/generate-third-party-notices.mjs",
     "data:build-trade-stats": "node scripts/build-price-check-stat-pack.mjs",

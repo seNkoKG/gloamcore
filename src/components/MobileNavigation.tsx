@@ -49,7 +49,7 @@ export function MobileTopbar({
         </span>
         <span>
           <small>{mode === "price-check" ? "ITEM PRICE CHECK" : mode === "knowledge" ? "POE KNOWLEDGE" : mode === "watchlist" ? "PRICE TRACKING" : mode === "command" ? "POE 1 CAMPAIGN" : "GLOAMCORE"}</small>
-          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Item Intel" : mode === "watchlist" ? "Watchlist" : mode === "command" ? "League Navigator" : category.label}</strong>
+          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Item Intel" : mode === "watchlist" ? "Watchlist" : mode === "command" ? "League Command Center" : category.label}</strong>
         </span>
         {mode === "market" && <ChevronDown size={15} />}
       </button>

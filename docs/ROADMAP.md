@@ -28,7 +28,15 @@ Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.0.0
+## Current in 3.1.0
+
+- Added the Atlas Command Center described above using all official Atlas
+  sprite categories needed by normal, notable, keystone, gateway, mastery,
+  frame, line, and background art.
+- Added deterministic graph, budget, refund, URL, loadout, comparison, and
+  league-migration tests against the validated Atlas pack.
+
+## Shipped in 3.0.0
 
 - Added the League Navigator and patch-safe PoE data channel described above.
 - Updated the guarded source lock to the latest official Atlas export,

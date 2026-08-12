@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   checkForGameDataUpdate,
   loadGameData,
@@ -13,8 +13,12 @@ import {
 } from "../lib/planner/planner-workspace";
 import "./CommandCenterPanel.css";
 
+const AtlasCommandCenter = lazy(() => import("./AtlasCommandCenter").then((module) => ({
+  default: module.AtlasCommandCenter,
+})));
+
 type BanditChoice = "kill" | "alira" | "kraityn" | "oak";
-type CommandTab = "route" | "gems" | "data";
+type CommandTab = "route" | "gems" | "atlas" | "data";
 
 const NAVIGATOR_STATE_KEY = "gloamcore:league-navigator:v1";
 const UPDATE_CHECK_KEY = "gloamcore:game-data-last-check:v1";
@@ -198,7 +202,7 @@ export function CommandCenterPanel() {
   };
 
   if (loadingError) {
-    return <section className="command-center command-center--error"><h1>League Navigator unavailable</h1><p>{loadingError}</p></section>;
+    return <section className="command-center command-center--error"><h1>League Command Center unavailable</h1><p>{loadingError}</p></section>;
   }
   if (!data || !navigatorState) {
     return <section className="command-center command-center--loading"><div className="command-loader" /><p>{message}</p></section>;
@@ -211,8 +215,8 @@ export function CommandCenterPanel() {
         <img src={navigator.art.questIcon.url} alt="Path of Exile quest icon" />
         <div>
           <small>PATH OF EXILE 1 · {data.bundle.manifest.gameVersion}</small>
-          <h1>League Navigator</h1>
-          <p>Exact campaign route and gem acquisition data from a pinned, integrity-checked source pack.</p>
+          <h1>League Command Center</h1>
+          <p>Exact campaign guidance and an official-data Atlas planner behind one patch-safe integrity boundary.</p>
         </div>
         <span className="command-data-badge">{data.bundle.origin.toUpperCase()} · VERIFIED</span>
       </header>
@@ -220,6 +224,7 @@ export function CommandCenterPanel() {
       <nav className="command-tabs" aria-label="League command tools">
         <button type="button" className={tab === "route" ? "is-active" : undefined} onClick={() => setTab("route")}>Campaign route</button>
         <button type="button" className={tab === "gems" ? "is-active" : undefined} onClick={() => setTab("gems")}>Gem acquisition</button>
+        <button type="button" className={tab === "atlas" ? "is-active" : undefined} onClick={() => setTab("atlas")}>Atlas planner</button>
         <button type="button" className={tab === "data" ? "is-active" : undefined} onClick={() => setTab("data")}>Data health</button>
       </nav>
 
@@ -302,6 +307,12 @@ export function CommandCenterPanel() {
             })}
           </div>
         </div>
+      )}
+
+      {tab === "atlas" && (
+        <Suspense fallback={<div className="command-atlas-loading"><div className="command-loader" /><p>Preparing the official Atlas tree…</p></div>}>
+          <AtlasCommandCenter atlas={data.bundle.atlas} />
+        </Suspense>
       )}
 
       {tab === "data" && (

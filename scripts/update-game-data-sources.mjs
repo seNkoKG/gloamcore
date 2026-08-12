@@ -49,6 +49,34 @@ const atlasBytes = await request(atlasUrl, "application/json");
 const atlasJson = JSON.parse(atlasBytes.toString("utf8"));
 if (atlasJson.tree !== "Atlas" || !atlasJson.nodes || Object.keys(atlasJson.nodes).length < 900) throw new Error("The discovered official Atlas export failed its minimum schema check.");
 
+const officialAtlasPage = (await request(
+  "https://www.pathofexile.com/fullscreen-atlas-skill-tree",
+  "text/html",
+)).toString("utf8");
+const assetRoot = /baseUrl:\s*"([^"]+)"/.exec(officialAtlasPage)?.[1];
+const pathMapText = /paths\s*:\s*(\{[^\r\n]+\})/.exec(officialAtlasPage)?.[1];
+if (!assetRoot?.startsWith("https://web.poecdn.com/") || !pathMapText) {
+  throw new Error("The official Atlas page no longer exposes its reviewed link-format script path.");
+}
+const pathMap = JSON.parse(pathMapText);
+if (!/^[a-z0-9.]+$/i.test(String(pathMap.main || ""))) {
+  throw new Error("The official Atlas page returned an invalid main script identifier.");
+}
+const atlasLinkScriptUrl = `${assetRoot.replace(/\/$/, "")}/${pathMap.main}.js`;
+const atlasLinkScriptBytes = await request(atlasLinkScriptUrl, "text/javascript");
+const atlasLinkScript = atlasLinkScriptBytes.toString("utf8");
+const atlasLinkVersion = Number(/define\('PoE\/PassiveSkillTree\/Version',\[\],function\(\)\{return (\d+)\}\)/.exec(atlasLinkScript)?.[1]);
+const reviewedEncodingMarkers = [
+  "encoder.appendInt(CurrentVersion)",
+  "encoder.appendInt8(data.characterClass)",
+  "encoder.appendInt8(data.hashes.length)",
+  "encoder.appendInt16(data.hashes[i])",
+  'data.atlas?"atlas":"passive"',
+];
+if (atlasLinkVersion !== 6 || reviewedEncodingMarkers.some((marker) => !atlasLinkScript.includes(marker))) {
+  throw new Error(`Official Atlas link format ${atlasLinkVersion || "unknown"} differs from the reviewed version-6 encoder; code review is required before publishing new packs.`);
+}
+
 const repository = await json("https://api.github.com/repos/HeartofPhos/exile-leveling");
 const navigatorCommit = await json(`https://api.github.com/repos/HeartofPhos/exile-leveling/commits/${encodeURIComponent(repository.default_branch)}`);
 if (!/^[a-f0-9]{40}$/.test(String(navigatorCommit.sha))) throw new Error("The Navigator source did not resolve to a commit.");
@@ -81,6 +109,11 @@ const next = {
     releasedAt: atlasCommit.commit.committer.date,
     url: atlasUrl,
     sha256: sha256(atlasBytes),
+    linkFormat: {
+      version: atlasLinkVersion,
+      url: atlasLinkScriptUrl,
+      sha256: sha256(atlasLinkScriptBytes),
+    },
   },
   navigator: {
     revision: navigatorCommit.sha,

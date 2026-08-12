@@ -5,7 +5,12 @@
     "revision": "0ae2e0f94f266fc21c86ee8dd561d7b559bf2db4",
     "releasedAt": "2026-07-31T00:27:57Z",
     "url": "https://raw.githubusercontent.com/grindinggear/atlastree-export/3.29.1/data.json",
-    "sha256": "890e70423d78d2ff3736370d54030bf0edeb7eb620870d20e5652d9d037f665d"
+    "sha256": "890e70423d78d2ff3736370d54030bf0edeb7eb620870d20e5652d9d037f665d",
+    "linkFormat": {
+      "version": 6,
+      "url": "https://web.poecdn.com/dist/legacy/main.3f63699874dfd71549d12b5046d95f0dfcab240a.js",
+      "sha256": "c5fd9b0c9445568f3c12cf34e28f86247892c8385b859ae69fd15ffc352e6fb3"
+    }
   },
   "navigator": {
     "revision": "b7b2dd0ed62ae25cf55c74085fa64a1f4d7cf4ba",

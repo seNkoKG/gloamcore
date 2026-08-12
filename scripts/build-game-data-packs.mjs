@@ -8,7 +8,10 @@ const outputRoot = path.join(projectRoot, "public", "data", "game", "v1");
 const sourceLock = JSON.parse(fs.readFileSync(path.join(projectRoot, "scripts", "game-data-sources.json"), "utf8"));
 
 if (sourceLock.schemaVersion !== 1 || !/^\d+\.\d+\.\d+$/.test(sourceLock.gameVersion)
-  || !sourceLock.atlas || !sourceLock.navigator || Object.keys(sourceLock.navigator.files || {}).length !== 13) {
+  || !sourceLock.atlas || sourceLock.atlas.linkFormat?.version !== 6
+  || !/^https:\/\/web\.poecdn\.com\//.test(sourceLock.atlas.linkFormat?.url || "")
+  || !/^[a-f0-9]{64}$/.test(sourceLock.atlas.linkFormat?.sha256 || "")
+  || !sourceLock.navigator || Object.keys(sourceLock.navigator.files || {}).length !== 13) {
   throw new Error("The game-data source lock has an unsupported schema.");
 }
 
@@ -137,13 +140,30 @@ export function buildAtlasPack(raw, rawSha256 = ATLAS_SOURCE.sha256) {
     },
     rootId: roots[0].id,
     totalPoints,
+    linkFormat: ATLAS_SOURCE.linkFormat,
     bounds: {
       minX: finite(raw.min_x, "Atlas min_x"),
       minY: finite(raw.min_y, "Atlas min_y"),
       maxX: finite(raw.max_x, "Atlas max_x"),
       maxY: finite(raw.max_y, "Atlas max_y"),
     },
-    sprites: Object.fromEntries(["normalActive", "normalInactive"].flatMap((kind) => {
+    sprites: Object.fromEntries([
+      "background",
+      "normalActive",
+      "notableActive",
+      "keystoneActive",
+      "wormholeActive",
+      "normalInactive",
+      "notableInactive",
+      "keystoneInactive",
+      "wormholeInactive",
+      "mastery",
+      "groupBackground",
+      "startNode",
+      "frame",
+      "line",
+      "atlasBackground",
+    ].flatMap((kind) => {
       const scales = raw.sprites?.[kind];
       if (!scales || typeof scales !== "object") return [];
       const scale = Object.keys(scales).map(Number).filter(Number.isFinite).sort((left, right) => right - left)[0];

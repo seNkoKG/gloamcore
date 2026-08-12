@@ -1,6 +1,7 @@
 import { readMobileCache, writeMobileCache } from "./mobile-cache";
 
 export const GAME_DATA_SCHEMA_VERSION = 1;
+export const SUPPORTED_ATLAS_LINK_VERSION = 6;
 export const GAME_DATA_REMOTE_ROOT =
   "https://senkokg.github.io/gloamcore/data/game/v1";
 export const GAME_DATA_CACHE_KEY = "game-data:v1";
@@ -47,6 +48,30 @@ export interface AtlasDataNode {
   grantedPoints: number;
 }
 
+export type AtlasSpriteKind =
+  | "background"
+  | "normalActive"
+  | "notableActive"
+  | "keystoneActive"
+  | "wormholeActive"
+  | "normalInactive"
+  | "notableInactive"
+  | "keystoneInactive"
+  | "wormholeInactive"
+  | "mastery"
+  | "groupBackground"
+  | "startNode"
+  | "frame"
+  | "line"
+  | "atlasBackground";
+
+export interface AtlasSpriteSheet {
+  filename: string;
+  width: number;
+  height: number;
+  coords: Record<string, { x: number; y: number; w: number; h: number }>;
+}
+
 export interface AtlasDataPack {
   schemaVersion: 1;
   game: "poe1";
@@ -54,13 +79,9 @@ export interface AtlasDataPack {
   source: GameDataSource;
   rootId: number;
   totalPoints: number;
+  linkFormat: { version: number; url: string; sha256: string };
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
-  sprites: Partial<Record<"normalActive" | "normalInactive", {
-    filename: string;
-    width: number;
-    height: number;
-    coords: Record<string, { x: number; y: number; w: number; h: number }>;
-  }>>;
+  sprites: Record<AtlasSpriteKind, AtlasSpriteSheet>;
   nodes: AtlasDataNode[];
 }
 
@@ -202,18 +223,36 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
   if (!record(value)) return false;
   const bounds = value.bounds;
   const totalPoints = value.totalPoints;
+  const linkFormat = value.linkFormat;
   if (!record(value) || value.schemaVersion !== 1 || value.game !== "poe1"
     || !text(value.gameVersion, 20) || (gameVersion != null && value.gameVersion !== gameVersion)
     || !isSource(value.source) || !safeInteger(value.rootId, 1)
     || !safeInteger(totalPoints, 1) || totalPoints > 255
+    || !record(linkFormat) || linkFormat.version !== SUPPORTED_ATLAS_LINK_VERSION
+    || !text(linkFormat.url, 1_000) || !linkFormat.url.startsWith("https://web.poecdn.com/")
+    || typeof linkFormat.sha256 !== "string" || !SHA256.test(linkFormat.sha256)
     || !record(bounds) || !finite(bounds.minX) || !finite(bounds.minY)
     || !finite(bounds.maxX) || !finite(bounds.maxY)
     || bounds.minX >= bounds.maxX || bounds.minY >= bounds.maxY
     || !record(value.sprites) || !Array.isArray(value.nodes) || value.nodes.length < 900 || value.nodes.length > 1_500) return false;
-  for (const kind of ["normalActive", "normalInactive"] as const) {
+  const spriteKinds: AtlasSpriteKind[] = [
+    "background", "normalActive", "notableActive", "keystoneActive", "wormholeActive",
+    "normalInactive", "notableInactive", "keystoneInactive", "wormholeInactive", "mastery",
+    "groupBackground", "startNode", "frame", "line", "atlasBackground",
+  ];
+  for (const kind of spriteKinds) {
     const sprite = value.sprites[kind];
     if (!record(sprite) || !text(sprite.filename, 1_000) || !sprite.filename.startsWith("https://web.poecdn.com/")
       || !safeInteger(sprite.width, 1) || !safeInteger(sprite.height, 1) || !record(sprite.coords)) return false;
+    const spriteWidth = sprite.width;
+    const spriteHeight = sprite.height;
+    const coordinates = Object.entries(sprite.coords);
+    if (!coordinates.length || coordinates.length > 1_000 || coordinates.some(([key, coordinate]) =>
+      !text(key, 500) || !record(coordinate)
+      || !safeInteger(coordinate.x) || !safeInteger(coordinate.y)
+      || !safeInteger(coordinate.w, 1) || !safeInteger(coordinate.h, 1)
+      || coordinate.x + coordinate.w > spriteWidth || coordinate.y + coordinate.h > spriteHeight
+    )) return false;
   }
   const ids = new Set<number>();
   for (const candidate of value.nodes) {
@@ -235,9 +274,28 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
   if (!ids.has(value.rootId)) return false;
   const nodes = value.nodes as unknown as AtlasDataNode[];
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  return nodes.every((node) => node.neighbors.every((neighborId) =>
-    neighborId !== node.id && byId.get(neighborId)?.neighbors.includes(node.id),
-  ));
+  const sprites = value.sprites as unknown as AtlasDataPack["sprites"];
+  return Boolean(sprites.startNode.coords.AtlasPassiveSkillScreenStart)
+    && Boolean(sprites.atlasBackground.coords.AtlasPassiveBackground)
+    && nodes.every((node) => {
+      const kind: AtlasSpriteKind = node.id === value.rootId
+        ? "startNode"
+        : node.mastery
+          ? "mastery"
+          : node.gateway
+            ? "wormholeInactive"
+            : node.keystone
+              ? "keystoneInactive"
+              : node.notable
+                ? "notableInactive"
+                : "normalInactive";
+      const key = node.id === value.rootId
+        ? "AtlasPassiveSkillScreenStart"
+        : node.gateway ? "Wormhole" : node.icon;
+      return Boolean(sprites[kind].coords[key]) && node.neighbors.every((neighborId) =>
+        neighborId !== node.id && byId.get(neighborId)?.neighbors.includes(node.id),
+      );
+    });
 }
 
 const ROUTE_KINDS = new Set(["action", "boss", "note", "quest", "travel", "trial", "waypoint"]);

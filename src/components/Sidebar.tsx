@@ -46,14 +46,14 @@ export function Sidebar({
             mode === "command" && "is-active",
           )}
           onClick={() => onMode("command")}
-          title="League Navigator"
+          title="League Command Center"
         >
           <img
             className="sidebar-poe-icon"
             src="https://www.poewiki.net/images/9/9a/Deal_with_the_Bandits_quest_icon.png"
             alt=""
           />
-          {!collapsed && <span>League Navigator</span>}
+          {!collapsed && <span>League Center</span>}
           {!collapsed && <small>POE 1</small>}
         </button>
         <button

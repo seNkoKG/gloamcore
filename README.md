@@ -33,7 +33,7 @@ planning, Craft of Exile, stash wealth, and practical player tools.
 | **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware check. Selected modifiers automatically refresh a bounded public seller-price snapshot, while the complete query remains available on the official Trade website. |
 | **Market Explorer** | Browse current poe.ninja markets, trends, liquidity, source age, watch targets, and documented Public Currency Exchange completed-hour evidence from Faustus. |
 | **Item Intel** | Search PoE Wiki item and modifier data without leaving the market workflow. |
-| **League Navigator** | Follow a source-pinned campaign route, select the exact Bandit and Library branches, track progress, and find class-correct quest or vendor gem acquisition. |
+| **League Command Center** | Follow a source-pinned campaign route, find class-correct gems, and plan the official Atlas with authentic art, exact points, shortest paths, URL sharing, and saved loadouts. |
 | **Build Lab** | Import, inspect, edit, compare, recalculate with a verified local PoB engine, and export PoB-compatible builds. |
 | **Craft of Exile** | Run the real Craft of Exile interface edge-to-edge in a dedicated, sandboxed desktop browser profile with scoped ads-only filtering. |
 | **Stash Wealth** | Keep the real Wealthy Exile website in a different isolated profile that remembers its own sign-in. |
@@ -47,11 +47,14 @@ uses real Path of Exile character artwork and changes the route branch rather
 than showing generic checklist text. The optional Library branch is equally
 explicit, and acquisition rows are filtered to the selected character class.
 
-The same integrity boundary also carries Grinding Gear Games' official Atlas
-tree export for the next Atlas workspace. Every pack declares a game version,
+The same integrity boundary carries Grinding Gear Games' official Atlas tree
+export into Atlas Command Center. Search the exact node stats, inspect authentic
+official sprite art, allocate the shortest connected path, traverse official
+gateways, refund safely, import/export current official version-6 URLs, and save
+or compare named loadouts. Every pack declares a game version,
 source commit, byte length, and SHA-256 digest. The app checks the
 project-controlled Pages channel at most once every six hours while the League
-Navigator is open, validates the entire candidate in memory, activates it in
+Command Center is open, validates the entire candidate in memory, activates it in
 one cache write, and retains the previous pack for rollback. A scheduled
 repository workflow discovers new official Atlas tags and current Navigator
 source revisions, rebuilds the packs, runs graph/branch/integrity tests, and

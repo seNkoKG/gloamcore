@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 3.1.0
+
+- Added Atlas Command Center inside the League Command Center with the exact
+  official PoE 3.29.1 graph, authentic GGG sprite art, pan/zoom, stat search,
+  node inspection, and shortest connected allocation.
+- Added exact Atlas point accounting, including official point-granting nodes,
+  gateway traversal, connected refunds, configurable earned points, and
+  fail-closed validation for unknown, disconnected, or unaffordable trees.
+- Added current version-6 official Atlas URL import/export, named local
+  loadouts, exact node comparison, and league migration that revalidates node
+  identities, connectivity, and budget against each newly activated data pack.
+- Kept League Navigator, Craft of Exile, Build Lab, and the bounded Ctrl+D
+  seller snapshot intact without restoring the retired full listing system.
+
 ## 3.0.0
 
 - Added League Navigator with exact source-backed Acts 1–10 route steps,
