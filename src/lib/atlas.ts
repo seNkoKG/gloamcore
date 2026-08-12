@@ -10,10 +10,14 @@ export interface AtlasLoadout {
   basePoints: number;
   nodeIds: number[];
   updatedAt: number;
+  createdAt: number;
+  folder: string;
+  tags: string[];
+  notes: string;
 }
 
 export interface AtlasWorkspace {
-  version: 1;
+  version: 2;
   gameVersion: string;
   basePoints: number;
   nodeIds: number[];
@@ -39,6 +43,12 @@ export interface AtlasMigrationResult {
   workspace: AtlasWorkspace;
   droppedNodeIds: number[];
   changedVersion: boolean;
+  loadoutReports: Array<{
+    id: string;
+    name: string;
+    sourceGameVersion: string;
+    droppedNodeIds: number[];
+  }>;
 }
 
 function nodeMap(pack: AtlasDataPack) {
@@ -353,6 +363,20 @@ function boundedName(value: unknown, fallback: string) {
   return name || fallback;
 }
 
+function boundedText(value: unknown, maximum: number) {
+  return typeof value === "string" ? value.replace(/\0/g, "").trim().slice(0, maximum) : "";
+}
+
+function boundedTags(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const tags = new Map<string, string>();
+  for (const candidate of value.slice(0, 12)) {
+    const tag = boundedText(candidate, 32).replace(/[\r\n,]/g, " ").replace(/\s+/g, " ");
+    if (tag) tags.set(tag.toLocaleLowerCase(), tag);
+  }
+  return [...tags.values()];
+}
+
 function migrateNodeIds(pack: AtlasDataPack, input: unknown, basePoints: number) {
   const nodes = nodeMap(pack);
   const known = new Set<number>();
@@ -375,22 +399,25 @@ function migrateNodeIds(pack: AtlasDataPack, input: unknown, basePoints: number)
 
 export function parseAtlasWorkspace(pack: AtlasDataPack, raw: string | null): AtlasMigrationResult {
   const fallback: AtlasWorkspace = {
-    version: 1,
+    version: 2,
     gameVersion: pack.gameVersion,
     basePoints: pack.totalPoints,
     nodeIds: [],
     loadouts: [],
   };
-  if (!raw) return { workspace: fallback, droppedNodeIds: [], changedVersion: false };
+  if (!raw) return { workspace: fallback, droppedNodeIds: [], changedVersion: false, loadoutReports: [] };
   try {
     const source = JSON.parse(raw) as Record<string, unknown>;
-    if (!source || source.version !== 1) return { workspace: fallback, droppedNodeIds: [], changedVersion: false };
+    if (!source || (source.version !== 1 && source.version !== 2)) {
+      return { workspace: fallback, droppedNodeIds: [], changedVersion: false, loadoutReports: [] };
+    }
     const basePoints = Number.isSafeInteger(source.basePoints)
       ? Math.max(0, Math.min(pack.totalPoints, Number(source.basePoints)))
       : pack.totalPoints;
     const originalIds = Array.isArray(source.nodeIds) ? source.nodeIds.filter(Number.isSafeInteger).map(Number) : [];
     const nodeIds = migrateNodeIds(pack, originalIds, basePoints);
     const loadouts: AtlasLoadout[] = [];
+    const loadoutReports: AtlasMigrationResult["loadoutReports"] = [];
     if (Array.isArray(source.loadouts)) {
       for (const [index, candidate] of source.loadouts.slice(0, 30).entries()) {
         if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
@@ -398,24 +425,99 @@ export function parseAtlasWorkspace(pack: AtlasDataPack, raw: string | null): At
         const loadoutPoints = Number.isSafeInteger(item.basePoints)
           ? Math.max(0, Math.min(pack.totalPoints, Number(item.basePoints)))
           : pack.totalPoints;
+        const id = boundedName(item.id, `loadout-${index + 1}`);
+        const name = boundedName(item.name, `Atlas loadout ${index + 1}`);
+        const originalLoadoutIds = Array.isArray(item.nodeIds)
+          ? item.nodeIds.filter(Number.isSafeInteger).map(Number)
+          : [];
+        const migratedLoadoutIds = migrateNodeIds(pack, originalLoadoutIds, loadoutPoints);
+        const droppedNodeIds = sortedIds(new Set(
+          originalLoadoutIds.filter((idValue) => !migratedLoadoutIds.includes(idValue)),
+        ));
         loadouts.push({
-          id: boundedName(item.id, `loadout-${index + 1}`),
-          name: boundedName(item.name, `Atlas loadout ${index + 1}`),
+          id,
+          name,
           gameVersion: pack.gameVersion,
           basePoints: loadoutPoints,
-          nodeIds: migrateNodeIds(pack, item.nodeIds, loadoutPoints),
+          nodeIds: migratedLoadoutIds,
           updatedAt: Number.isFinite(item.updatedAt) ? Number(item.updatedAt) : 0,
+          createdAt: Number.isFinite(item.createdAt) ? Number(item.createdAt) : Number(item.updatedAt) || 0,
+          folder: boundedText(item.folder, 80),
+          tags: boundedTags(item.tags),
+          notes: boundedText(item.notes, 2_000),
         });
+        if (String(item.gameVersion || "") !== pack.gameVersion || droppedNodeIds.length) {
+          loadoutReports.push({
+            id,
+            name,
+            sourceGameVersion: boundedText(item.gameVersion, 40),
+            droppedNodeIds,
+          });
+        }
       }
     }
     return {
-      workspace: { version: 1, gameVersion: pack.gameVersion, basePoints, nodeIds, loadouts },
+      workspace: { version: 2, gameVersion: pack.gameVersion, basePoints, nodeIds, loadouts },
       droppedNodeIds: sortedIds(new Set(originalIds.filter((id) => !nodeIds.includes(id)))),
       changedVersion: String(source.gameVersion || "") !== pack.gameVersion,
+      loadoutReports,
     };
   } catch {
-    return { workspace: fallback, droppedNodeIds: [], changedVersion: false };
+    return { workspace: fallback, droppedNodeIds: [], changedVersion: false, loadoutReports: [] };
   }
+}
+
+export interface AtlasPresetBundle {
+  schema: "gloamcore-atlas-presets";
+  version: 1;
+  game: "poe1";
+  gameVersion: string;
+  exportedAt: number;
+  loadouts: AtlasLoadout[];
+}
+
+export function createAtlasPresetBundle(
+  pack: AtlasDataPack,
+  loadouts: readonly AtlasLoadout[],
+  exportedAt = Date.now(),
+): AtlasPresetBundle {
+  const parsed = parseAtlasWorkspace(pack, JSON.stringify({
+    version: 2,
+    gameVersion: pack.gameVersion,
+    basePoints: pack.totalPoints,
+    nodeIds: [],
+    loadouts: loadouts.slice(0, 30),
+  }));
+  return {
+    schema: "gloamcore-atlas-presets",
+    version: 1,
+    game: "poe1",
+    gameVersion: pack.gameVersion,
+    exportedAt: Math.max(0, Number(exportedAt) || 0),
+    loadouts: parsed.workspace.loadouts,
+  };
+}
+
+export function parseAtlasPresetBundle(pack: AtlasDataPack, value: string | unknown) {
+  const source = typeof value === "string" ? JSON.parse(value) : value;
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    throw new Error("Atlas preset bundle is not a JSON object.");
+  }
+  const bundle = source as Record<string, unknown>;
+  if (
+    bundle.schema !== "gloamcore-atlas-presets" ||
+    bundle.version !== 1 ||
+    bundle.game !== "poe1" ||
+    !Array.isArray(bundle.loadouts)
+  ) throw new Error("This is not a supported GloamCore Atlas preset bundle.");
+  const migration = parseAtlasWorkspace(pack, JSON.stringify({
+    version: 2,
+    gameVersion: bundle.gameVersion,
+    basePoints: pack.totalPoints,
+    nodeIds: [],
+    loadouts: bundle.loadouts,
+  }));
+  return { loadouts: migration.workspace.loadouts, reports: migration.loadoutReports };
 }
 
 export function compareAtlasLoadouts(left: AtlasLoadout, right: AtlasLoadout) {

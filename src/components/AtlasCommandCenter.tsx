@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AtlasDataNode, AtlasDataPack, AtlasSpriteKind } from "../lib/game-data";
+import { bridge } from "../lib/bridge";
 import {
   ATLAS_WORKSPACE_KEY,
   allocateAtlasPath,
   atlasAllocationAnalysis,
   compareAtlasLoadouts,
+  createAtlasPresetBundle,
   decodeAtlasUrl,
   encodeAtlasUrl,
   parseAtlasWorkspace,
+  parseAtlasPresetBundle,
   refundAtlasNode,
   validateAtlasAllocation,
   type AtlasLoadout,
@@ -490,18 +493,27 @@ function nodeSummary(atlas: AtlasDataPack, ids: readonly number[]) {
   return ids.slice(0, 10).map((id) => nodes.get(id)?.name || `Node ${id}`);
 }
 
-export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
+export function AtlasCommandCenter({ atlas, initialQuery = "", initialPresetId, navigationNonce = 0 }: {
+  atlas: AtlasDataPack;
+  initialQuery?: string;
+  initialPresetId?: string;
+  navigationNonce?: number;
+}) {
   const migration = useMemo(() => parseAtlasWorkspace(atlas, localStorage.getItem(ATLAS_WORKSPACE_KEY)), [atlas]);
   const [workspace, setWorkspace] = useState<AtlasWorkspace>(migration.workspace);
   const [message, setMessage] = useState(() => migration.changedVersion
     ? `Migrated saved Atlas work to PoE ${atlas.gameVersion}; ${migration.droppedNodeIds.length} incompatible node${migration.droppedNodeIds.length === 1 ? " was" : "s were"} dropped.`
     : `Official PoE ${atlas.gameVersion} Atlas graph is ready.`);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [focusNodeId, setFocusNodeId] = useState<number | null>(null);
   const [importValue, setImportValue] = useState("");
   const [loadoutName, setLoadoutName] = useState("");
+  const [loadoutFolder, setLoadoutFolder] = useState("");
+  const [loadoutTags, setLoadoutTags] = useState("");
+  const [loadoutNotes, setLoadoutNotes] = useState("");
+  const [presetQuery, setPresetQuery] = useState("");
   const [compareLeft, setCompareLeft] = useState("");
   const [compareRight, setCompareRight] = useState("");
   const nodes = useMemo(() => new Map(atlas.nodes.map((node) => [node.id, node])), [atlas]);
@@ -524,10 +536,36 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
   const leftLoadout = workspace.loadouts.find((entry) => entry.id === compareLeft);
   const rightLoadout = workspace.loadouts.find((entry) => entry.id === compareRight);
   const comparison = leftLoadout && rightLoadout ? compareAtlasLoadouts(leftLoadout, rightLoadout) : null;
+  const visibleLoadouts = useMemo(() => {
+    const normalized = presetQuery.trim().toLocaleLowerCase();
+    return [...workspace.loadouts]
+      .filter((entry) => !normalized || `${entry.name} ${entry.folder} ${entry.tags.join(" ")} ${entry.notes}`.toLocaleLowerCase().includes(normalized))
+      .sort((left, right) => left.folder.localeCompare(right.folder) || right.updatedAt - left.updatedAt);
+  }, [presetQuery, workspace.loadouts]);
 
   useEffect(() => {
     localStorage.setItem(ATLAS_WORKSPACE_KEY, JSON.stringify(workspace));
   }, [workspace]);
+
+  useEffect(() => {
+    window.dispatchEvent(new Event("gloamcore:commands-changed"));
+  }, [workspace.loadouts]);
+
+  useEffect(() => {
+    if (initialQuery) setQuery(initialQuery);
+  }, [initialQuery, navigationNonce]);
+
+  useEffect(() => {
+    if (!initialPresetId) return;
+    const preset = workspace.loadouts.find((entry) => entry.id === initialPresetId);
+    if (!preset) {
+      setMessage("That saved Atlas preset is no longer available.");
+      return;
+    }
+    setWorkspace((current) => ({ ...current, basePoints: preset.basePoints, nodeIds: preset.nodeIds }));
+    setPresetQuery(preset.name);
+    setMessage(`Loaded strategy â€œ${preset.name}â€.`);
+  }, [initialPresetId, navigationNonce, workspace.loadouts]);
 
   const selectAndFocus = (id: number) => {
     setSelectedId(id);
@@ -559,11 +597,48 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
         basePoints: current.basePoints,
         nodeIds: current.nodeIds,
         updatedAt: Date.now(),
+        createdAt: current.loadouts.find((entry) => entry.id === existingId)?.createdAt || Date.now(),
+        folder: loadoutFolder.trim().slice(0, 80),
+        tags: [...new Map(loadoutTags.split(",").map((tag) => tag.trim().slice(0, 32)).filter(Boolean).map((tag) => [tag.toLocaleLowerCase(), tag])).values()].slice(0, 12),
+        notes: loadoutNotes.trim().slice(0, 2_000),
       };
       return { ...current, loadouts: [...current.loadouts.filter((entry) => entry.id !== saved.id), saved].slice(-30) };
     });
     setLoadoutName("");
+    setLoadoutFolder("");
+    setLoadoutTags("");
+    setLoadoutNotes("");
     setMessage(`${existingId ? "Updated" : "Saved"} strategy preset “${name}” for PoE ${atlas.gameVersion}.`);
+  };
+
+  const exportPresets = async () => {
+    const bundle = createAtlasPresetBundle(atlas, workspace.loadouts);
+    const saved = await bridge.saveToolkitText({
+      text: JSON.stringify(bundle, null, 2),
+      suggestedName: `GloamCore-Atlas-presets-${atlas.gameVersion}.json`,
+      kind: "text",
+    });
+    setMessage(saved ? `Exported ${bundle.loadouts.length} Atlas preset${bundle.loadouts.length === 1 ? "" : "s"} to ${saved.name}.` : "Atlas preset export cancelled.");
+  };
+
+  const importPresets = async () => {
+    try {
+      const opened = await bridge.openToolkitText("text");
+      if (!opened) {
+        setMessage("Atlas preset import cancelled.");
+        return;
+      }
+      const imported = parseAtlasPresetBundle(atlas, opened.text);
+      setWorkspace((current) => {
+        const byId = new Map(current.loadouts.map((entry) => [entry.id, entry]));
+        for (const loadout of imported.loadouts) byId.set(loadout.id, loadout);
+        return { ...current, loadouts: [...byId.values()].sort((left, right) => right.updatedAt - left.updatedAt).slice(0, 30) };
+      });
+      const dropped = imported.reports.reduce((total, report) => total + report.droppedNodeIds.length, 0);
+      setMessage(`Imported ${imported.loadouts.length} validated Atlas preset${imported.loadouts.length === 1 ? "" : "s"}${dropped ? `; ${dropped} incompatible node ID${dropped === 1 ? " was" : "s were"} dropped` : ""}.`);
+    } catch (error) {
+      setMessage(`Preset import rejected. ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   return (
@@ -640,6 +715,14 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
             </>
           ) : <p>Search or click the official Atlas tree to inspect exact stats and allocate the shortest connected route.</p>}
           <div className="atlas-status" role="status">{message}</div>
+          {migration.loadoutReports.length > 0 && (
+            <details className="atlas-migration-report">
+              <summary>League migration report · {migration.loadoutReports.length} preset{migration.loadoutReports.length === 1 ? "" : "s"}</summary>
+              {migration.loadoutReports.map((report) => (
+                <p key={report.id}><strong>{report.name}</strong><span>{report.sourceGameVersion || "unknown source"} → {atlas.gameVersion} · {report.droppedNodeIds.length} dropped node ID{report.droppedNodeIds.length === 1 ? "" : "s"}</span></p>
+              ))}
+            </details>
+          )}
           <section className="atlas-presets">
             <header>
               <span><small>STRATEGY PRESETS</small><strong>Save and switch trees</strong></span>
@@ -647,20 +730,45 @@ export function AtlasCommandCenter({ atlas }: { atlas: AtlasDataPack }) {
             </header>
             <div className="atlas-save-row">
               <input value={loadoutName} onChange={(event) => setLoadoutName(event.target.value)} placeholder="Strategy name" maxLength={80} />
+              <input value={loadoutFolder} onChange={(event) => setLoadoutFolder(event.target.value)} placeholder="Folder (optional)" maxLength={80} />
+              <input value={loadoutTags} onChange={(event) => setLoadoutTags(event.target.value)} placeholder="Tags, comma separated" maxLength={400} />
+              <textarea value={loadoutNotes} onChange={(event) => setLoadoutNotes(event.target.value)} placeholder="Strategy notes and reminders" maxLength={2000} />
               <button type="button" onClick={saveLoadout}>Save current</button>
             </div>
+            <div className="atlas-preset-tools">
+              <input value={presetQuery} onChange={(event) => setPresetQuery(event.target.value)} placeholder="Filter presets, folders, tags or notes" />
+              <button type="button" onClick={() => void importPresets()}>Import</button>
+              <button type="button" disabled={!workspace.loadouts.length} onClick={() => void exportPresets()}>Export all</button>
+            </div>
             <div className="atlas-loadouts">
-              {workspace.loadouts.map((loadout) => (
+              {visibleLoadouts.map((loadout) => (
                 <article key={loadout.id}>
-                  <span><strong>{loadout.name}</strong><small>{loadout.nodeIds.length} nodes · {loadout.basePoints} points · PoE {loadout.gameVersion}</small></span>
+                  <span><strong>{loadout.name}</strong><small>{loadout.folder ? `${loadout.folder} · ` : ""}{loadout.nodeIds.length} nodes · {loadout.basePoints} points · PoE {loadout.gameVersion}</small>{loadout.tags.length > 0 && <em>{loadout.tags.join(" · ")}</em>}{loadout.notes && <p>{loadout.notes}</p>}</span>
                   <button type="button" onClick={() => {
                     setWorkspace((current) => ({ ...current, basePoints: loadout.basePoints, nodeIds: loadout.nodeIds }));
                     setMessage(`Loaded strategy “${loadout.name}”.`);
                   }}>Load</button>
+                  <button type="button" onClick={() => {
+                    setLoadoutName(loadout.name);
+                    setLoadoutFolder(loadout.folder);
+                    setLoadoutTags(loadout.tags.join(", "));
+                    setLoadoutNotes(loadout.notes);
+                    setMessage(`Editing metadata for “${loadout.name}”. Save current will also capture the current tree.`);
+                  }}>Edit</button>
+                  <button type="button" onClick={() => setWorkspace((current) => ({
+                    ...current,
+                    loadouts: [...current.loadouts, {
+                      ...loadout,
+                      id: crypto.randomUUID(),
+                      name: `${loadout.name} copy`.slice(0, 80),
+                      createdAt: Date.now(),
+                      updatedAt: Date.now(),
+                    }].slice(-30),
+                  }))}>Duplicate</button>
                   <button type="button" className="is-delete" aria-label={`Delete ${loadout.name}`} onClick={() => setWorkspace((current) => ({ ...current, loadouts: current.loadouts.filter((entry) => entry.id !== loadout.id) }))}>Delete</button>
                 </article>
               ))}
-              {!workspace.loadouts.length && <p>Save named trees for mapping, bosses, league mechanics, or any strategy you choose.</p>}
+              {!visibleLoadouts.length && <p>{workspace.loadouts.length ? "No preset matches this filter." : "Save named trees for mapping, bosses, league mechanics, or any strategy you choose."}</p>}
             </div>
           </section>
         </aside>

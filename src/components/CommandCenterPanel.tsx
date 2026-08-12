@@ -110,7 +110,9 @@ function shortRevision(value: string) {
   return value.slice(0, 12);
 }
 
-export function CommandCenterPanel() {
+export function CommandCenterPanel({ navigation }: {
+  navigation?: { section?: CommandTab; query?: string; resourceId?: string; nonce?: number };
+}) {
   const [data, setData] = useState<GameDataStatus | null>(null);
   const [loadingError, setLoadingError] = useState("");
   const [message, setMessage] = useState("Loading validated PoE data…");
@@ -120,6 +122,11 @@ export function CommandCenterPanel() {
   const [gemQuery, setGemQuery] = useState("");
   const [buildOnly, setBuildOnly] = useState(false);
   const plannerGems = useMemo(activePlannerGemNames, []);
+
+  useEffect(() => {
+    if (navigation?.section) setTab(navigation.section);
+    if (navigation?.section === "gems" && navigation.query) setGemQuery(navigation.query);
+  }, [navigation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -311,7 +318,12 @@ export function CommandCenterPanel() {
 
       {tab === "atlas" && (
         <Suspense fallback={<div className="command-atlas-loading"><div className="command-loader" /><p>Preparing the official Atlas tree…</p></div>}>
-          <AtlasCommandCenter atlas={data.bundle.atlas} />
+          <AtlasCommandCenter
+            atlas={data.bundle.atlas}
+            initialQuery={navigation?.section === "atlas" ? navigation.query : undefined}
+            initialPresetId={navigation?.section === "atlas" ? navigation.resourceId : undefined}
+            navigationNonce={navigation?.nonce}
+          />
         </Suspense>
       )}
 

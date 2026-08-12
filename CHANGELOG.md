@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 3.4.0
+
+- Added unified command search across native workspaces, economy categories,
+  saved builds, saved Atlas presets, validated gems, official Atlas nodes, and
+  already-indexed market rows. Saved resources open by exact local ID.
+- Added deterministic PoB progression timelines derived only from authored
+  passive specs, skill sets, and item sets, plus deliberate official Trade
+  handoffs that identify uniques exactly and label non-unique gear base-only.
+- Organized Atlas Strategy Presets with folders, tags, notes, filtering,
+  duplication, portable validated JSON bundles, exact comparison, and
+  per-preset node-ID migration reports for newly approved league packs.
+- Added named item-filter profiles, semantic rule diffs, staged profile apply,
+  confirmation for immediate restore, and automatic rollback checkpoints.
+- Added allowlisted workspace backup/restore with automatic recovery copies,
+  privacy-safe support bundles, stable/preview update channels, global text
+  sizing, reduced motion, keyboard focus rings, and accessible status colours.
+- Kept Craft of Exile, isolated ad-free Stash Wealth, and the bounded Ctrl+D
+  seller snapshot intact without restoring the retired full official-trade-
+  listings subsystem.
+
 ## 3.3.2
 
 - Rebuilt Atlas presentation from the current official GGG sprite layers:

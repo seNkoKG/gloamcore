@@ -64,6 +64,12 @@ import {
   sanitizeDesktopSettingsSnapshot,
 } from "./settings-sync";
 import { defaultDesktopShortcuts, validateShortcutDraft } from "./shortcuts";
+import {
+  browserSupportBundle,
+  browserWorkspaceBackup,
+  downloadJson,
+  pickWorkspaceJson,
+} from "./workspace-transfer";
 
 type OverviewPayload =
   | RawExchangeOverview
@@ -108,6 +114,7 @@ const mobileSettings: DesktopSettings = {
   clickThrough: false,
   startMinimized: false,
   autoCheckUpdates: false,
+  updateChannel: "stable",
   shortcuts: defaultDesktopShortcuts,
   priceCheck: defaultPriceCheckSettings,
 };
@@ -129,6 +136,7 @@ let mobileSurfaceState: SurfaceState = {
   alerts: [],
   topMovers: [],
   searchRows: [],
+  commands: [],
   update: mobileUpdateState,
 };
 
@@ -852,8 +860,25 @@ export const mobileBridge: PoeWidgetBridge = {
   async listToolkitCheckpoints() {
     return [];
   },
+  async readToolkitCheckpoint() {
+    throw new Error("Filter checkpoints require the desktop app.");
+  },
   async restoreToolkitCheckpoint() {
     throw new Error("Filter checkpoints require the desktop app.");
+  },
+  async exportWorkspaceBackup(renderer) {
+    const name = `GloamCore-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadJson(name, browserWorkspaceBackup(packageMetadata.version, renderer));
+    return { path: "", name };
+  },
+  async importWorkspaceBackup() {
+    const renderer = await pickWorkspaceJson();
+    return renderer ? { renderer, recoveryName: null } : null;
+  },
+  async exportSupportBundle(context) {
+    const name = `GloamCore-support-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadJson(name, browserSupportBundle(packageMetadata.version, context));
+    return { path: "", name };
   },
   async fetchToolkitText(url) {
     return fetchBoundedToolkitText(url);

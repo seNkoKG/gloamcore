@@ -47,6 +47,23 @@ describe("stored preference migrations", () => {
     expect(repaired.stored.theme).toBeUndefined();
   });
 
+  it("sanitizes accessibility display preferences", () => {
+    expect(migrateStoredPreferences({
+      textScale: "large",
+      reducedMotion: true,
+      colorVision: "accessible",
+    }).stored).toMatchObject({
+      textScale: "large",
+      reducedMotion: true,
+      colorVision: "accessible",
+    });
+    expect(migrateStoredPreferences({
+      textScale: "giant",
+      reducedMotion: "yes",
+      colorVision: "random",
+    }).migrated).toBe(true);
+  });
+
   it("preserves valid Faustus sources and watches while repairing incompatible selections", () => {
     const exchangeWatch = storedWatch("exchange");
     const faustusWatch = storedWatch("faustus");

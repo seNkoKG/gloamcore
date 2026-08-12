@@ -108,7 +108,7 @@
 }
 
 .crme-state b {
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   letter-spacing: 0.05em;
 }
 
@@ -116,7 +116,7 @@
   max-width: 110px;
   overflow: hidden;
   color: #a8bbb9;
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -137,7 +137,7 @@
 
 .crme-state--number-range > i {
   color: #607680;
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   font-style: normal;
 }
 
@@ -227,7 +227,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: #aebdc3;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-weight: 580;
   line-height: 1.15;
   -webkit-box-orient: vertical;
@@ -237,7 +237,7 @@
 .crme-copy small {
   overflow: hidden;
   color: #637985;
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -279,7 +279,7 @@
 .crme-presence {
   grid-column: 3 / 5;
   color: #718590;
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-align: center;

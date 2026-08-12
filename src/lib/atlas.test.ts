@@ -4,9 +4,11 @@ import {
   allocateAtlasPath,
   atlasAllocationAnalysis,
   compareAtlasLoadouts,
+  createAtlasPresetBundle,
   decodeAtlasUrl,
   encodeAtlasUrl,
   parseAtlasWorkspace,
+  parseAtlasPresetBundle,
   refundAtlasNode,
   validateAtlasAllocation,
   type AtlasLoadout,
@@ -101,10 +103,34 @@ describe("Atlas Command Center logic", () => {
     expect(migrated.workspace.nodeIds).toEqual([2, 3, 4]);
     expect(migrated.droppedNodeIds).toEqual([9999]);
     expect(migrated.workspace.loadouts[0].nodeIds).toEqual([]);
+    expect(migrated.loadoutReports[0]).toMatchObject({
+      name: "Old tree",
+      sourceGameVersion: "3.28.0",
+      droppedNodeIds: [4, 9999],
+    });
+  });
+
+  it("round-trips organized presets and validates imported bundles", () => {
+    const loadout = {
+      id: "a",
+      name: "Essence maps",
+      nodeIds: [2, 3],
+      gameVersion: "3.29.1",
+      basePoints: 2,
+      createdAt: 1,
+      updatedAt: 2,
+      folder: "Mapping",
+      tags: ["essence"],
+      notes: "Keep scarabs ready.",
+    } satisfies AtlasLoadout;
+    const bundle = createAtlasPresetBundle(pack, [loadout], 3);
+    expect(parseAtlasPresetBundle(pack, JSON.stringify(bundle)).loadouts[0])
+      .toMatchObject({ folder: "Mapping", tags: ["essence"], notes: "Keep scarabs ready." });
+    expect(() => parseAtlasPresetBundle(pack, { schema: "lookalike" })).toThrow(/supported/);
   });
 
   it("compares named loadouts without inventing a build score", () => {
-    const left = { id: "a", name: "A", nodeIds: [2, 3], gameVersion: "3.29.1", basePoints: 2, updatedAt: 1 } satisfies AtlasLoadout;
+    const left = { id: "a", name: "A", nodeIds: [2, 3], gameVersion: "3.29.1", basePoints: 2, createdAt: 1, updatedAt: 1, folder: "", tags: [], notes: "" } satisfies AtlasLoadout;
     const right = { ...left, id: "b", name: "B", nodeIds: [3, 4] };
     expect(compareAtlasLoadouts(left, right)).toEqual({ shared: [3], onlyLeft: [2], onlyRight: [4] });
   });

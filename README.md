@@ -33,11 +33,11 @@ planning, Craft of Exile, stash wealth, and practical player tools.
 | **Price Checker** | Hover an item and press `Ctrl+D` for a compact, roll-aware check. Selected modifiers automatically refresh a bounded public seller-price snapshot, while the complete query remains available on the official Trade website. |
 | **Market Explorer** | Browse current poe.ninja markets, trends, liquidity, source age, watch targets, and documented Public Currency Exchange completed-hour evidence from Faustus. |
 | **Item Intel** | Search PoE Wiki item and modifier data without leaving the market workflow. |
-| **League Command Center** | Follow a source-pinned campaign route, find class-correct gems, and plan the official Atlas with authentic art, exact points, shortest paths, URL sharing, and saved loadouts. |
-| **Build Lab** | Import, inspect, edit, and export PoB-compatible builds. Its Upgrade Assistant compares a baseline with a candidate and only calls numeric evidence authoritative after both exact states recalculate through the same verified local PoB engine. |
+| **League Command Center** | Follow a source-pinned campaign route, find class-correct gems, and plan the official Atlas with authentic art, exact points, shortest paths, URL sharing, and organized portable Strategy Presets. |
+| **Build Lab** | Import, inspect, edit, and export PoB-compatible builds. Authored progression shows exact tree/skill/item-set changes; the Upgrade Assistant calls numbers authoritative only after both exact states recalculate through the same verified local PoB engine. |
 | **Craft of Exile** | Run the real Craft of Exile interface edge-to-edge in a dedicated, sandboxed desktop browser profile with scoped ads-only filtering. |
 | **Stash Wealth** | Keep the real Wealthy Exile website in a different isolated profile that remembers its own sign-in. |
-| **Player Toolkit** | Use Map Mod Check, the verified-fact Mapping Journal, PoE Event Log, Cluster Back, regex and filter workbenches, socket tools, audits, and opt-in overlays. |
+| **Player Toolkit** | Use Map Mod Check, the verified-fact Mapping Journal, PoE Event Log, Cluster Back, regex, staged filter profiles and diffs, socket tools, audits, and opt-in overlays. |
 
 ## League-correct guidance that can update safely
 
@@ -60,6 +60,30 @@ repository workflow discovers new official Atlas tags and current Navigator
 source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
+
+## New in 3.4.0: safer workflows and faster navigation
+
+Press `Ctrl+P` inside GloamCore—or use the configurable global instant-search
+shortcut—to search native workspaces, market categories, saved builds, saved
+Atlas presets, validated gems, official Atlas nodes, and market rows already
+loaded into the bounded local index. Saved resources open by exact ID rather
+than a guessed text match.
+
+Build Lab now exposes progression only when the imported PoB authored multiple
+passive specs, skill sets, or item sets. Every stage is an exact delta from the
+file; GloamCore does not invent acts or levels. Gear handoffs open the official
+Trade website only after a click, use exact unique name/base identity, and
+explicitly warn when non-unique gear can only be searched by base type.
+
+Atlas Strategy Presets now support folders, tags, notes, filtering,
+duplication, portable validated JSON bundles, and per-preset migration reports.
+The filter editor similarly stores named staged profiles, compares stable PoE
+rule identities, and leaves the active file untouched until **Save safely**.
+
+Settings adds native-wide text sizing, reduced motion, accessible status
+colours, opt-in preview updates, allowlisted workspace backup/restore with an
+automatic recovery copy, and diagnostics that contain counts and capability
+flags but no paths, character names, copied items, cookies, or tokens.
 
 ## New in 3.3.2: authentic Atlas and a finished Path of Exile theme
 

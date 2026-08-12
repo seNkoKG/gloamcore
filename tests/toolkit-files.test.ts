@@ -57,10 +57,13 @@ describe("toolkit file service", () => {
     expect(() => service.createCheckpoint({ path: file })).toThrow(/Open/);
     service._authoriseForTest(file);
     const first = service.createCheckpoint({ path: file, label: "Before" });
+    const staged = service.createCheckpoint({ path: file, label: "Profile · Bossing", text: "Hide\n" });
+    expect(service.readCheckpoint({ path: file, id: staged.id }).text).toBe("Hide\n");
+    expect(fs.readFileSync(file, "utf8")).toBe("Show\n");
     fs.writeFileSync(file, "Hide\n", "utf8");
     service.restoreCheckpoint({ path: file, id: first.id });
     expect(fs.readFileSync(file, "utf8")).toBe("Show\n");
-    expect(service.listCheckpoints(file).length).toBe(2);
+    expect(service.listCheckpoints(file).length).toBe(3);
   });
 
   it("rejects symlink targets", () => {

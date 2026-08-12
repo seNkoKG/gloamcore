@@ -9,6 +9,9 @@ function sanitizeScalarSettings(value) {
   for (const key of ["alwaysOnTop", "compact", "clickThrough", "startMinimized", "autoCheckUpdates"]) {
     if (typeof value[key] === "boolean") result[key] = value[key];
   }
+  if (value.updateChannel === "stable" || value.updateChannel === "preview") {
+    result.updateChannel = value.updateChannel;
+  }
   if (typeof value.opacity === "number" && Number.isFinite(value.opacity)) {
     result.opacity = Math.max(0.65, Math.min(1, value.opacity));
   }

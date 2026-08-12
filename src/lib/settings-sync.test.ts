@@ -80,6 +80,7 @@ describe("settings synchronization", () => {
       clickThrough: false,
       startMinimized: false,
       autoCheckUpdates: false,
+      updateChannel: "stable" as const,
       shortcuts: defaultDesktopShortcuts,
       priceCheck: {
         ...defaultPriceCheckSettings,
@@ -108,6 +109,7 @@ describe("settings synchronization", () => {
       clickThrough: false,
       startMinimized: false,
       autoCheckUpdates: false,
+      updateChannel: "stable" as const,
       shortcuts: { ...defaultDesktopShortcuts },
       priceCheck: {
         ...defaultPriceCheckSettings,

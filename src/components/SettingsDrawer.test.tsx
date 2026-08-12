@@ -28,16 +28,23 @@ describe("SettingsDrawer shortcuts", () => {
           clickThrough: false,
           startMinimized: false,
           autoCheckUpdates: false,
+          updateChannel: "stable",
           shortcuts: defaultDesktopShortcuts,
           priceCheck: defaultPriceCheckSettings,
         }}
         density="compact"
         theme="gloam"
+        textScale="normal"
+        reducedMotion={false}
+        colorVision="standard"
         refreshMinutes={10}
         onClose={() => undefined}
         onSettings={async () => undefined}
         onDensity={() => undefined}
         onTheme={() => undefined}
+        onTextScale={() => undefined}
+        onReducedMotion={() => undefined}
+        onColorVision={() => undefined}
         onRefreshMinutes={() => undefined}
       />,
     );

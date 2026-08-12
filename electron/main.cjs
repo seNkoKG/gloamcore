@@ -87,10 +87,22 @@ const { createToolkitFileService } = require("./toolkit-files.cjs");
 const { decodePobBuild, encodePobBuild } = require("./pob-planner.cjs");
 const { createPobEngineDispatcher } = require("./pob-engine-dispatch.cjs");
 const { createPobPlannerDispatcher } = require("./pob-planner-dispatch.cjs");
-const { createToolkitRuntimeStore } = require("./toolkit-runtime.cjs");
-const { createMapModCheckService } = require("./map-mod-check.cjs");
+const {
+  createToolkitRuntimeStore,
+  sanitizeWorkspace,
+} = require("./toolkit-runtime.cjs");
+const {
+  createMapModCheckService,
+  sanitizeMapModSettings,
+} = require("./map-mod-check.cjs");
 const { createPoeEventLogService } = require("./poe-event-log.cjs");
 const { createMappingJournalService } = require("./mapping-journal.cjs");
+const {
+  MAX_TRANSFER_BYTES,
+  createSupportBundle,
+  createWorkspaceBackup,
+  parseWorkspaceBackup,
+} = require("./workspace-transfer.cjs");
 const {
   currentWikiItemMetadataByName,
   normalizedWikiArtworkTitle,
@@ -420,6 +432,7 @@ let settings = {
   clickThrough: false,
   startMinimized: false,
   autoCheckUpdates: true,
+  updateChannel: "stable",
   shortcuts: { ...DEFAULT_DESKTOP_SHORTCUTS },
   priceCheck: {
     enabled: true,
@@ -450,6 +463,7 @@ let surfaceState = {
   alerts: [],
   topMovers: [],
   searchRows: [],
+  commands: [],
   update: {
     status: "unconfigured",
     currentVersion: app.getVersion(),
@@ -592,6 +606,83 @@ function settingsForRenderer() {
       shortcutWarning: priceCheckShortcutWarning || undefined,
     },
   };
+}
+
+function durableSettingsSnapshot() {
+  const snapshot = { ...settings };
+  delete snapshot.settingsRevision;
+  delete snapshot.shortcutWarning;
+  return snapshot;
+}
+
+function nativeWorkspaceSnapshot() {
+  const journal = getMappingJournalService().getState();
+  return {
+    settings: durableSettingsSnapshot(),
+    toolkit: getToolkitRuntimeStore().get(),
+    mapModCheck: getMapModCheckService().getSettings(),
+    mappingJournal: {
+      settings: journal.settings,
+      sessions: journal.sessions,
+    },
+    eventLog: getPoeEventLogService().getState().settings,
+  };
+}
+
+function validatedNativeWorkspace(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const settingsPatch = sanitizeSettingsPatch(source.settings);
+  return {
+    settings: {
+      ...settings,
+      ...settingsPatch,
+      shortcuts: settingsPatch.shortcuts
+        ? { ...settings.shortcuts, ...settingsPatch.shortcuts }
+        : settings.shortcuts,
+      priceCheck: settingsPatch.priceCheck || settings.priceCheck,
+      bounds: sanitizeWindowBounds(source.settings?.bounds),
+      expandedBounds: sanitizeWindowBounds(source.settings?.expandedBounds),
+    },
+    toolkit: sanitizeWorkspace(source.toolkit),
+    mapModCheck: sanitizeMapModSettings(
+      source.mapModCheck,
+      getMapModCheckService().getSettings(),
+    ),
+    mappingJournal: {
+      settings: source.mappingJournal?.settings,
+      sessions: source.mappingJournal?.sessions,
+    },
+    eventLog: { logPath: limitedString(source.eventLog?.logPath, 32_768) },
+  };
+}
+
+function applyNativeWorkspace(rawValue) {
+  const next = validatedNativeWorkspace(rawValue);
+  const previous = settings;
+  const registration = applyShortcutRegistrationPlan(next.settings, settings);
+  if (!registration.ok) throw new Error(registration.error);
+  try {
+    const toolkitStore = getToolkitRuntimeStore();
+    if (toolkitStore.error()) toolkitStore.recover();
+    toolkitStore.save(next.toolkit);
+    getMapModCheckService().saveSettings(next.mapModCheck);
+    getMappingJournalService().replaceState(next.mappingJournal);
+    getPoeEventLogService().saveSettings(next.eventLog);
+    if (!tryPersistSettings(next.settings)) {
+      throw new Error("The restored desktop settings could not be persisted.");
+    }
+    settings = next.settings;
+    updateService?.setAutoCheck(settings.autoCheckUpdates);
+    updateService?.setChannel(settings.updateChannel);
+    syncToolkitMacroShortcuts(toolkitStore.get());
+    syncToolkitStashScroll(toolkitStore.get());
+    registerMapModCheckSettings(getMapModCheckService().getSettings());
+    updateTrayMenu();
+    broadcastSettings();
+  } catch (error) {
+    applyShortcutRegistrationPlan(previous, next.settings);
+    throw error;
+  }
 }
 
 function parseMaxAge(cacheControl, fallback = DEFAULT_TTL_MS) {
@@ -5296,6 +5387,7 @@ app.whenReady().then(() => {
       allowEnvironment: DEV_RUNTIME,
     }),
     autoCheck: settings.autoCheckUpdates,
+    channel: settings.updateChannel,
     portable: Boolean(process.env.PORTABLE_EXECUTABLE_FILE),
     startDelayMs: DEV_RUNTIME
       ? process.env.GLOAMCORE_UPDATE_CHECK_DELAY_MS
@@ -5496,6 +5588,31 @@ function sanitizeSurfaceState(value) {
     .map((row) => sanitizeQuickRow(row, league))
     .filter(Boolean);
   const alerts = sanitizeSurfaceAlerts(value.alerts, league);
+  const modes = new Set([
+    "market", "price-check", "knowledge", "watchlist", "toolkit",
+    "command", "planner", "craft", "stash", "settings",
+  ]);
+  const sections = new Set(["route", "gems", "atlas", "data"]);
+  const commands = (Array.isArray(value.commands) ? value.commands : [])
+    .slice(0, 2_500)
+    .flatMap((command) => {
+      if (!command || typeof command !== "object" || !modes.has(command.mode)) return [];
+      const id = limitedString(command.id, 120);
+      const title = limitedString(command.title, 160);
+      if (!id || !title) return [];
+      const section = sections.has(command.section) ? command.section : undefined;
+      return [{
+        id,
+        title,
+        subtitle: limitedString(command.subtitle, 220),
+        keywords: limitedString(command.keywords, 600),
+        mode: command.mode,
+        categoryId: limitedString(command.categoryId, 100) || undefined,
+        section,
+        query: limitedString(command.query, 160) || undefined,
+        resourceId: limitedString(command.resourceId, 160) || undefined,
+      }];
+    });
   return {
     league,
     categoryLabel: limitedString(value.categoryLabel, 100),
@@ -5511,6 +5628,7 @@ function sanitizeSurfaceState(value) {
     alerts,
     topMovers,
     searchRows,
+    commands,
     update: surfaceState.update,
   };
 }
@@ -5532,6 +5650,22 @@ function validateSurfaceAction(action) {
     "quit",
   ]);
   if (simpleActions.has(action.type)) return { type: action.type };
+  if (action.type === "open-mode") {
+    const modes = new Set([
+      "market", "price-check", "knowledge", "watchlist", "toolkit",
+      "command", "planner", "craft", "stash", "settings",
+    ]);
+    const sections = new Set(["route", "gems", "atlas", "data"]);
+    if (!modes.has(action.mode)) throw new Error("Invalid workspace navigation action.");
+    return {
+      type: action.type,
+      mode: action.mode,
+      categoryId: limitedString(action.categoryId, 100) || undefined,
+      section: sections.has(action.section) ? action.section : undefined,
+      query: limitedString(action.query, 160) || undefined,
+      resourceId: limitedString(action.resourceId, 160) || undefined,
+    };
+  }
   if (action.type === "open-price-check-dashboard") {
     return {
       type: action.type,
@@ -5775,6 +5909,11 @@ ipcMain.handle("toolkit:create-checkpoint", (event, request) => {
 ipcMain.handle("toolkit:list-checkpoints", (event, filePath) => {
   assertDashboardSender(event);
   return getToolkitFileService().listCheckpoints(filePath);
+});
+
+ipcMain.handle("toolkit:read-checkpoint", (event, request) => {
+  assertDashboardSender(event);
+  return getToolkitFileService().readCheckpoint(request);
 });
 
 ipcMain.handle("toolkit:restore-checkpoint", (event, request) => {
@@ -6192,9 +6331,88 @@ ipcMain.handle("settings:save", (event, patch) => {
   if ("autoCheckUpdates" in sanitized) {
     updateService?.setAutoCheck(settings.autoCheckUpdates);
   }
+  if ("updateChannel" in sanitized) {
+    updateService?.setChannel(settings.updateChannel);
+  }
   if ("priceCheck" in sanitized || "shortcuts" in sanitized) updateTrayMenu();
   broadcastSettings();
   return settingsForRenderer();
+});
+
+ipcMain.handle("workspace:export", async (event, renderer) => {
+  assertSettingsSender(event);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export GloamCore workspace",
+    defaultPath: `GloamCore-workspace-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: "GloamCore workspace", extensions: ["json"] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  const bundle = createWorkspaceBackup({
+    appVersion: app.getVersion(),
+    renderer,
+    native: nativeWorkspaceSnapshot(),
+  });
+  writeJsonAtomically(result.filePath, bundle);
+  return { path: result.filePath, name: path.basename(result.filePath) };
+});
+
+ipcMain.handle("workspace:import", async (event, currentRenderer) => {
+  assertSettingsSender(event);
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Restore GloamCore workspace",
+    properties: ["openFile"],
+    filters: [{ name: "GloamCore workspace", extensions: ["json"] }],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const sourcePath = path.resolve(result.filePaths[0]);
+  const sourceStat = fs.lstatSync(sourcePath);
+  if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
+    throw new Error("Workspace backups must be regular JSON files.");
+  }
+  if (sourceStat.size > MAX_TRANSFER_BYTES) {
+    throw new Error("Workspace backup exceeds the 32 MB transfer safety limit.");
+  }
+  const incoming = parseWorkspaceBackup(JSON.parse(fs.readFileSync(sourcePath, "utf8")));
+  // Validate every native section before creating recovery state or changing disk data.
+  validatedNativeWorkspace(incoming.native);
+
+  const previous = createWorkspaceBackup({
+    appVersion: app.getVersion(),
+    renderer: currentRenderer,
+    native: nativeWorkspaceSnapshot(),
+  });
+  const recoveryDirectory = path.join(app.getPath("userData"), "workspace-recovery");
+  const recoveryName = `before-restore-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  const recoveryPath = path.join(recoveryDirectory, recoveryName);
+  writeJsonAtomically(recoveryPath, previous);
+  try {
+    applyNativeWorkspace(incoming.native);
+  } catch (error) {
+    try { applyNativeWorkspace(previous.native); } catch { /* Recovery JSON remains available. */ }
+    throw error;
+  }
+  return { renderer: incoming.renderer, recoveryName };
+});
+
+ipcMain.handle("support:export", async (event, context) => {
+  assertSettingsSender(event);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export privacy-safe support bundle",
+    defaultPath: `GloamCore-support-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: "GloamCore support bundle", extensions: ["json"] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  const bundle = createSupportBundle({
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    packaged: app.isPackaged,
+    portable: Boolean(process.env.PORTABLE_EXECUTABLE_FILE),
+    update: updateService?.getState(),
+    context,
+  });
+  writeJsonAtomically(result.filePath, bundle);
+  return { path: result.filePath, name: path.basename(result.filePath) };
 });
 
 ipcMain.handle("surface:publish-state", (event, value) => {
@@ -6344,6 +6562,9 @@ ipcMain.handle("surface:action", async (event, rawAction) => {
       break;
     case "open-watchlist":
       showMainWindow({ type: "open-watchlist" });
+      break;
+    case "open-mode":
+      showMainWindow(action);
       break;
     case "refresh-market":
       sendMainCommand({ type: "refresh-market" });

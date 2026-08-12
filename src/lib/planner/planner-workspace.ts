@@ -51,7 +51,7 @@ export interface PlannerWorkspaceSnapshot {
   editedSinceImport: boolean;
 }
 
-export type PlannerWorkspaceTab = "tree" | "items" | "skills" | "config" | "calcs" | "upgrade" | "builds" | "notes" | "history";
+export type PlannerWorkspaceTab = "tree" | "items" | "skills" | "config" | "calcs" | "progression" | "upgrade" | "builds" | "notes" | "history";
 
 export interface ActivePlannerWorkspace {
   version: typeof ACTIVE_PLANNER_WORKSPACE_VERSION;
@@ -60,7 +60,7 @@ export interface ActivePlannerWorkspace {
   snapshot: PlannerWorkspaceSnapshot;
 }
 
-const PLANNER_WORKSPACE_TABS = new Set<PlannerWorkspaceTab>(["tree", "items", "skills", "config", "calcs", "upgrade", "builds", "notes", "history"]);
+const PLANNER_WORKSPACE_TABS = new Set<PlannerWorkspaceTab>(["tree", "items", "skills", "config", "calcs", "progression", "upgrade", "builds", "notes", "history"]);
 
 export interface PlannerBuildComparison {
   addedNodes: number[];

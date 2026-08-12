@@ -42,7 +42,7 @@ html[data-surface="price-check"] #root {
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.03),
     0 24px 70px rgba(0, 0, 0, 0.6);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale));
   isolation: isolate;
 }
 
@@ -100,7 +100,7 @@ html[data-surface="price-check"] #root {
   color: #06120f;
   background: linear-gradient(145deg, #54f1ca, #18b98f);
   box-shadow: 0 0 18px rgba(49, 226, 183, 0.15);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale));
   font-weight: 900;
 }
 
@@ -113,7 +113,7 @@ html[data-surface="price-check"] #root {
 .pc-brand strong {
   overflow: hidden;
   color: #e8f5f2;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.12em;
   text-overflow: ellipsis;
@@ -124,7 +124,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   margin-top: 2px;
   color: #6c7e87;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -157,7 +157,7 @@ html[data-surface="price-check"] #root {
   border-radius: 5px;
   color: #71838e;
   background: transparent;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   cursor: pointer;
 }
 
@@ -189,7 +189,7 @@ html[data-surface="price-check"] #root {
   border-radius: 999px;
   color: #0b1415;
   background: var(--pc-teal);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1;
 }
 
@@ -231,7 +231,7 @@ html[data-surface="price-check"] #root {
 
 .pc-eyebrow {
   color: #62bca8;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.13em;
 }
@@ -269,14 +269,14 @@ html[data-surface="price-check"] #root {
   display: block;
   margin-top: 4px;
   color: #e8f2f1;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-text-scale));
   font-weight: 680;
 }
 
 .pc-state p {
   margin: 7px 0 0;
   color: var(--pc-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.6;
 }
 
@@ -291,14 +291,14 @@ html[data-surface="price-check"] #root {
   background: #121d25;
   box-shadow: 0 1px #06090c;
   font-family: inherit;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-state ul {
   margin: 8px 0 0;
   padding-left: 17px;
   color: #d79da3;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   line-height: 1.5;
 }
 
@@ -374,7 +374,7 @@ html[data-surface="price-check"] #root {
 
 .pc-state-actions > span {
   color: #657781;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.4;
   text-align: right;
 }
@@ -390,7 +390,7 @@ html[data-surface="price-check"] #root {
   border-radius: 6px;
   color: #afc0c7;
   background: #101a22;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 650;
   cursor: pointer;
 }
@@ -473,7 +473,7 @@ html[data-surface="price-check"] #root {
   display: block;
   margin-bottom: 3px;
   color: #607985;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.11em;
 }
@@ -482,7 +482,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   margin: 0;
   color: #e8f2f2;
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale));
   font-weight: 680;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -493,7 +493,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   margin: 3px 0 0;
   color: #70838e;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -516,7 +516,7 @@ html[data-surface="price-check"] #root {
   display: block;
   margin-bottom: 8px;
   color: #9aafba;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   letter-spacing: 0.08em;
 }
 
@@ -577,7 +577,7 @@ html[data-surface="price-check"] #root {
 .pc-item-facts dt {
   margin: 0;
   color: #59707c;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.07em;
 }
@@ -585,7 +585,7 @@ html[data-surface="price-check"] #root {
 .pc-item-facts dd {
   margin: 3px 0 0;
   color: #d7e4e6;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
@@ -652,7 +652,7 @@ html[data-surface="price-check"] #root {
   border-radius: 999px;
   color: var(--pc-teal);
   background: rgba(49, 226, 183, 0.07);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 700;
   text-transform: capitalize;
   white-space: nowrap;
@@ -661,7 +661,7 @@ html[data-surface="price-check"] #root {
 .pc-confidence b {
   margin-left: 2px;
   color: #aeeadb;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-variant-numeric: tabular-nums;
 }
 
@@ -703,13 +703,13 @@ html[data-surface="price-check"] #root {
   min-width: 48px;
   height: 23px;
   padding: 0 8px;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-estimate-range {
   margin-top: 9px;
   color: #71848d;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-estimate-range > span {
@@ -731,7 +731,7 @@ html[data-surface="price-check"] #root {
   height: 15px;
   margin-left: 2px;
   padding: 0 4px;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-reason-list {
@@ -750,7 +750,7 @@ html[data-surface="price-check"] #root {
   align-items: flex-start;
   gap: 5px;
   color: #84969e;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.35;
 }
 
@@ -782,7 +782,7 @@ html[data-surface="price-check"] #root {
 
 .pc-match-field label {
   color: #a6b7bd;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 680;
 }
 
@@ -797,7 +797,7 @@ html[data-surface="price-check"] #root {
   outline: 0;
   color: #dbe8e9;
   background: #0c151c;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-match-field select {
@@ -809,7 +809,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   grid-column: 2;
   color: #627680;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -858,7 +858,7 @@ html[data-surface="price-check"] #root {
 .pc-mode-tabs strong {
   overflow: hidden;
   max-width: 100%;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -868,7 +868,7 @@ html[data-surface="price-check"] #root {
   max-width: 100%;
   margin-top: 3px;
   color: #5f727c;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -896,12 +896,12 @@ html[data-surface="price-check"] #root {
 
 .pc-modifier-heading strong {
   color: #b8c7cb;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-modifier-heading > div span {
   color: #5e727d;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-tolerance {
@@ -911,7 +911,7 @@ html[data-surface="price-check"] #root {
   align-items: center;
   gap: 6px;
   color: #74868f;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
 }
 
 .pc-tolerance output {
@@ -999,7 +999,7 @@ html[data-surface="price-check"] #root {
 .pc-modifier-copy strong {
   overflow: hidden;
   color: #b8c5c8;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 580;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -1014,7 +1014,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   margin-top: 3px;
   color: #536974;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.25;
   text-overflow: ellipsis;
   text-transform: capitalize;
@@ -1024,7 +1024,7 @@ html[data-surface="price-check"] #root {
 .pc-modifier-copy em {
   margin-top: 3px;
   color: #b79c68;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-style: normal;
   font-weight: 750;
   letter-spacing: 0.04em;
@@ -1050,7 +1050,7 @@ html[data-surface="price-check"] #root {
   align-items: center;
   gap: 3px;
   color: #617681;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-modifier-range.is-exact label,
@@ -1066,7 +1066,7 @@ html[data-surface="price-check"] #root {
   border-radius: 5px;
   color: #70848e;
   background: #0b141a;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
 }
@@ -1081,7 +1081,7 @@ html[data-surface="price-check"] #root {
   outline: 0;
   color: #cbd9dc;
   background: #0b141a;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-variant-numeric: tabular-nums;
 }
 
@@ -1108,7 +1108,7 @@ html[data-surface="price-check"] #root {
   border-radius: 6px;
   color: #70838d;
   background: rgba(8, 14, 19, 0.5);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   line-height: 1.5;
 }
 
@@ -1126,13 +1126,13 @@ html[data-surface="price-check"] #root {
   justify-content: space-between;
   gap: 8px;
   color: #b7c5c8;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-item-filter-heading span,
 .pc-item-filters > small {
   color: #687c86;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-item-filter-grid {
@@ -1215,7 +1215,7 @@ html[data-surface="price-check"] #root {
 
 .pc-item-filter label strong {
   overflow: hidden;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   text-overflow: ellipsis;
   text-transform: capitalize;
   white-space: nowrap;
@@ -1225,7 +1225,7 @@ html[data-surface="price-check"] #root {
   min-width: 0;
   overflow: hidden;
   color: #91a6a9;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1239,7 +1239,7 @@ html[data-surface="price-check"] #root {
   outline: none;
   color: #dce7e8;
   background: #0b141a;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
 }
 
 .pc-item-filter > input:disabled { opacity: 0.35; }
@@ -1254,7 +1254,7 @@ html[data-surface="price-check"] #root {
   align-items: center;
   gap: 3px;
   color: #647983;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-align: center;
 }
 
@@ -1267,7 +1267,7 @@ html[data-surface="price-check"] #root {
   outline: none;
   color: #dce7e8;
   background: #0b141a;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
 }
 
 .pc-item-filter-range-values > input:disabled { opacity: 0.35; }
@@ -1285,7 +1285,7 @@ html[data-surface="price-check"] #root {
 
 .pc-availability > strong {
   color: #718791;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   letter-spacing: 0.09em;
 }
 
@@ -1307,7 +1307,7 @@ html[data-surface="price-check"] #root {
   color: #718791;
   background: transparent;
   font: inherit;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.035em;
   cursor: pointer;
@@ -1350,7 +1350,7 @@ html[data-surface="price-check"] #root {
 
 .pc-trade-advanced label > span {
   color: #718791;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.08em;
 }
@@ -1364,7 +1364,7 @@ html[data-surface="price-check"] #root {
   color: #c4d4d8;
   background: #0a1117;
   font: inherit;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-warnings {
@@ -1382,7 +1382,7 @@ html[data-surface="price-check"] #root {
 }
 
 .pc-warnings strong {
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-warnings ul {
@@ -1392,7 +1392,7 @@ html[data-surface="price-check"] #root {
   margin: 4px 0 0;
   padding-left: 14px;
   color: #aa9878;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   line-height: 1.45;
 }
 
@@ -1404,7 +1404,7 @@ html[data-surface="price-check"] #root {
   min-height: 34px;
   padding: 0 11px;
   color: #a6b6bc;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   cursor: pointer;
   list-style: none;
 }
@@ -1414,7 +1414,7 @@ html[data-surface="price-check"] #root {
 .pc-evidence summary::after {
   color: #60747e;
   content: "+";
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale));
 }
 
 .pc-evidence[open] summary::after { content: "-"; }
@@ -1422,7 +1422,7 @@ html[data-surface="price-check"] #root {
 .pc-evidence summary small {
   flex: 1;
   color: #60737d;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   text-align: right;
 }
 
@@ -1461,7 +1461,7 @@ html[data-surface="price-check"] #root {
   display: block;
   overflow: hidden;
   color: #b5c5c9;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1470,7 +1470,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   margin: 3px 0 0;
   color: #5e727c;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1486,7 +1486,7 @@ html[data-surface="price-check"] #root {
 
 .pc-evidence-market > strong {
   color: #dbe7e8;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-variant-numeric: tabular-nums;
 }
 
@@ -1496,13 +1496,13 @@ html[data-surface="price-check"] #root {
   min-width: 31px;
   height: 16px;
   padding: 0 4px;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-evidence-market small {
   grid-column: 1 / -1;
   color: #596d76;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-panel-actions {
@@ -1527,7 +1527,7 @@ html[data-surface="price-check"] #root {
   margin-left: auto;
   overflow: hidden;
   color: #667983;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1552,7 +1552,7 @@ html[data-surface="price-check"] #root {
   border-top: 1px solid rgba(113, 144, 156, 0.1);
   color: #50636e;
   background: rgba(5, 9, 13, 0.86);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-footer > span {
@@ -1596,7 +1596,7 @@ html[data-surface="price-check"] #root {
   padding: 0;
   color: #72bda9;
   background: transparent;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   cursor: pointer;
 }
 
@@ -1606,7 +1606,7 @@ html[data-surface="price-check"] #root {
   overflow-wrap: anywhere;
   margin: 3px 0 0;
   color: #e6f0ef;
-  font-size: 17px;
+  font-size: calc(17px * var(--ui-text-scale));
   font-weight: 680;
   line-height: 1.2;
 }
@@ -1615,7 +1615,7 @@ html[data-surface="price-check"] #root {
   max-width: 500px;
   margin: 5px 0 0;
   color: #6b7e87;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.5;
 }
 
@@ -1687,7 +1687,7 @@ html[data-surface="price-check"] #root {
 .pc-history-copy strong {
   overflow: hidden;
   color: #d8e5e6;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1697,7 +1697,7 @@ html[data-surface="price-check"] #root {
   overflow: hidden;
   margin-top: 4px;
   color: #60737e;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1718,7 +1718,7 @@ html[data-surface="price-check"] #root {
 
 .pc-history-price strong {
   color: #e1ecec;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1729,7 +1729,7 @@ html[data-surface="price-check"] #root {
   gap: 3px;
   margin-top: 4px;
   color: #596d77;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   white-space: nowrap;
 }
 
@@ -1765,14 +1765,14 @@ html[data-surface="price-check"] #root {
 
 .pc-history-empty strong {
   color: #adbdc2;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale));
 }
 
 .pc-history-empty p {
   max-width: 320px;
   margin: 6px 0 13px;
   color: #687b85;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.5;
 }
 
@@ -1801,7 +1801,7 @@ html[data-surface="price-check"] #root {
   border-bottom: 1px solid var(--pc-border-soft);
   color: #78918f;
   background: rgba(16, 27, 34, 0.64);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1851,7 +1851,7 @@ html[data-surface="price-check"] #root {
 .pc-setting-readonly strong,
 .pc-setting-slider strong {
   color: #b8c8cc;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 620;
 }
 
@@ -1860,7 +1860,7 @@ html[data-surface="price-check"] #root {
 .pc-setting-slider small {
   margin-top: 3px;
   color: #60737d;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.35;
 }
 
@@ -1929,7 +1929,7 @@ html[data-surface="price-check"] #root {
   border-radius: 5px;
   color: #5ea996;
   background: rgba(49, 226, 183, 0.05);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1940,7 +1940,7 @@ html[data-surface="price-check"] #root {
   border-top: 1px solid rgba(255, 107, 121, 0.16);
   color: #d8848d;
   background: rgba(255, 107, 121, 0.045);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
 }
 
 .pc-setting-slider {
@@ -1955,7 +1955,7 @@ html[data-surface="price-check"] #root {
 
 .pc-setting-slider output {
   color: var(--pc-teal);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -2000,7 +2000,7 @@ html[data-surface="price-check"] #root {
   color: #b9c8cc;
   background: #080f15;
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   line-height: 1.35;
 }
 
@@ -2012,7 +2012,7 @@ html[data-surface="price-check"] #root {
 .pc-surface--mobile .pc-item-filter > input,
 .pc-surface--mobile .pc-mobile-paste textarea {
   min-height: 44px;
-  font-size: 16px;
+  font-size: calc(16px * var(--ui-text-scale));
 }
 
 .pc-surface--mobile .pc-button,
@@ -2051,7 +2051,7 @@ html[data-surface="price-check"] #root {
 }
 
 .pc-surface--mobile .pc-button {
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale));
 }
 
 .pc-mobile-paste .pc-field-error {
@@ -2074,7 +2074,7 @@ html[data-surface="price-check"] #root {
   gap: 8px;
   color: #b7c5c8;
   cursor: pointer;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   font-weight: 750;
   list-style: none;
 }
@@ -2083,7 +2083,7 @@ html[data-surface="price-check"] #root {
 
 .pc-mobile-filters summary small {
   color: var(--pc-teal);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-transform: uppercase;
 }
 
@@ -2357,11 +2357,11 @@ html[data-surface="price-check"] #root {
   height: 24px;
   flex-basis: 24px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-surface--overlay .pc-brand strong {
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   letter-spacing: 0.1em;
 }
 
@@ -2370,7 +2370,7 @@ html[data-surface="price-check"] #root {
   align-items: center;
   gap: 4px;
   margin-top: 1px;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
 }
 
 .pc-overlay-target-dot {
@@ -2424,7 +2424,7 @@ html[data-surface="price-check"] #root {
   min-width: 13px;
   height: 13px;
   border: 2px solid #071016;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
 }
 
 .pc-surface--overlay .pc-window-actions {

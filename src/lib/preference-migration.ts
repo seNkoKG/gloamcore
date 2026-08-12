@@ -16,6 +16,8 @@ const DATA_SOURCES = new Set<DataSource>([
 const VALUE_DISPLAYS = new Set(["adaptive", "chaos", "divine"]);
 const DENSITIES = new Set(["compact", "comfortable"]);
 const APP_THEMES = new Set(["gloam", "azurite", "ember", "wraeclast"]);
+const TEXT_SCALES = new Set(["small", "normal", "large"]);
+const COLOR_VISION_MODES = new Set(["standard", "accessible"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -282,6 +284,22 @@ export function migrateStoredPreferences(
     if (typeof raw.theme === "string" && APP_THEMES.has(raw.theme)) {
       saved.theme = raw.theme as AppPreferences["theme"];
     } else migrated = true;
+  }
+  if (own(raw, "textScale")) {
+    if (typeof raw.textScale === "string" && TEXT_SCALES.has(raw.textScale)) {
+      saved.textScale = raw.textScale as AppPreferences["textScale"];
+    } else migrated = true;
+  }
+  if (own(raw, "reducedMotion")) {
+    if (typeof raw.reducedMotion === "boolean") saved.reducedMotion = raw.reducedMotion;
+    else migrated = true;
+  }
+  if (own(raw, "colorVision")) {
+    if (
+      typeof raw.colorVision === "string" &&
+      COLOR_VISION_MODES.has(raw.colorVision)
+    ) saved.colorVision = raw.colorVision as AppPreferences["colorVision"];
+    else migrated = true;
   }
   if (own(raw, "sidebarCollapsed")) {
     if (typeof raw.sidebarCollapsed === "boolean") {

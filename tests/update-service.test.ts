@@ -37,6 +37,7 @@ const {
     check(): Promise<Record<string, unknown>>;
     getState(): Record<string, unknown>;
     install(): boolean;
+    setChannel(value: unknown): Record<string, unknown>;
     dispose(): void;
   };
 };
@@ -157,6 +158,23 @@ describe("update service", () => {
       status: "idle",
       feedConfigured: true,
     });
+    service.dispose();
+  });
+
+  it("keeps stable as the default and enables prereleases only after opt-in", () => {
+    const updater = new FakeUpdater();
+    const service = new UpdateService({
+      app,
+      updater,
+      feedUrl: "https://updates.example.test/widget",
+      autoCheck: false,
+    });
+    expect(updater.allowPrerelease).toBe(false);
+    expect(service.getState()).toMatchObject({ channel: "stable" });
+    expect(service.setChannel("preview")).toMatchObject({ channel: "preview" });
+    expect(updater.allowPrerelease).toBe(true);
+    service.setChannel("unknown");
+    expect(updater.allowPrerelease).toBe(false);
     service.dispose();
   });
 

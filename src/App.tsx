@@ -115,6 +115,7 @@ import type {
   FilterState,
   KnowledgeEntry,
   NormalizedOverview,
+  QuickCommand,
   QuickSearchRow,
   RawExchangeOverview,
   RawFaustusOverview,
@@ -127,6 +128,11 @@ import type {
   WatchEntry,
 } from "./types";
 import { defaultPriceCheckSettings } from "./lib/price-check/types";
+import { loadGameData, type GameDataBundle } from "./lib/game-data";
+import {
+  parseSavedPlannerBuilds,
+  SAVED_PLANNER_BUILDS_KEY,
+} from "./lib/planner/planner-workspace";
 
 const defaultDesktopSettings: DesktopSettings = {
   alwaysOnTop: true,
@@ -135,6 +141,7 @@ const defaultDesktopSettings: DesktopSettings = {
   clickThrough: false,
   startMinimized: false,
   autoCheckUpdates: true,
+  updateChannel: "stable",
   shortcuts: defaultDesktopShortcuts,
   priceCheck: defaultPriceCheckSettings,
 };
@@ -251,6 +258,89 @@ function toQuickRow(row: EconomyRow, league: string): QuickSearchRow {
   };
 }
 
+function quickCommands(bundle: GameDataBundle | null): QuickCommand[] {
+  const commands: QuickCommand[] = [
+    { id: "workspace:market", title: "Market explorer", subtitle: "Live PoE 1 economy categories", keywords: "economy prices ninja faustus", mode: "market" },
+    { id: "workspace:price-check", title: "Price checker", subtitle: "Open the copied-item workspace", keywords: "ctrl d trade item", mode: "price-check" },
+    { id: "workspace:knowledge", title: "Item Intel", subtitle: "Search verified game knowledge", keywords: "wiki item intel search", mode: "knowledge" },
+    { id: "workspace:watchlist", title: "Watchlist", subtitle: "Saved market targets", keywords: "alerts targets starred", mode: "watchlist" },
+    { id: "workspace:league", title: "League Center", subtitle: "Campaign, gems, Atlas and data health", keywords: "route atlas gems league", mode: "command", section: "route" },
+    { id: "workspace:planner", title: "Build planner", subtitle: "Path of Building workspace", keywords: "pob passive tree build", mode: "planner" },
+    { id: "workspace:toolkit", title: "Player toolkit", subtitle: "Filters, regex, journal and overlays", keywords: "filter regex mapping tools", mode: "toolkit" },
+    { id: "workspace:stash", title: "Stash wealth", subtitle: "Open the Wealthy Exile workspace", keywords: "stash wealth", mode: "stash" },
+    { id: "workspace:craft", title: "Craft of Exile", subtitle: "Open the protected PoE 1 crafting browser", keywords: "craft simulator", mode: "craft" },
+    { id: "workspace:settings", title: "Settings", subtitle: "Themes, accessibility, updates, backup and support", keywords: "preferences theme accessibility backup restore updates", mode: "settings" },
+    { id: "league:gems", title: "Gem acquisition", subtitle: "Exact quest and vendor sources", keywords: "league center gems vendor quest", mode: "command", section: "gems" },
+    { id: "league:atlas", title: "Atlas planner", subtitle: "Official-data Atlas strategy presets", keywords: "league center atlas nodes", mode: "command", section: "atlas" },
+    { id: "league:data", title: "League data health", subtitle: "Validated pack identity and updates", keywords: "integrity sha source version", mode: "command", section: "data" },
+  ];
+  commands.push(...categories.map((entry): QuickCommand => ({
+    id: `market:${entry.id}`,
+    title: entry.label,
+    subtitle: "Market category",
+    keywords: `${entry.id} economy market`,
+    mode: "market",
+    categoryId: entry.id,
+  })));
+  try {
+    commands.push(...parseSavedPlannerBuilds(
+      localStorage.getItem(SAVED_PLANNER_BUILDS_KEY),
+    ).map((build): QuickCommand => ({
+      id: `build:${build.id}`,
+      title: build.name,
+      subtitle: "Saved Build Planner workspace",
+      keywords: `saved build pob ${build.tags.join(" ")}`,
+      mode: "planner",
+      resourceId: build.id,
+    })));
+  } catch {
+    // The Build Planner owns recovery for a corrupt library.
+  }
+  try {
+    const atlas = JSON.parse(
+      localStorage.getItem("gloamcore:atlas-command-center:v1") || "null",
+    ) as { loadouts?: Array<{ id?: string; name?: string; tags?: string[] }> } | null;
+    commands.push(...(Array.isArray(atlas?.loadouts) ? atlas.loadouts : []).flatMap(
+      (loadout): QuickCommand[] => typeof loadout?.name === "string" && loadout.name.trim()
+        ? [{
+            id: `atlas-preset:${String(loadout.id || loadout.name)}`,
+            title: loadout.name.trim(),
+            subtitle: "Saved Atlas strategy preset",
+            keywords: `atlas preset ${(loadout.tags || []).join(" ")}`,
+            mode: "command",
+            section: "atlas",
+            resourceId: String(loadout.id || loadout.name),
+          }]
+        : [],
+    ));
+  } catch {
+    // Atlas Command Center reports and repairs its own stored workspace.
+  }
+  if (bundle) {
+    commands.push(...bundle.navigator.gems.map((gem): QuickCommand => ({
+      id: `gem:${gem.id}`,
+      title: gem.name,
+      subtitle: `${gem.support ? "Support" : "Active"} gem · level ${gem.requiredLevel}`,
+      keywords: `gem ${gem.attribute} quest vendor`,
+      mode: "command",
+      section: "gems",
+      query: gem.name,
+    })));
+    commands.push(...bundle.atlas.nodes.flatMap((node): QuickCommand[] => node.name
+      ? [{
+          id: `atlas-node:${node.id}`,
+          title: node.name,
+          subtitle: node.keystone ? "Atlas keystone" : node.notable ? "Atlas notable" : "Atlas node",
+          keywords: `atlas ${node.stats.join(" ")}`,
+          mode: "command",
+          section: "atlas",
+          query: node.name,
+        }]
+      : []));
+  }
+  return commands;
+}
+
 function MarketPulse({
   rows,
   onSelect,
@@ -343,6 +433,13 @@ export default function App() {
   const [marketRetryRevision, setMarketRetryRevision] = useState(0);
   const [leagueRetryRevision, setLeagueRetryRevision] = useState(0);
   const [pendingSelectionVersion, setPendingSelectionVersion] = useState(0);
+  const [commandData, setCommandData] = useState<GameDataBundle | null>(null);
+  const [commandNavigation, setCommandNavigation] = useState<{
+    section?: "route" | "gems" | "atlas" | "data";
+    query?: string;
+    resourceId?: string;
+    nonce: number;
+  }>({ nonce: 0 });
   const searchRef = useRef<HTMLInputElement>(null);
   const knowledgeSearchRef = useRef<HTMLInputElement>(null);
   const mainContentRef = useRef<HTMLElement>(null);
@@ -395,6 +492,40 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = preferences.theme;
   }, [preferences.theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.textScale = preferences.textScale;
+    root.dataset.reducedMotion = preferences.reducedMotion ? "true" : "false";
+    root.dataset.colorVision = preferences.colorVision;
+  }, [preferences.colorVision, preferences.reducedMotion, preferences.textScale]);
+
+  useEffect(() => {
+    let active = true;
+    void loadGameData()
+      .then((loaded) => {
+        if (active) setCommandData(loaded.bundle);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const refreshCommands = () => setSurfaceRevision((value) => value + 1);
+    window.addEventListener("gloamcore:commands-changed", refreshCommands);
+    return () => window.removeEventListener("gloamcore:commands-changed", refreshCommands);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "p") {
+        event.preventDefault();
+        void bridge.surfaceAction({ type: "open-quick-search" });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const applyDesktopSettingsSnapshot = useCallback((incoming: DesktopSettings) => {
     const remote: DesktopSettings = {
@@ -526,6 +657,29 @@ export default function App() {
         setSelectedRow(null);
         setSelectedKnowledge(null);
         setSettingsOpen(false);
+      }
+      if (event.type === "open-mode") {
+        setSelectedRow(null);
+        setSelectedKnowledge(null);
+        if (event.mode === "settings") {
+          setSettingsOpen(true);
+          return;
+        }
+        setSettingsOpen(false);
+        setCommandNavigation((current) => ({
+          section: event.section,
+          query: event.query,
+          resourceId: event.resourceId,
+          nonce: current.nonce + 1,
+        }));
+        if (event.mode === "market" && event.categoryId && categoryById[event.categoryId]) {
+          setPreferences((current) => {
+            const next = { ...current, categoryId: event.categoryId! };
+            savePreferences(next);
+            return next;
+          });
+        }
+        setMode(event.mode);
       }
       if (event.type === "open-row" && categoryById[event.categoryId]) {
         const selection = {
@@ -877,6 +1031,7 @@ export default function App() {
         alerts,
         topMovers,
         searchRows,
+        commands: quickCommands(commandData),
       })
       .catch(() => {
         // Browser preview and a closing desktop process may not own a surface.
@@ -884,6 +1039,7 @@ export default function App() {
   }, [
     category.id,
     category.label,
+    commandData,
     league,
     loading,
     overview,
@@ -988,12 +1144,14 @@ export default function App() {
       lastViewed: recent,
     });
     setMode("market");
+    setCommandNavigation((current) => ({ nonce: current.nonce + 1 }));
     setSelectedKnowledge(null);
   };
 
   const switchMode = (nextMode: AppMode) => {
     resetMobileWorkspaceScroll();
     setMode(nextMode);
+    setCommandNavigation((current) => ({ nonce: current.nonce + 1 }));
     setSelectedRow(null);
     setSelectedKnowledge(null);
     setSettingsOpen(false);
@@ -1556,9 +1714,13 @@ export default function App() {
           ) : mode === "toolkit" ? (
             <ToolkitPanel league={league} />
           ) : mode === "command" ? (
-            <CommandCenterPanel />
+            <CommandCenterPanel navigation={commandNavigation} />
           ) : mode === "planner" ? (
-            <BuildPlannerPanel />
+            <BuildPlannerPanel
+              league={league}
+              savedBuildId={commandNavigation.resourceId}
+              navigationNonce={commandNavigation.nonce}
+            />
           ) : mode === "craft" ? (
             <CraftOfExilePanel />
           ) : mode === "stash" ? (
@@ -1650,11 +1812,17 @@ export default function App() {
             settings={desktopSettings}
             density={preferences.density}
             theme={preferences.theme}
+            textScale={preferences.textScale}
+            reducedMotion={preferences.reducedMotion}
+            colorVision={preferences.colorVision}
             refreshMinutes={preferences.refreshMinutes}
             onClose={() => setSettingsOpen(false)}
             onSettings={updateDesktop}
             onDensity={(density) => updatePreferences({ density })}
             onTheme={(theme) => updatePreferences({ theme })}
+            onTextScale={(textScale) => updatePreferences({ textScale })}
+            onReducedMotion={(reducedMotion) => updatePreferences({ reducedMotion })}
+            onColorVision={(colorVision) => updatePreferences({ colorVision })}
             onRefreshMinutes={(refreshMinutes) =>
               updatePreferences({ refreshMinutes })
             }

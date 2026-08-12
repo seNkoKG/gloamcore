@@ -11,6 +11,7 @@ import {
   FileClock,
   FilePenLine,
   FolderOpen,
+  GitCompareArrows,
   History,
   MessageSquareText,
   MapPinned,
@@ -35,6 +36,7 @@ import { normalizeOverview } from "../lib/economy";
 import { parsePoeItem } from "../lib/price-check/parser";
 import type { ParsedPoeItem } from "../lib/price-check/types";
 import {
+  diffItemFilters,
   findMatchingFilterBlocks,
   itemFilterFileMatchesMode,
   itemFilterFileName,
@@ -201,6 +203,11 @@ function FilterEditor() {
   const [currentItem, setCurrentItem] = useState<ParsedPoeItem | null>(null);
   const [intents, setIntents] = useState<FilterIntent[]>([]);
   const [checkpoints, setCheckpoints] = useState<ToolkitCheckpoint[]>([]);
+  const [profileName, setProfileName] = useState("");
+  const [comparison, setComparison] = useState<{
+    label: string;
+    diff: ReturnType<typeof diffItemFilters>;
+  } | null>(null);
   const [syncUrl, setSyncUrl] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -421,6 +428,7 @@ function FilterEditor() {
 
   const restore = async (checkpoint: ToolkitCheckpoint) => {
     if (!file?.path || !document) return;
+    if (!window.confirm(`Restore ${checkpoint.label} to ${file.name}? A safety checkpoint will be created first.`)) return;
     const mode = document.mode;
     setBusy(true);
     try {
@@ -432,6 +440,66 @@ function FilterEditor() {
       setIntents([]);
       setCheckpoints(await bridge.listToolkitCheckpoints(file.path));
       setMessage(`Restored ${checkpoint.label}. A before-restore checkpoint was created.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createProfile = async () => {
+    const name = profileName.trim();
+    if (!file?.path || !document || !name) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      if (problems.length) throw new Error(problems[0]);
+      await bridge.createToolkitCheckpoint({
+        path: file.path,
+        label: `Profile · ${name}`,
+        text: serializeItemFilter(document),
+      });
+      setCheckpoints(await bridge.listToolkitCheckpoints(file.path));
+      setProfileName("");
+      setMessage(`Saved profile ${name}. The active game filter was not changed.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stageCheckpoint = async (checkpoint: ToolkitCheckpoint) => {
+    if (!file?.path || !document) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const staged = await bridge.readToolkitCheckpoint({ path: file.path, id: checkpoint.id });
+      const parsed = parseItemFilter(staged.text, document.mode);
+      const stagedProblems = validateItemFilter(parsed);
+      if (!parsed.blocks.length) throw new Error("That checkpoint is not a valid item filter.");
+      if (stagedProblems.length) throw new Error(stagedProblems[0]);
+      setDocument(parsed);
+      setSelectedId(parsed.blocks[0]?.id || "");
+      setIntents([]);
+      setComparison(null);
+      setMessage(`Staged ${checkpoint.label}. Review it, then Save safely to apply it to the active file.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const compareCheckpoint = async (checkpoint: ToolkitCheckpoint) => {
+    if (!file?.path || !document) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const saved = await bridge.readToolkitCheckpoint({ path: file.path, id: checkpoint.id });
+      const baseline = parseItemFilter(saved.text, document.mode);
+      if (!baseline.blocks.length) throw new Error("That checkpoint is not a valid item filter.");
+      setComparison({ label: checkpoint.label, diff: diffItemFilters(document, baseline) });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -579,12 +647,28 @@ function FilterEditor() {
           </section>
           <section>
             <h3><History size={14} /> Checkpoints</h3>
+            <div className="filter-profile-create">
+              <input placeholder="Profile name" maxLength={80} value={profileName} onChange={(event) => setProfileName(event.target.value)} />
+              <button type="button" onClick={createProfile} disabled={busy || !profileName.trim() || problems.length > 0}>Save staged profile</button>
+            </div>
             {checkpoints.length ? checkpoints.slice(0, 8).map((checkpoint) => (
-              <button type="button" className="checkpoint-row" key={checkpoint.id} onClick={() => restore(checkpoint)}>
+              <div className="checkpoint-row" key={checkpoint.id}>
                 <FileClock size={13} />
                 <span>{checkpoint.label}<small>{new Date(checkpoint.createdAt).toLocaleString()}</small></span>
-              </button>
+                <div className="checkpoint-actions">
+                  <button type="button" onClick={() => stageCheckpoint(checkpoint)} disabled={busy}>Stage</button>
+                  <button type="button" title="Compare staged editor state with this checkpoint" onClick={() => compareCheckpoint(checkpoint)} disabled={busy}><GitCompareArrows size={12} /> Compare</button>
+                  <button type="button" onClick={() => restore(checkpoint)} disabled={busy}>Restore now</button>
+                </div>
+              </div>
             )) : <p>No checkpoints yet. Saving creates one automatically.</p>}
+            {comparison && (
+              <div className="filter-diff-summary">
+                <strong>Compared with {comparison.label}</strong>
+                <span>{comparison.diff.added.length} added · {comparison.diff.removed.length} removed · {comparison.diff.changed.length} changed · {comparison.diff.unchanged} unchanged</span>
+                {[...comparison.diff.added.map((entry) => `+ ${entry.tier}`), ...comparison.diff.removed.map((entry) => `− ${entry.tier}`), ...comparison.diff.changed.map((entry) => `~ ${entry.tier}`)].slice(0, 8).map((entry, index) => <small key={`${entry}-${index}`}>{entry}</small>)}
+              </div>
+            )}
           </section>
         </aside>
       </div>

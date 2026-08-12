@@ -14,6 +14,7 @@ import {
   GitBranch,
   History,
   LoaderCircle,
+  ListChecks,
   Maximize2,
   MoreHorizontal,
   Network,
@@ -123,6 +124,7 @@ import {
   presentPlannerItem,
 } from "./PlannerPanels";
 import { BuildUpgradeAssistant } from "./BuildUpgradeAssistant";
+import { BuildProgressionPanel } from "./BuildProgressionPanel";
 import "../planner.css";
 
 type PlannerTab = PlannerWorkspaceTab;
@@ -140,7 +142,7 @@ type MasteryPicker = { nodeId: number; path: number[] };
 type NodePowerMetric = "blend" | "offence" | "defence";
 type TreeViewCommand = { action: "zoom-in" | "zoom-out" | "fit" | "focus"; nodeId?: number; nonce: number };
 
-const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "upgrade", "builds", "notes", "history"];
+const PLANNER_TABS: PlannerTab[] = ["tree", "items", "skills", "config", "calcs", "progression", "upgrade", "builds", "notes", "history"];
 
 async function resolvePlannerArtwork(items: PlannerItemArtworkRequest["items"]) {
   const sources = new Map<number, string>();
@@ -165,6 +167,7 @@ function PlannerTabGlyph({ tab }: { tab: PlannerTab }) {
     case "skills": return <Swords size={14}/>;
     case "config": return <Settings2 size={14}/>;
     case "calcs": return <Activity size={14}/>;
+    case "progression": return <ListChecks size={14}/>;
     case "upgrade": return <Sparkles size={14}/>;
     case "builds": return <Boxes size={14}/>;
     case "notes": return <BookOpen size={14}/>;
@@ -1147,7 +1150,11 @@ function PassiveTreeCanvas({
   );
 }
 
-export function BuildPlannerPanel() {
+export function BuildPlannerPanel({ league = "", savedBuildId, navigationNonce = 0 }: {
+  league?: string;
+  savedBuildId?: string;
+  navigationNonce?: number;
+}) {
   const [tree, setTree] = useState<PassiveTreeData | null>(null);
   const [build, setBuild] = useState<ImportedPobBuild | null>(null);
   const [itemArtwork, setItemArtwork] = useState<Map<number, string>>(new Map());
@@ -1195,6 +1202,8 @@ export function BuildPlannerPanel() {
   const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
   const [timelessOpen, setTimelessOpen] = useState(false);
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
+  const [savedLibraryHydrated, setSavedLibraryHydrated] = useState(false);
+  const handledNavigationRef = useRef(0);
   const workspaceAutosaveLockedRef = useRef(false);
   const asyncGuardRef = useRef(new PlannerAsyncRevisionGuard());
   const plannerIdentityRef = useRef({ build, specs, activeSpecId, tree });
@@ -1305,6 +1314,8 @@ export function BuildPlannerPanel() {
       const detail = error instanceof Error ? error.message : String(error);
       setSavedLibraryError(detail);
       setMessage(`The local build library is locked: ${detail} Its original data was not changed. Open Builds to save an exact recovery copy and reset it.`);
+    } finally {
+      setSavedLibraryHydrated(true);
     }
   }, []);
 
@@ -2294,6 +2305,7 @@ export function BuildPlannerPanel() {
       const serialized = serializeSavedPlannerBuilds(next);
       localStorage.setItem(SAVED_PLANNER_BUILDS_KEY, serialized);
       setSavedBuilds(next);
+      window.dispatchEvent(new Event("gloamcore:commands-changed"));
       return true;
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -2393,6 +2405,19 @@ export function BuildPlannerPanel() {
       if (asyncGuardRef.current.isLatest(request)) setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!savedBuildId || !navigationNonce || !savedLibraryHydrated || handledNavigationRef.current === navigationNonce) return;
+    handledNavigationRef.current = navigationNonce;
+    const snapshot = savedBuilds.find((entry) => entry.id === savedBuildId);
+    if (!snapshot) {
+      setTab("builds");
+      setMessage("That saved build is no longer available in the local library.");
+      return;
+    }
+    setTab("tree");
+    void loadSnapshot(snapshot);
+  }, [navigationNonce, savedBuildId, savedBuilds, savedLibraryHydrated]);
 
   const duplicateSnapshot = (snapshot: PlannerWorkspaceSnapshot) => {
     const duplicate = createPlannerSnapshot({ ...snapshot, id: undefined, name: `${snapshot.name} copy`, allocated: snapshot.allocated, now: Date.now() });
@@ -2679,12 +2704,14 @@ export function BuildPlannerPanel() {
         {tab === "skills" && <PlannerSkillsPanel build={build} artwork={gemArtwork} catalog={gemCatalog} onChange={editBuild} />}
         {tab === "config" && <PlannerConfigPanel build={build} catalog={configCatalog} onChange={editBuild} />}
         {tab === "calcs" && <PlannerCalcsPanel build={build} editedSinceImport={editedSinceImport} comparison={comparison} />}
+        {tab === "progression" && <BuildProgressionPanel build={build} league={league} />}
         {tab === "upgrade" && upgradeCurrent && <BuildUpgradeAssistant current={upgradeCurrent} savedBuilds={savedBuilds} engineCapability={engineCapability} onOpenBuilds={() => setTab("builds")} onImportSnapshot={importUpgradeSnapshot} />}
         {tab === "builds" && <PlannerBuildsPanel builds={savedBuilds} activeId={activeSavedId} baselineId={baselineId} libraryError={savedLibraryError} recoveringLibrary={recoveringSavedLibrary} onRecoverLibrary={recoverSavedLibrary} onSave={saveToLibrary} onLoad={loadSnapshot} onDelete={(id) => { if (!persistSavedBuilds(savedBuilds.filter((entry) => entry.id !== id))) return; if (activeSavedId === id) setActiveSavedId(""); if (baselineId === id) setBaselineId(""); }} onDuplicate={duplicateSnapshot} onBaseline={setBaselineId} onExport={exportSnapshot} />}
         {tab === "notes" && <div className="planner-notes"><textarea aria-label="Build notes" value={build?.notes || ""} placeholder="Build notes, campaign reminders, gearing steps…" onChange={(event) => editNotes(event.target.value)} /></div>}
         {tab === "history" && <div className="planner-history"><header><History size={16} /><strong>Tree timeline</strong><button type="button" onClick={() => { const initial = history[0]; if (initial) { restoreHistory(0); setHistory([initial]); } }}><RotateCcw size={13} /> Reset to start</button></header>{[...history].reverse().map((entry, reverseIndex) => { const index = history.length - reverseIndex - 1; return <button type="button" key={`${entry.at}-${index}`} className={index === historyIndex ? "is-active" : ""} onClick={() => restoreHistory(index)}><span>{entry.label}</span><small>{historyPointLabel(entry)} · {new Date(entry.at).toLocaleTimeString()}</small></button>; })}</div>}
           </div>
           <nav className="planner-edge-tabs" aria-label="Planner utilities">
+            <button type="button" className={tab === "builds" ? "is-active" : ""} onClick={() => setTab("builds")}><Boxes size={13}/><span>Builds</span></button>
             <button type="button" className={tab === "history" ? "is-active" : ""} onClick={() => setTab("history")}><History size={13}/><span>History</span></button>
             <button type="button" className={tab === "notes" ? "is-active" : ""} onClick={() => setTab("notes")}><BookOpen size={13}/><span>Notes</span></button>
           </nav>

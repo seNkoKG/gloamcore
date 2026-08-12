@@ -186,10 +186,26 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
       originalPath: target,
       label: String(request?.label || "Checkpoint").slice(0, 120),
       createdAt: Date.now(),
-      text: cleanText(fs.readFileSync(target, "utf8")),
+      text: request?.text == null
+        ? cleanText(fs.readFileSync(target, "utf8"))
+        : cleanText(request.text),
     };
     atomicWrite(path.join(directory, filename), JSON.stringify(record));
     return { ...record, id: filename, text: undefined };
+  }
+
+  function readCheckpoint(request) {
+    const target = path.resolve(String(request?.path || ""));
+    if (!authorisedPaths.has(target)) throw new Error("Open the file before reading its checkpoints.");
+    const id = path.basename(String(request?.id || ""));
+    if (!id.endsWith(".json")) throw new Error("Invalid checkpoint.");
+    const recordPath = path.join(checkpointDirectory(userDataDirectory, target), id);
+    assertRegularFile(recordPath);
+    const parsed = JSON.parse(fs.readFileSync(recordPath, "utf8"));
+    if (parsed.originalPath !== target || typeof parsed.text !== "string") {
+      throw new Error("Checkpoint does not belong to this file.");
+    }
+    return { path: target, name: path.basename(target), text: cleanText(parsed.text) };
   }
 
   function listCheckpoints(filePath) {
@@ -215,14 +231,7 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
   function restoreCheckpoint(request) {
     const target = path.resolve(String(request?.path || ""));
     if (!authorisedPaths.has(target)) throw new Error("Open the file before restoring it.");
-    const id = path.basename(String(request?.id || ""));
-    if (!id.endsWith(".json")) throw new Error("Invalid checkpoint.");
-    const recordPath = path.join(checkpointDirectory(userDataDirectory, target), id);
-    assertRegularFile(recordPath);
-    const parsed = JSON.parse(fs.readFileSync(recordPath, "utf8"));
-    if (parsed.originalPath !== target || typeof parsed.text !== "string") {
-      throw new Error("Checkpoint does not belong to this file.");
-    }
+    const parsed = readCheckpoint(request);
     createCheckpoint({ path: target, label: "Before restore" });
     atomicWrite(target, parsed.text);
     return { path: target, name: path.basename(target), text: parsed.text };
@@ -279,6 +288,7 @@ function createToolkitFileService({ dialog, userDataDirectory, fetchImpl = fetch
     openImage,
     saveText,
     createCheckpoint,
+    readCheckpoint,
     listCheckpoints,
     restoreCheckpoint,
     fetchRemoteText,

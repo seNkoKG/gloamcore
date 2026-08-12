@@ -1,8 +1,11 @@
 import {
+  Accessibility,
   Check,
+  Contrast,
   Download,
   EyeOff,
   Keyboard,
+  LifeBuoy,
   LayoutPanelTop,
   Minimize2,
   MonitorUp,
@@ -17,7 +20,13 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { bridge } from "../lib/bridge";
+import { loadGameData } from "../lib/game-data";
 import { isMobileApp } from "../lib/platform";
+import {
+  applyWorkspaceStorage,
+  collectWorkspaceStorage,
+  supportContext,
+} from "../lib/workspace-transfer";
 import {
   defaultDesktopShortcuts,
   formatShortcut,
@@ -26,27 +35,46 @@ import {
   type ShortcutDraftKey,
   validateShortcutDraft,
 } from "../lib/shortcuts";
-import type { AppTheme, Density, DesktopSettings, UpdateState } from "../types";
+import type {
+  AppTheme,
+  ColorVisionMode,
+  Density,
+  DesktopSettings,
+  TextScale,
+  UpdateState,
+} from "../types";
 
 export function SettingsDrawer({
   settings,
   density,
   theme,
+  textScale,
+  reducedMotion,
+  colorVision,
   refreshMinutes,
   onClose,
   onSettings,
   onDensity,
   onTheme,
+  onTextScale,
+  onReducedMotion,
+  onColorVision,
   onRefreshMinutes,
 }: {
   settings: DesktopSettings;
   density: Density;
   theme: AppTheme;
+  textScale: TextScale;
+  reducedMotion: boolean;
+  colorVision: ColorVisionMode;
   refreshMinutes: number;
   onClose: () => void;
   onSettings: (patch: Partial<DesktopSettings>) => Promise<void>;
   onDensity: (density: Density) => void;
   onTheme: (theme: AppTheme) => void;
+  onTextScale: (scale: TextScale) => void;
+  onReducedMotion: (value: boolean) => void;
+  onColorVision: (mode: ColorVisionMode) => void;
   onRefreshMinutes: (minutes: number) => void;
 }) {
   const [update, setUpdate] = useState<UpdateState | null>(null);
@@ -62,6 +90,8 @@ export function SettingsDrawer({
   );
   const [shortcutSaveError, setShortcutSaveError] = useState("");
   const [shortcutSaving, setShortcutSaving] = useState(false);
+  const [transferStatus, setTransferStatus] = useState("");
+  const [transferBusy, setTransferBusy] = useState(false);
 
   useEffect(() => {
     setShortcutDraft(savedShortcutDraft);
@@ -230,6 +260,52 @@ export function SettingsDrawer({
             </button>
           </div>
         </div>
+        <div className="setting-choice" role="group" aria-label="Text size">
+          <span>Text size</span>
+          <div>
+            {(["small", "normal", "large"] as TextScale[]).map((value) => (
+              <button
+                key={value}
+                className={textScale === value ? "is-active" : undefined}
+                type="button"
+                aria-pressed={textScale === value}
+                onClick={() => onTextScale(value)}
+              >
+                {value[0].toUpperCase() + value.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="setting-row">
+          <div>
+            <Accessibility size={16} />
+            <span>
+              <strong>Reduce motion</strong>
+              <small>Disable non-essential transitions, pulsing and animated scrolling.</small>
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={reducedMotion}
+            onChange={(event) => onReducedMotion(event.target.checked)}
+          />
+        </label>
+        <label className="setting-row">
+          <div>
+            <Contrast size={16} />
+            <span>
+              <strong>Accessible status colours</strong>
+              <small>Use a blue/orange-safe gain and loss palette with stronger outlines.</small>
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={colorVision === "accessible"}
+            onChange={(event) =>
+              onColorVision(event.target.checked ? "accessible" : "standard")
+            }
+          />
+        </label>
         <label className="setting-select">
           <div>
             <RefreshCw size={16} />
@@ -273,6 +349,26 @@ export function SettingsDrawer({
               void onSettings({ autoCheckUpdates: event.target.checked })
             }
           />
+        </label>
+        <label className="setting-select">
+          <div>
+            <Download size={16} />
+            <span>
+              <strong>Release channel</strong>
+              <small>Preview is opt-in and may receive pre-release builds before stable users.</small>
+            </span>
+          </div>
+          <select
+            value={settings.updateChannel}
+            onChange={(event) =>
+              void onSettings({
+                updateChannel: event.target.value === "preview" ? "preview" : "stable",
+              })
+            }
+          >
+            <option value="stable">Stable</option>
+            <option value="preview">Preview</option>
+          </select>
         </label>
         <div className="update-setting-card">
           <div>
@@ -441,6 +537,107 @@ export function SettingsDrawer({
         </div>
         </section>
       )}
+
+      <section className="settings-section">
+        <h3>
+          <LifeBuoy size={15} />
+          Data &amp; support
+        </h3>
+        <p className="shortcut-help">
+          Backups contain your saved workspace. Support bundles contain only
+          versions, capability flags and counts—never paths, character names,
+          copied items, cookies or tokens.
+        </p>
+        <div className="settings-data-actions">
+          <button
+            type="button"
+            disabled={transferBusy}
+            onClick={async () => {
+              setTransferBusy(true);
+              setTransferStatus("");
+              try {
+                const result = await bridge.exportWorkspaceBackup(
+                  collectWorkspaceStorage(),
+                );
+                setTransferStatus(result ? `Saved ${result.name}.` : "Export cancelled.");
+              } catch (reason) {
+                setTransferStatus(reason instanceof Error ? reason.message : String(reason));
+              } finally {
+                setTransferBusy(false);
+              }
+            }}
+          >
+            <Download size={13} /> Export workspace
+          </button>
+          <button
+            type="button"
+            disabled={transferBusy}
+            onClick={async () => {
+              if (!window.confirm(
+                "Restore this backup? Current GloamCore workspace data will be replaced after an automatic recovery copy is created.",
+              )) return;
+              setTransferBusy(true);
+              setTransferStatus("");
+              try {
+                const result = await bridge.importWorkspaceBackup(
+                  collectWorkspaceStorage(),
+                );
+                if (!result) {
+                  setTransferStatus("Restore cancelled.");
+                  return;
+                }
+                applyWorkspaceStorage(result.renderer);
+                setTransferStatus(
+                  result.recoveryName
+                    ? `Restored. Recovery copy: ${result.recoveryName}. Restarting…`
+                    : "Restored. Restarting…",
+                );
+                window.setTimeout(() => window.location.reload(), 250);
+              } catch (reason) {
+                setTransferStatus(reason instanceof Error ? reason.message : String(reason));
+              } finally {
+                setTransferBusy(false);
+              }
+            }}
+          >
+            <RotateCcw size={13} /> Restore workspace
+          </button>
+          <button
+            type="button"
+            disabled={transferBusy}
+            onClick={async () => {
+              setTransferBusy(true);
+              setTransferStatus("");
+              try {
+                const diagnostic = await bridge.diagnosePobEngine().catch(() => null);
+                const gameData = await loadGameData().catch(() => null);
+                const result = await bridge.exportSupportBundle(supportContext({
+                  theme,
+                  density,
+                  textScale,
+                  reducedMotion,
+                  colorVision,
+                  gameVersion: gameData?.bundle.manifest.gameVersion,
+                  revision: gameData?.bundle.atlas.source.revision,
+                  atlasNodes: gameData?.bundle.atlas.nodes.length,
+                  gems: gameData?.bundle.navigator.gems.length,
+                  pobEngine: diagnostic?.ok === true,
+                }));
+                setTransferStatus(result ? `Saved ${result.name}.` : "Export cancelled.");
+              } catch (reason) {
+                setTransferStatus(reason instanceof Error ? reason.message : String(reason));
+              } finally {
+                setTransferBusy(false);
+              }
+            }}
+          >
+            <ShieldCheck size={13} /> Export support bundle
+          </button>
+        </div>
+        {transferStatus && (
+          <p className="settings-transfer-status" role="status">{transferStatus}</p>
+        )}
+      </section>
 
       <section className="settings-notice">
         <ShieldCheck size={18} />

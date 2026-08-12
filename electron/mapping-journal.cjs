@@ -544,6 +544,24 @@ function createMappingJournalService({ storePath } = {}) {
     return publish();
   }
 
+  function replaceState(value) {
+    const previousStore = store;
+    store = sanitizeStore({
+      settings: value?.settings,
+      sessions: value?.sessions,
+      runtime: emptyRuntime(),
+    });
+    try {
+      save();
+    } catch (error) {
+      store = previousStore;
+      storageError = `Mapping Journal restore could not be saved: ${String(error?.message || error)}`;
+      publish();
+      throw error;
+    }
+    return publish();
+  }
+
   function suspendObservation() {
     if (!store.runtime.currentVisit) return publicState();
     const previousStore = store;
@@ -584,6 +602,7 @@ function createMappingJournalService({ storePath } = {}) {
     ingestLines,
     load,
     removeSession,
+    replaceState,
     saveCsv,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     suspendObservation,
@@ -597,4 +616,5 @@ module.exports = {
   createMappingJournalService,
   mappingJournalCsv,
   parseMappingJournalLine,
+  sanitizeStore,
 };

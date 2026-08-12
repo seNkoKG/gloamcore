@@ -62,6 +62,19 @@ export interface ItemFilterDocument {
   trailing: string[];
 }
 
+export interface ItemFilterDiffEntry {
+  id: string;
+  tier: string;
+  blockNumber: number;
+}
+
+export interface ItemFilterDiff {
+  added: ItemFilterDiffEntry[];
+  removed: ItemFilterDiffEntry[];
+  changed: ItemFilterDiffEntry[];
+  unchanged: number;
+}
+
 export type FilterIntent =
   | {
       kind: "visibility";
@@ -467,6 +480,41 @@ export function serializeItemFilter(document: ItemFilterDocument) {
   });
   output.push(...document.trailing);
   return output.join(document.eol);
+}
+
+/** Compare two parsed filters by stable PoE rule identity and effective authored output. */
+export function diffItemFilters(
+  current: ItemFilterDocument,
+  baseline: ItemFilterDocument,
+): ItemFilterDiff {
+  const entry = (block: ItemFilterBlock, index: number): ItemFilterDiffEntry => ({
+    id: block.id,
+    tier: block.tier,
+    blockNumber: index + 1,
+  });
+  const currentById = new Map(current.blocks.map((block, index) => [block.id, { block, index }]));
+  const baselineById = new Map(baseline.blocks.map((block, index) => [block.id, { block, index }]));
+  const added: ItemFilterDiffEntry[] = [];
+  const removed: ItemFilterDiffEntry[] = [];
+  const changed: ItemFilterDiffEntry[] = [];
+  let unchanged = 0;
+
+  for (const [id, value] of currentById) {
+    const previous = baselineById.get(id);
+    if (!previous) {
+      added.push(entry(value.block, value.index));
+      continue;
+    }
+    const currentOutput = serializeBlock(value.block).join("\n");
+    const baselineOutput = serializeBlock(previous.block).join("\n");
+    if (currentOutput === baselineOutput) unchanged += 1;
+    else changed.push(entry(value.block, value.index));
+  }
+  for (const [id, value] of baselineById) {
+    if (!currentById.has(id)) removed.push(entry(value.block, value.index));
+  }
+
+  return { added, removed, changed, unchanged };
 }
 
 function replaceBlock(

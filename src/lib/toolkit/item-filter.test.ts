@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  diffItemFilters,
   filterActionProblem,
   itemFilterFileMatchesMode,
   itemFilterFileName,
@@ -34,6 +35,17 @@ const sample = [
 ].join("\r\n");
 
 describe("item filter editor", () => {
+  it("diffs filters by stable rule identity and effective block output", () => {
+    const baseline = parseItemFilter(sample);
+    let current = setBlockVisibility(baseline, baseline.blocks[1].id, "Show");
+    current = parseItemFilter(`${serializeItemFilter(current)}# tier: Maps\nShow\n    Class \"Maps\"\n`);
+    const diff = diffItemFilters(current, baseline);
+    expect(diff.changed.map((entry) => entry.tier)).toEqual(["Supplies"]);
+    expect(diff.added.map((entry) => entry.tier)).toEqual(["Maps"]);
+    expect(diff.removed).toEqual([]);
+    expect(diff.unchanged).toBe(1);
+  });
+
   it("parses blocks, authored operators, tier comments, and CRLF", () => {
     const document = parseItemFilter(sample);
     expect(document.eol).toBe("\r\n");

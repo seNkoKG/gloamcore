@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { bridge } from "../lib/bridge";
 import { formatCompact, formatPrice } from "../lib/format";
 import { rankQuickRows } from "../lib/quick-search";
-import type { QuickSearchRow, SurfaceState } from "../types";
+import type { QuickCommand, QuickSearchRow, SurfaceState } from "../types";
 import { CurrencyMark } from "./CurrencyMark";
 
 function adaptivePrice(row: QuickSearchRow) {
@@ -30,6 +30,39 @@ function openRow(row: QuickSearchRow) {
     rowKey: row.key,
   });
 }
+
+function openCommand(command: QuickCommand) {
+  return bridge.surfaceAction({
+    type: "open-mode",
+    mode: command.mode,
+    categoryId: command.categoryId,
+    section: command.section,
+    query: command.query,
+    resourceId: command.resourceId,
+  });
+}
+
+function rankedCommands(commands: QuickCommand[], query: string) {
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return commands
+    .flatMap((command) => {
+      const title = command.title.toLocaleLowerCase();
+      const haystack = `${command.title} ${command.subtitle} ${command.keywords}`.toLocaleLowerCase();
+      if (terms.some((term) => !haystack.includes(term))) return [];
+      const score = terms.reduce(
+        (total, term) => total + (title === term ? 20 : title.startsWith(term) ? 12 : title.includes(term) ? 7 : 2),
+        0,
+      );
+      return [{ command, score }];
+    })
+    .sort((left, right) => right.score - left.score || left.command.title.localeCompare(right.command.title))
+    .slice(0, query.trim() ? 24 : 12)
+    .map((entry) => entry.command);
+}
+
+type QuickResult =
+  | { kind: "command"; command: QuickCommand }
+  | { kind: "market"; row: QuickSearchRow };
 
 export function QuickSearchSurface() {
   const [state, setState] = useState<SurfaceState | null>(null);
@@ -56,10 +89,13 @@ export function QuickSearchSurface() {
     };
   }, []);
 
-  const results = useMemo(
-    () => rankQuickRows(state?.searchRows || [], query, 50),
-    [query, state?.searchRows],
-  );
+  const results = useMemo<QuickResult[]>(() => {
+    const commands = rankedCommands(state?.commands || [], query)
+      .map((command): QuickResult => ({ kind: "command", command }));
+    const rows = rankQuickRows(state?.searchRows || [], query, 50 - commands.length)
+      .map((row): QuickResult => ({ kind: "market", row }));
+    return [...commands, ...rows];
+  }, [query, state?.commands, state?.searchRows]);
   const marketCount = useMemo(
     () => new Set((state?.searchRows || []).map((row) => row.categoryId)).size,
     [state?.searchRows],
@@ -70,8 +106,9 @@ export function QuickSearchSurface() {
     if (selected >= results.length) setSelected(Math.max(0, results.length - 1));
   }, [results.length, selected]);
 
-  const choose = (row: QuickSearchRow | undefined) => {
-    if (row) void openRow(row);
+  const choose = (result: QuickResult | undefined) => {
+    if (result?.kind === "command") void openCommand(result.command);
+    if (result?.kind === "market") void openRow(result.row);
   };
 
   return (
@@ -106,7 +143,7 @@ export function QuickSearchSurface() {
         <div className="surface-brand">
           <span>P</span>
           <div>
-            <strong>INSTANT MARKET SEARCH</strong>
+            <strong>GLOAMCORE COMMAND SEARCH</strong>
             <small>{state?.league || "Current league"}</small>
           </div>
         </div>
@@ -125,8 +162,8 @@ export function QuickSearchSurface() {
           ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search loaded markets and watched items…"
-          aria-label="Search market items"
+          placeholder="Search tools, PoE data, saved builds and markets…"
+          aria-label="Search GloamCore commands and market items"
           aria-activedescendant={
             results[selected] ? `quick-result-${selected}` : undefined
           }
@@ -142,9 +179,9 @@ export function QuickSearchSurface() {
 
       <div className="quick-search-meta">
         <span>
-          {state?.searchRows.length.toLocaleString() || "0"} indexed items
+          {state?.commands.length.toLocaleString() || "0"} commands
           <i>•</i>
-          {marketCount} loaded market{marketCount === 1 ? "" : "s"}
+          {state?.searchRows.length.toLocaleString() || "0"} items across {marketCount} market{marketCount === 1 ? "" : "s"}
         </span>
         <button
           type="button"
@@ -157,7 +194,33 @@ export function QuickSearchSurface() {
 
       <div className="quick-results" role="listbox">
         {results.length ? (
-          results.map((row, index) => {
+          results.map((result, index) => {
+            if (result.kind === "command") {
+              const command = result.command;
+              return (
+                <button
+                  id={`quick-result-${index}`}
+                  role="option"
+                  aria-selected={selected === index}
+                  type="button"
+                  className={clsx(
+                    "quick-result quick-result--command",
+                    selected === index && "is-selected",
+                  )}
+                  key={command.id}
+                  onMouseEnter={() => setSelected(index)}
+                  onClick={() => choose(result)}
+                >
+                  <span className="quick-result-icon"><Command size={17} /></span>
+                  <span className="quick-result-copy">
+                    <strong>{command.title}</strong>
+                    <small>{command.subtitle}</small>
+                  </span>
+                  <span className="quick-command-open">OPEN <ArrowRight size={13} /></span>
+                </button>
+              );
+            }
+            const row = result.row;
             const price = adaptivePrice(row);
             const liquidity = row.volume ?? row.listingCount;
             return (
@@ -172,7 +235,7 @@ export function QuickSearchSurface() {
                 )}
                 key={`${row.league}:${row.categoryId}:${row.source}:${row.key}`}
                 onMouseEnter={() => setSelected(index)}
-                onClick={() => choose(row)}
+                onClick={() => choose(result)}
               >
                 <span className="quick-result-icon">
                   {row.icon ? <img src={row.icon} alt="" /> : row.name[0]}
@@ -223,10 +286,10 @@ export function QuickSearchSurface() {
         ) : (
           <div className="quick-empty">
             <Search size={25} />
-            <strong>No indexed item matches “{query}”</strong>
+          <strong>No command or indexed item matches “{query}”</strong>
             <p>
-              Open that economy category once and it becomes available here for
-              instant access. Watched items are always indexed.
+              Market categories become searchable after they load. App tools,
+              validated gems and Atlas nodes are indexed automatically.
             </p>
           </div>
         )}
@@ -241,7 +304,7 @@ export function QuickSearchSurface() {
         </span>
         <span className="quick-global-hint">
           <Command size={12} />
-          Ctrl Shift Space from anywhere
+          Ctrl P in app · Ctrl Shift Space anywhere
         </span>
         {state?.alertCount ? (
           <button

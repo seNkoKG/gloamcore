@@ -42,7 +42,7 @@
   padding: 0 8px;
   overflow: hidden;
   color: #8297a7;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-overflow: ellipsis;
@@ -89,7 +89,7 @@
   justify-items: center;
   gap: 12px;
   color: #718797;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   letter-spacing: 0.11em;
 }
 
@@ -126,11 +126,11 @@
 
 .pco-resolving strong {
   color: #d8e1e7;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
 }
 
 .pco-resolving small {
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
 }
 
 .pco-loader {
@@ -228,7 +228,7 @@
 
 .pco-item-name strong {
   color: #f0f4f7;
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale));
 }
 
 .pco-item.is-unique .pco-item-name strong { color: #c7a46b; }
@@ -246,7 +246,7 @@
   display: block;
   margin-bottom: 5px;
   color: #8ba3ae;
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   letter-spacing: 0.08em;
 }
 
@@ -267,7 +267,7 @@
   border-radius: 4px;
   color: #dfe9ed;
   background: #102029;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   text-align: left;
 }
 
@@ -308,13 +308,13 @@
   color: #8ba3ae;
   background: #0d1a21;
   font: inherit;
-  font-size: 8px;
+  font-size: calc(8px * var(--ui-text-scale));
   font-weight: 800;
 }
 
 .pco-item-name span {
   color: #718796;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
 }
 
 .pco-facts {
@@ -333,7 +333,7 @@
   color: #8ba1b0;
   border: 1px solid #344653;
   border-radius: 1px;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 600;
 }
 
@@ -353,7 +353,7 @@
   grid-area: price;
   min-width: 68px;
   color: #69e1c1;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-text-scale));
   font-weight: 750;
   text-align: right;
   white-space: nowrap;
@@ -369,7 +369,7 @@
 
 .pco-item output.pco-filter-count {
   color: #83d7c2;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   letter-spacing: 0.04em;
 }
 
@@ -399,7 +399,7 @@
   border-radius: 0;
   background: transparent;
   color: #93a7b4;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -420,7 +420,7 @@
   align-self: center;
   padding: 0 8px;
   color: #93a7b4;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.06em;
 }
@@ -470,7 +470,7 @@
   color: #91a5b2;
   background: #17212a;
   border-bottom: 1px solid #2d3d49;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.07em;
 }
@@ -487,7 +487,7 @@
 
 .pco-row > b {
   color: #e4edf2;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale));
   white-space: nowrap;
 }
 
@@ -495,14 +495,14 @@
   min-width: 0;
   overflow: hidden;
   color: #8799a6;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .pco-row > .pco-listed {
   color: #8fa2ae;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale));
   text-align: right;
 }
 
@@ -513,7 +513,7 @@
   place-items: center;
   padding: 12px;
   color: #8d6870;
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.06em;
   text-align: center;

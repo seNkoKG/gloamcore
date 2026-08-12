@@ -103,6 +103,9 @@ export function sanitizeDesktopSettingsPatch(
   for (const key of BOOLEAN_SETTING_KEYS) {
     if (typeof value[key] === "boolean") sanitized[key] = value[key];
   }
+  if (value.updateChannel === "stable" || value.updateChannel === "preview") {
+    sanitized.updateChannel = value.updateChannel;
+  }
   if (typeof value.opacity === "number" && Number.isFinite(value.opacity)) {
     sanitized.opacity = Math.max(0.65, Math.min(1, value.opacity));
   }

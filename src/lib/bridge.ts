@@ -15,6 +15,7 @@ import type {
   ToolkitWorkspace,
   UpdateState,
 } from "../types";
+import packageMetadata from "../../package.json";
 import { isOverviewPayload, mobileBridge } from "./mobile-bridge";
 import { fetchBoundedToolkitText } from "./bounded-text-fetch";
 import {
@@ -44,6 +45,12 @@ import {
   readMigratedStorage,
   retiredProductStorageKey,
 } from "./storage-migration";
+import {
+  browserSupportBundle,
+  browserWorkspaceBackup,
+  downloadJson,
+  pickWorkspaceJson,
+} from "./workspace-transfer";
 
 const browserSettings: DesktopSettings = {
   alwaysOnTop: true,
@@ -52,6 +59,7 @@ const browserSettings: DesktopSettings = {
   clickThrough: false,
   startMinimized: false,
   autoCheckUpdates: true,
+  updateChannel: "stable",
   shortcuts: defaultDesktopShortcuts,
   priceCheck: defaultPriceCheckSettings,
 };
@@ -73,6 +81,7 @@ let browserSurfaceState: SurfaceState = {
   alerts: [],
   topMovers: [],
   searchRows: [],
+  commands: [],
   update: browserUpdateState,
 };
 
@@ -586,8 +595,25 @@ const browserBridge: PoeWidgetBridge = {
   async listToolkitCheckpoints() {
     return [];
   },
+  async readToolkitCheckpoint() {
+    throw new Error("Checkpoints require the desktop app.");
+  },
   async restoreToolkitCheckpoint() {
     throw new Error("Checkpoints require the desktop app.");
+  },
+  async exportWorkspaceBackup(renderer) {
+    const name = `GloamCore-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadJson(name, browserWorkspaceBackup(packageMetadata.version, renderer));
+    return { path: "", name };
+  },
+  async importWorkspaceBackup() {
+    const renderer = await pickWorkspaceJson();
+    return renderer ? { renderer, recoveryName: null } : null;
+  },
+  async exportSupportBundle(context) {
+    const name = `GloamCore-support-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadJson(name, browserSupportBundle(packageMetadata.version, context));
+    return { path: "", name };
   },
   async fetchToolkitText(url) {
     return fetchBoundedToolkitText(url);

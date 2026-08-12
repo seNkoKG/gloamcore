@@ -23,12 +23,30 @@ explicitly supersedes any retired transport or data-source behavior.
 4. **3.3.0 — Mapping Journal.** Persist only sanitized map-session facts parsed
    from the user-selected local Client.txt, with death/entry timing, notes,
    tags, summary, and CSV export. Never infer loot, profit, or hidden game state.
+5. **3.4.0 — Safe workflow completion.** Unified command search, authored PoB
+   progression, organized portable Atlas presets, staged filter profiles and
+   semantic diffs, workspace recovery, privacy-safe diagnostics, accessible
+   display controls, and explicit stable/preview update channels.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.3.2
+## Current in 3.4.0
+
+- Search native tools, validated PoE data, saved builds and presets, and loaded
+  markets from one command surface; exact saved-resource IDs drive navigation.
+- Read progression only from authored PoB tree, skill, and item sets, and open
+  honest official Trade handoffs without inferring rare or magic modifiers.
+- Organize, compare, migrate, import, and export Atlas Strategy Presets while
+  continuing to validate their nodes, budget, and connectivity against the
+  active approved league pack.
+- Stage and semantically compare named filter profiles before applying them,
+  with checkpoints and confirmed recovery kept separate from normal saves.
+- Export allowlisted workspace backups and privacy-safe diagnostics, opt into
+  preview releases explicitly, and apply native-wide accessibility settings.
+
+## Shipped in 3.3.2
 
 - Composed the Atlas from GGG's current frame, connector, orbit, group
   background, node, and Atlas background sprites using the official group and

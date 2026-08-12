@@ -34,8 +34,16 @@ contextBridge.exposeInMainWorld("poeWidget", {
     ipcRenderer.invoke("toolkit:create-checkpoint", request),
   listToolkitCheckpoints: (filePath) =>
     ipcRenderer.invoke("toolkit:list-checkpoints", filePath),
+  readToolkitCheckpoint: (request) =>
+    ipcRenderer.invoke("toolkit:read-checkpoint", request),
   restoreToolkitCheckpoint: (request) =>
     ipcRenderer.invoke("toolkit:restore-checkpoint", request),
+  exportWorkspaceBackup: (renderer) =>
+    ipcRenderer.invoke("workspace:export", renderer),
+  importWorkspaceBackup: (renderer) =>
+    ipcRenderer.invoke("workspace:import", renderer),
+  exportSupportBundle: (context) =>
+    ipcRenderer.invoke("support:export", context),
   fetchToolkitText: (url) => ipcRenderer.invoke("toolkit:fetch-text", url),
   getRegexDataPack: () => ipcRenderer.invoke("toolkit:get-regex-data"),
   getToolkitWorkspace: () => ipcRenderer.invoke("toolkit:get-workspace"),

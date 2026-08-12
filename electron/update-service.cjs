@@ -87,11 +87,16 @@ function updaterMessage(error) {
   return String(error || "Unknown update error");
 }
 
+function normalizeUpdateChannel(value) {
+  return value === "preview" ? "preview" : "stable";
+}
+
 class UpdateService {
   constructor({
     app,
     feedUrl,
     autoCheck = true,
+    channel = "stable",
     portable = false,
     updater,
     createUpdater,
@@ -109,6 +114,7 @@ class UpdateService {
         ? `https://github.com/${this.updateSource.owner}/${this.updateSource.repo}/releases`
         : "";
     this.autoCheck = Boolean(autoCheck);
+    this.channel = normalizeUpdateChannel(channel);
     this.onState = onState;
     this.startDelayMs = Math.max(0, Number(startDelayMs) || 0);
     this.checkIntervalMs = Math.max(60_000, Number(checkIntervalMs) || 0);
@@ -125,6 +131,7 @@ class UpdateService {
           ? "Ready to check for updates"
           : "Update hosting is not connected yet",
       feedConfigured: Boolean(this.updateSource),
+      channel: this.channel,
     };
 
     if (this.updateSource && !this.updater) {
@@ -142,7 +149,7 @@ class UpdateService {
   bindUpdater() {
     this.updater.autoDownload = true;
     this.updater.autoInstallOnAppQuit = false;
-    this.updater.allowPrerelease = false;
+    this.updater.allowPrerelease = this.channel === "preview";
 
     this.updater.on("checking-for-update", () => {
       this.publish({
@@ -199,6 +206,7 @@ class UpdateService {
       ...patch,
       currentVersion: this.app.getVersion(),
       feedConfigured: Boolean(this.updateSource),
+      channel: this.channel,
     };
     this.onState(this.getState());
     this.writeDiagnostics();
@@ -224,6 +232,23 @@ class UpdateService {
     this.autoCheck = Boolean(value);
     if (this.autoCheck) this.schedule();
     else this.clearSchedule();
+  }
+
+  setChannel(value) {
+    const next = normalizeUpdateChannel(value);
+    if (next === this.channel) return this.getState();
+    this.channel = next;
+    if (this.updater) this.updater.allowPrerelease = next === "preview";
+    return this.publish({
+      status: this.updateSource ? "idle" : "unconfigured",
+      version: undefined,
+      progress: undefined,
+      message: this.updateSource
+        ? next === "preview"
+          ? "Preview releases are enabled"
+          : "Stable releases only"
+        : this.state.message,
+    });
   }
 
   start() {
@@ -290,6 +315,7 @@ module.exports = {
   UpdateService,
   normalizeFeedUrl,
   normalizeUpdateSource,
+  normalizeUpdateChannel,
   readConfiguredFeedUrl,
   readConfiguredUpdateSource,
 };

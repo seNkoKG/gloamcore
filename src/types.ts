@@ -392,6 +392,7 @@ export interface DesktopSettings {
   clickThrough: boolean;
   startMinimized: boolean;
   autoCheckUpdates: boolean;
+  updateChannel: "stable" | "preview";
   shortcuts: DesktopShortcutSettings;
   priceCheck: import("./lib/price-check/types").PriceCheckSettings;
   /** Runtime-only warning when Windows refused a configured global binding. */
@@ -457,6 +458,8 @@ export interface SortState {
 }
 
 export type AppTheme = "gloam" | "azurite" | "ember" | "wraeclast";
+export type TextScale = "small" | "normal" | "large";
+export type ColorVisionMode = "standard" | "accessible";
 
 export interface AppPreferences {
   league?: string;
@@ -465,6 +468,9 @@ export interface AppPreferences {
   valueDisplay: ValueDisplay;
   density: Density;
   theme: AppTheme;
+  textScale: TextScale;
+  reducedMotion: boolean;
+  colorVision: ColorVisionMode;
   sidebarCollapsed: boolean;
   refreshMinutes: number;
   watchlist: WatchEntry[];
@@ -487,6 +493,19 @@ export interface QuickSearchRow {
   variant?: string;
   baseType?: string;
   lowConfidence: boolean;
+}
+
+export interface QuickCommand {
+  id: string;
+  title: string;
+  subtitle: string;
+  keywords: string;
+  mode: AppMode | "settings";
+  categoryId?: string;
+  section?: "route" | "gems" | "atlas" | "data";
+  query?: string;
+  /** Exact saved-resource identity for direct navigation; never interpreted as PoE data. */
+  resourceId?: string;
 }
 
 export interface SurfaceAlert {
@@ -519,6 +538,36 @@ export interface UpdateState {
   message: string;
   checkedAt?: number;
   feedConfigured: boolean;
+  channel?: "stable" | "preview";
+}
+
+export interface SupportBundleContext {
+  display: {
+    theme: string;
+    density: string;
+    textScale: string;
+    reducedMotion: boolean;
+    colorVision: string;
+  };
+  data: { gameVersion: string; revision: string; atlasNodes: number; gems: number };
+  storage: {
+    preferences: number;
+    atlasPresets: number;
+    savedBuilds: number;
+    filterCheckpoints: number;
+    toolkitMacros: number;
+  };
+  capabilities: {
+    pobEngine: boolean;
+    desktopUpdater: boolean;
+    toolkitFiles: boolean;
+    mappingJournal: boolean;
+  };
+}
+
+export interface WorkspaceImportResult {
+  renderer: Record<string, string>;
+  recoveryName: string | null;
 }
 
 export interface SurfaceState {
@@ -532,6 +581,7 @@ export interface SurfaceState {
   alerts: SurfaceAlert[];
   topMovers: QuickSearchRow[];
   searchRows: QuickSearchRow[];
+  commands: QuickCommand[];
   update: UpdateState;
 }
 
@@ -875,6 +925,14 @@ export type SurfaceAction =
     }
   | { type: "open-quick-search" }
   | { type: "open-watchlist" }
+  | {
+      type: "open-mode";
+      mode: AppMode | "settings";
+      categoryId?: string;
+      section?: "route" | "gems" | "atlas" | "data";
+      query?: string;
+      resourceId?: string;
+    }
   | { type: "refresh-market" }
   | { type: "check-update" }
   | { type: "install-update" }
@@ -908,6 +966,14 @@ export type ShortcutEvent =
   | { type: "refresh-market" }
   | { type: "open-watchlist" }
   | { type: "open-price-check-dashboard" }
+  | {
+      type: "open-mode";
+      mode: AppMode | "settings";
+      categoryId?: string;
+      section?: "route" | "gems" | "atlas" | "data";
+      query?: string;
+      resourceId?: string;
+    }
   | {
       type: "open-row";
       league: string;
@@ -1204,12 +1270,26 @@ export interface PoeWidgetBridge {
   createToolkitCheckpoint(request: {
     path: string;
     label?: string;
+    text?: string;
   }): Promise<ToolkitCheckpoint>;
   listToolkitCheckpoints(filePath: string): Promise<ToolkitCheckpoint[]>;
+  readToolkitCheckpoint(request: {
+    path: string;
+    id: string;
+  }): Promise<ToolkitTextFile>;
   restoreToolkitCheckpoint(request: {
     path: string;
     id: string;
   }): Promise<ToolkitTextFile>;
+  exportWorkspaceBackup(
+    renderer: Record<string, string>,
+  ): Promise<{ path: string; name: string } | null>;
+  importWorkspaceBackup(
+    currentRenderer: Record<string, string>,
+  ): Promise<WorkspaceImportResult | null>;
+  exportSupportBundle(
+    context: SupportBundleContext,
+  ): Promise<{ path: string; name: string } | null>;
   fetchToolkitText(url: string): Promise<string>;
   getRegexDataPack?(): Promise<string>;
   getPassiveTreeData(options?: {

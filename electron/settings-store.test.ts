@@ -11,6 +11,10 @@ describe("settings persistence", () => {
     })).toEqual({ clickThrough: false });
     expect(store.sanitizeScalarSettings({ alwaysOnTop: true, opacity: 0.1 }))
       .toEqual({ alwaysOnTop: true, opacity: 0.65 });
+    expect(store.sanitizeScalarSettings({ updateChannel: "preview" }))
+      .toEqual({ updateChannel: "preview" });
+    expect(store.sanitizeScalarSettings({ updateChannel: "nightly" }))
+      .toEqual({});
     expect(store.sanitizeWindowBounds({ width: -1, height: 900 })).toBeNull();
     expect(store.sanitizeWindowBounds({ x: 1.4, y: 2.6, width: 800.2, height: 600.8 }))
       .toEqual({ x: 1, y: 3, width: 800, height: 601 });
