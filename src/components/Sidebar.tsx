@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   ChevronLeft,
   ChevronRight,
+  Compass,
   Database,
   LayoutDashboard,
   Network,
@@ -48,11 +49,7 @@ export function Sidebar({
           onClick={() => onMode("command")}
           title="League Command Center"
         >
-          <img
-            className="sidebar-poe-icon"
-            src="https://www.poewiki.net/images/9/9a/Deal_with_the_Bandits_quest_icon.png"
-            alt=""
-          />
+          <Compass size={18} />
           {!collapsed && <span>League Center</span>}
           {!collapsed && <small>POE 1</small>}
         </button>

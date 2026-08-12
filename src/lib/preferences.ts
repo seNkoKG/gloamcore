@@ -39,6 +39,7 @@ export const defaultPreferences: AppPreferences = {
   sourceByCategory: {},
   valueDisplay: "adaptive",
   density: "compact",
+  theme: "gloam",
   sidebarCollapsed: false,
   refreshMinutes: 5,
   watchlist: [],

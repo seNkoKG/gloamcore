@@ -15,6 +15,7 @@ const DATA_SOURCES = new Set<DataSource>([
 ]);
 const VALUE_DISPLAYS = new Set(["adaptive", "chaos", "divine"]);
 const DENSITIES = new Set(["compact", "comfortable"]);
+const APP_THEMES = new Set(["gloam", "azurite", "ember"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -275,6 +276,11 @@ export function migrateStoredPreferences(
   if (own(raw, "density")) {
     if (typeof raw.density === "string" && DENSITIES.has(raw.density)) {
       saved.density = raw.density as AppPreferences["density"];
+    } else migrated = true;
+  }
+  if (own(raw, "theme")) {
+    if (typeof raw.theme === "string" && APP_THEMES.has(raw.theme)) {
+      saved.theme = raw.theme as AppPreferences["theme"];
     } else migrated = true;
   }
   if (own(raw, "sidebarCollapsed")) {

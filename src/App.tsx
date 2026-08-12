@@ -392,6 +392,10 @@ export default function App() {
     desktopSettingsRef.current = desktopSettings;
   }, [desktopSettings]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = preferences.theme;
+  }, [preferences.theme]);
+
   const applyDesktopSettingsSnapshot = useCallback((incoming: DesktopSettings) => {
     const remote: DesktopSettings = {
       ...defaultDesktopSettings,
@@ -1645,10 +1649,12 @@ export default function App() {
           <SettingsDrawer
             settings={desktopSettings}
             density={preferences.density}
+            theme={preferences.theme}
             refreshMinutes={preferences.refreshMinutes}
             onClose={() => setSettingsOpen(false)}
             onSettings={updateDesktop}
             onDensity={(density) => updatePreferences({ density })}
+            onTheme={(theme) => updatePreferences({ theme })}
             onRefreshMinutes={(refreshMinutes) =>
               updatePreferences({ refreshMinutes })
             }

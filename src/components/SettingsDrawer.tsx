@@ -7,6 +7,7 @@ import {
   Minimize2,
   MonitorUp,
   MousePointer2,
+  Palette,
   Pin,
   RefreshCw,
   RotateCcw,
@@ -25,23 +26,27 @@ import {
   type ShortcutDraftKey,
   validateShortcutDraft,
 } from "../lib/shortcuts";
-import type { Density, DesktopSettings, UpdateState } from "../types";
+import type { AppTheme, Density, DesktopSettings, UpdateState } from "../types";
 
 export function SettingsDrawer({
   settings,
   density,
+  theme,
   refreshMinutes,
   onClose,
   onSettings,
   onDensity,
+  onTheme,
   onRefreshMinutes,
 }: {
   settings: DesktopSettings;
   density: Density;
+  theme: AppTheme;
   refreshMinutes: number;
   onClose: () => void;
   onSettings: (patch: Partial<DesktopSettings>) => Promise<void>;
   onDensity: (density: Density) => void;
+  onTheme: (theme: AppTheme) => void;
   onRefreshMinutes: (minutes: number) => void;
 }) {
   const [update, setUpdate] = useState<UpdateState | null>(null);
@@ -176,6 +181,33 @@ export function SettingsDrawer({
           <SlidersHorizontal size={15} />
           Market display
         </h3>
+        <div className="setting-theme">
+          <div>
+            <Palette size={16} />
+            <span>
+              <strong>Interface theme</strong>
+              <small>Use one coordinated palette across every native workspace.</small>
+            </span>
+          </div>
+          <div className="setting-theme-options" role="group" aria-label="Interface theme">
+            {([
+              ["gloam", "Gloam Teal"],
+              ["azurite", "Azurite Blue"],
+              ["ember", "Ember Gold"],
+            ] as Array<[AppTheme, string]>).map(([value, label]) => (
+              <button
+                key={value}
+                className={`setting-theme-option setting-theme-option--${value}${theme === value ? " is-active" : ""}`}
+                type="button"
+                aria-pressed={theme === value}
+                onClick={() => onTheme(value)}
+              >
+                <span aria-hidden="true" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="setting-choice" role="group" aria-label="Row density">
           <span>Row density</span>
           <div>

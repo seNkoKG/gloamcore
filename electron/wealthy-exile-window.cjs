@@ -11,6 +11,45 @@ const AD_BLOCK_LOAD_TIMEOUT_MS = 10_000;
 const WEALTHY_EXILE_LOAD_TIMEOUT_MS = 30_000;
 const configuredSessions = new WeakSet();
 const sessionAdBlockers = new WeakMap();
+const WEALTHY_EXILE_AD_CLEANUP_CSS = `
+  #wealthy-exile-nitro-ad-left,
+  #wealthy-exile-nitro-ad-right,
+  [id^="google_ads_iframe_"][id$="__container__"],
+  iframe[id^="google_ads_iframe_"],
+  iframe[aria-label="Advertisement"],
+  body *:has(> #wealthy-exile-nitro-ad-left),
+  body *:has(> #wealthy-exile-nitro-ad-right) {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+  }
+`;
+const WEALTHY_EXILE_AD_CLEANUP_SCRIPT = `(() => {
+  const styleId = "gloamcore-wealthy-exile-ad-cleanup";
+  const css = ${JSON.stringify(WEALTHY_EXILE_AD_CLEANUP_CSS)};
+  const install = () => {
+    if (!document.documentElement || document.getElementById(styleId)) return;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = css;
+    document.documentElement.appendChild(style);
+  };
+  install();
+  if (!window.__gloamcoreWealthyExileAdObserver) {
+    const observer = new MutationObserver(install);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    window.__gloamcoreWealthyExileAdObserver = observer;
+  }
+  return true;
+})()`;
 
 function allowedNavigationUrl(value) {
   try {
@@ -44,6 +83,17 @@ function fitViewBounds(value, container) {
 
 function shouldBlockAds(value) {
   return allowedNavigationUrl(value)?.hostname === "wealthyexile.com";
+}
+
+function installWealthyExileAdCleanup(contents) {
+  const inject = () => {
+    if (contents.isDestroyed?.() || !shouldBlockAds(contents.getURL?.())) return;
+    void contents.executeJavaScript(WEALTHY_EXILE_AD_CLEANUP_SCRIPT, true)
+      .catch((cause) => console.warn("Wealthy Exile ad cleanup unavailable:", cause));
+  };
+  contents.on("dom-ready", inject);
+  contents.on("did-finish-load", inject);
+  return inject;
 }
 
 async function loadWealthyExileAdBlocker(session, dependencies = {}) {
@@ -140,6 +190,7 @@ function createWealthyExileView({
   view.setVisible(false);
   const contents = view.webContents;
   const session = contents.session;
+  installWealthyExileAdCleanup(contents);
   let adBlocker = null;
   let settleReady;
   let readyTimer;
@@ -206,11 +257,14 @@ module.exports = {
   AD_BLOCK_CACHE_MAX_AGE_MS,
   AD_BLOCK_LOAD_TIMEOUT_MS,
   WEALTHY_EXILE_LOAD_TIMEOUT_MS,
+  WEALTHY_EXILE_AD_CLEANUP_CSS,
+  WEALTHY_EXILE_AD_CLEANUP_SCRIPT,
   WEALTHY_EXILE_PARTITION,
   WEALTHY_EXILE_URL,
   allowedNavigationUrl,
   createWealthyExileView,
   fitViewBounds,
+  installWealthyExileAdCleanup,
   loadWealthyExileAdBlocker,
   shouldBlockAds,
   syncAdBlocking,

@@ -39,6 +39,13 @@ function storedWatch(source: WatchEntry["row"]["source"]): WatchEntry {
 }
 
 describe("stored preference migrations", () => {
+  it("preserves supported interface themes and rejects unknown palettes", () => {
+    expect(migrateStoredPreferences({ theme: "ember" }).stored.theme).toBe("ember");
+    const repaired = migrateStoredPreferences({ theme: "neon-random" });
+    expect(repaired.migrated).toBe(true);
+    expect(repaired.stored.theme).toBeUndefined();
+  });
+
   it("preserves valid Faustus sources and watches while repairing incompatible selections", () => {
     const exchangeWatch = storedWatch("exchange");
     const faustusWatch = storedWatch("faustus");

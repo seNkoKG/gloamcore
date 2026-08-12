@@ -1274,12 +1274,6 @@ function OverlayWorkspace({ league }: { league: string }) {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    document.documentElement.style.setProperty("--teal", workspace.theme.accent);
-    document.documentElement.style.setProperty("--bg-0", workspace.theme.background);
-    document.documentElement.dataset.toolkitDensity = workspace.theme.density;
-  }, [workspace.theme]);
-
   const save = async (next = workspace) => {
     try {
       const result = await queueWorkspaceSave(() => bridge.saveToolkitWorkspace(

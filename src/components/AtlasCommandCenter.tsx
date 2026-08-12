@@ -178,6 +178,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
       context.globalAlpha = 1;
     }
 
+    const accent = getComputedStyle(canvas).getPropertyValue("--teal").trim() || "#2ee6b8";
     context.lineCap = "round";
     for (const node of atlas.nodes) {
       const from = worldToScreen(node.x, node.y);
@@ -188,7 +189,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         const to = worldToScreen(neighbor.x, neighbor.y);
         const active = (node.id === atlas.rootId || allocated.has(node.id))
           && (neighbor.id === atlas.rootId || allocated.has(neighbor.id));
-        context.strokeStyle = active ? "rgba(204, 143, 65, 0.94)" : "rgba(88, 102, 104, 0.34)";
+        context.strokeStyle = active ? accent : "rgba(88, 102, 104, 0.34)";
         context.lineWidth = active ? 2 : 1;
         context.beginPath();
         context.moveTo(from.x, from.y);
@@ -210,7 +211,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
       const matched = searchMatches.has(node.id);
       const selected = selectedId === node.id;
       if (coordinate && image?.complete) {
-        const scale = Math.max(0.52, viewport.zoom / 0.5);
+        const scale = Math.max(0.075, viewport.zoom / 0.5);
         const drawWidth = coordinate.w * scale;
         const drawHeight = coordinate.h * scale;
         context.globalAlpha = node.mastery ? 0.32 : active ? 1 : 0.78;
@@ -228,10 +229,15 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         context.globalAlpha = 1;
       }
       if (matched || selected) {
-        context.strokeStyle = selected ? "#f2c36e" : "#59d5c3";
+        const coordinate = sheet.coords[key];
+        const scale = Math.max(0.075, viewport.zoom / 0.5);
+        const ringRadius = coordinate
+          ? Math.max(7, Math.min(34, Math.max(coordinate.w, coordinate.h) * scale * 0.52))
+          : 9;
+        context.strokeStyle = selected ? accent : "#68a9ff";
         context.lineWidth = selected ? 2.5 : 1.5;
         context.beginPath();
-        context.arc(point.x, point.y, selected ? 13 : 10, 0, Math.PI * 2);
+        context.arc(point.x, point.y, selected ? ringRadius + 2 : ringRadius, 0, Math.PI * 2);
         context.stroke();
       }
     }
@@ -246,16 +252,33 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
     for (const node of atlas.nodes) {
       if (node.mastery || node.id === atlas.rootId) continue;
       const point = worldToScreen(node.x, node.y);
+      const kind = spriteKind(node, allocated.has(node.id));
+      const coordinate = atlas.sprites[kind].coords[spriteKey(node)];
+      const scale = Math.max(0.075, viewport.zoom / 0.5);
+      const hitRadius = coordinate
+        ? Math.max(6, Math.min(28, Math.max(coordinate.w, coordinate.h) * scale * 0.42))
+        : 8;
       const distance = Math.hypot(point.x - x, point.y - y);
-      if (distance <= 13 && (!best || distance < best.distance)) best = { id: node.id, distance };
+      if (distance <= hitRadius && (!best || distance < best.distance)) best = { id: node.id, distance };
     }
     return best?.id ?? null;
   };
 
-  const zoomBy = (factor: number) => setViewport((current) => ({
-    ...current,
-    zoom: Math.max(current.fitZoom * 0.75, Math.min(current.fitZoom * 10, current.zoom * factor)),
-  }));
+  const zoomBy = (factor: number, clientX?: number, clientY?: number) => setViewport((current) => {
+    const zoom = Math.max(current.fitZoom * 0.75, Math.min(current.fitZoom * 12, current.zoom * factor));
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || clientX == null || clientY == null) return { ...current, zoom };
+    const x = clientX - rect.left - size.width / 2;
+    const y = clientY - rect.top - size.height / 2;
+    const worldX = current.centerX + x / current.zoom;
+    const worldY = current.centerY + y / current.zoom;
+    return {
+      ...current,
+      centerX: worldX - x / zoom,
+      centerY: worldY - y / zoom,
+      zoom,
+    };
+  });
 
   return (
     <div className="atlas-canvas-host" ref={hostRef}>
@@ -290,7 +313,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         onPointerLeave={() => onHover(null)}
         onWheel={(event) => {
           event.preventDefault();
-          zoomBy(event.deltaY < 0 ? 1.16 : 1 / 1.16);
+          zoomBy(event.deltaY < 0 ? 1.16 : 1 / 1.16, event.clientX, event.clientY);
         }}
       />
       <div className="atlas-zoom-controls" aria-label="Atlas view controls">

@@ -1,7 +1,7 @@
-GLOAMCORE 3.3.0 — POE 1 ECONOMY + LEAGUE COMMAND CENTER ON YOUR PHONE
+GLOAMCORE 3.3.1 — POE 1 ECONOMY + LEAGUE COMMAND CENTER ON YOUR PHONE
 
 Android:
-1. Copy GloamCore-Android-3.3.0.apk to your phone.
+1. Copy GloamCore-Android-3.3.1.apk to your phone.
 2. Open it and approve “Install unknown apps” for your file/browser app.
 3. Launch GloamCore and allow notifications if you want price-target alerts.
 

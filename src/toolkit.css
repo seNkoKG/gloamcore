@@ -1,12 +1,12 @@
-.toolkit-shell { min-height: 100%; display: flex; flex-direction: column; background: radial-gradient(circle at 80% 0, rgba(46,230,184,.055), transparent 34%); }
+.toolkit-shell { min-height: 100%; display: flex; flex-direction: column; background: radial-gradient(circle at 80% 0, rgba(var(--accent-rgb), .055), transparent 34%); }
 .toolkit-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px 18px; border-bottom: 1px solid var(--line); }
 .toolkit-header span { color: var(--teal); font-size: 9px; letter-spacing: .2em; font-weight: 800; }
 .toolkit-header h1 { margin: 5px 0 4px; font: 700 21px/1.2 Bahnschrift, "Segoe UI", sans-serif; }
 .toolkit-header p, .toolkit-empty p, .filter-side-card p, .recolor-config p, .regex-profile-panel p { margin: 0; color: var(--text-3); font-size: 11px; line-height: 1.55; }
-.toolkit-safety { display: flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(46,230,184,.22); border-radius: 5px; color: var(--teal); background: var(--teal-soft); font-size: 10px; white-space: nowrap; }
+.toolkit-safety { display: flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(var(--accent-rgb), .22); border-radius: 5px; color: var(--teal); background: var(--teal-soft); font-size: 10px; white-space: nowrap; }
 .toolkit-tabs { display: flex; flex-wrap:wrap; gap: 4px; padding: 9px 22px; border-bottom: 1px solid var(--line); background: rgba(10,15,21,.72); }
 .toolkit-tabs button, .toolkit-toolbar button, .filter-visibility button, .filter-side-card button, .toolkit-empty > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 5px; color: var(--text-2); background: transparent; cursor: pointer; font-size: 10px; }
-.toolkit-tabs button:hover, .toolkit-tabs button.is-active { color: var(--teal); border-color: rgba(46,230,184,.2); background: var(--teal-soft); }
+.toolkit-tabs button:hover, .toolkit-tabs button.is-active { color: var(--teal); border-color: rgba(var(--accent-rgb), .2); background: var(--teal-soft); }
 .toolkit-content { flex: 1; min-height: 0; padding: 18px 22px 28px; overflow: auto; }
 .toolkit-empty { min-height: 430px; display: grid; place-content: center; justify-items: center; text-align: center; }
 .toolkit-empty > svg { color: var(--teal); margin-bottom: 10px; }
@@ -38,7 +38,7 @@
 .filter-item-hero p { margin: 0; color: var(--text-3); font-size: 10px; }
 .filter-visibility { display: flex; align-items: flex-start; gap: 3px; }
 .filter-visibility button { min-height: 27px; border-color: var(--line); }
-.filter-visibility button.is-active { color: var(--teal); border-color: rgba(46,230,184,.34); background: var(--teal-soft); }
+.filter-visibility button.is-active { color: var(--teal); border-color: rgba(var(--accent-rgb), .34); background: var(--teal-soft); }
 .filter-visibility button:disabled { opacity:.38; cursor:not-allowed; }
 .filter-visibility button.is-active:disabled { color:var(--amber); border-color:rgba(247,191,99,.3); background:rgba(247,191,99,.06); opacity:1; }
 .toolkit-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; padding: 14px 0; }

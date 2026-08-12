@@ -32,10 +32,12 @@ describe("SettingsDrawer shortcuts", () => {
           priceCheck: defaultPriceCheckSettings,
         }}
         density="compact"
+        theme="gloam"
         refreshMinutes={10}
         onClose={() => undefined}
         onSettings={async () => undefined}
         onDensity={() => undefined}
+        onTheme={() => undefined}
         onRefreshMinutes={() => undefined}
       />,
     );
@@ -47,6 +49,8 @@ describe("SettingsDrawer shortcuts", () => {
     expect(markup.match(/shortcut-editor/g)).toHaveLength(6);
     expect(markup).toContain("Toggle with Ctrl + Shift + L");
     expect(markup).toContain('role="group" aria-label="Row density"');
+    expect(markup).toContain('role="group" aria-label="Interface theme"');
+    expect(markup).toContain("Azurite Blue");
     expect(markup).toContain('aria-pressed="true"');
   });
 });

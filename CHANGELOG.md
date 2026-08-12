@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 3.3.1
+
+- Reworked Atlas Command Center rendering so official node sprites scale with
+  the graph, search focuses readable nodes, cursor-centred zoom stays precise,
+  and the inspector floats cleanly over the full tree without changing Atlas
+  graph, point, allocation, refund, import, or migration rules.
+- Unified League Center and the other native workspaces under three persisted,
+  contrast-safe Gloam Teal, Azurite Blue, and Ember Gold themes. League Center
+  now uses the same line-icon navigation language as the existing sidebar.
+- Restored ad-free Stash Wealth presentation with targeted, origin-scoped DOM
+  cleanup for current Wealthy Exile Nitro and Google ad rails, layered over the
+  existing ads-only network filter and isolated browser session.
+- Kept Craft of Exile and the bounded Ctrl+D seller snapshot intact without
+  restoring the retired full official-trade-listings subsystem.
+
 ## 3.3.0
 
 - Added Mapping Journal beside Map Mod Check and PoE Event Log in Player

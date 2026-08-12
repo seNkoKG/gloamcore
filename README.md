@@ -61,6 +61,15 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
+## New in 3.3.1: clean Atlas and coordinated themes
+
+Atlas Command Center now scales official node art with the graph, zooms around
+the cursor, focuses search results at a readable level, and uses a full-canvas
+floating inspector without changing its exact graph or allocation rules.
+League Center and every native workspace can share Gloam Teal, Azurite Blue, or
+Ember Gold from Settings. Stash Wealth also removes the site's current Nitro
+and Google ad rails on top of its existing isolated ads-only network filter.
+
 ## New in 3.3.0: a journal that stores facts, not guesses
 
 Mapping Journal sits beside Map Mod Check and PoE Event Log in Player Toolkit.

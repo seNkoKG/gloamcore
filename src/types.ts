@@ -456,12 +456,15 @@ export interface SortState {
   direction: SortDirection;
 }
 
+export type AppTheme = "gloam" | "azurite" | "ember";
+
 export interface AppPreferences {
   league?: string;
   categoryId: string;
   sourceByCategory: Record<string, DataSource>;
   valueDisplay: ValueDisplay;
   density: Density;
+  theme: AppTheme;
   sidebarCollapsed: boolean;
   refreshMinutes: number;
   watchlist: WatchEntry[];

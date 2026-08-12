@@ -1,6 +1,7 @@
 import {
   BellRing,
   ChevronDown,
+  Compass,
   Database,
   RefreshCw,
   Search,
@@ -107,7 +108,7 @@ export function MobileBottomNav({
         className={mode === "command" && !settingsOpen ? "is-active" : undefined}
         onClick={() => invoke(onCommand)}
       >
-        <img className="mobile-poe-nav-icon" src="https://www.poewiki.net/images/9/9a/Deal_with_the_Bandits_quest_icon.png" alt="" />
+        <Compass size={21} />
         <span>Guide</span>
       </button>
       <button

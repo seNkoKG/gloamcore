@@ -28,7 +28,18 @@ Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.3.0
+## Current in 3.3.1
+
+- Reworked the Atlas view for proportional official sprite rendering,
+  cursor-centred zoom, search focus, and a full-canvas floating inspector while
+  preserving the exact 3.29.1 graph and deterministic allocation rules.
+- Added three persisted global native-interface themes and aligned League
+  Center with the rest of GloamCore. Embedded third-party web surfaces remain
+  site-owned and visually isolated by design.
+- Restored the targeted Wealthy Exile ad cleanup without widening access to its
+  authenticated data or changing the isolated Stash Wealth session.
+
+## Shipped in 3.3.0
 
 - Added Mapping Journal beside the two existing map/log tools in Player
   Toolkit instead of adding another top-level workspace.
