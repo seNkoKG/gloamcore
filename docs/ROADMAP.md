@@ -4,10 +4,10 @@ GloamCore is the economy, intelligence, one-key in-game price-check, and exact
 official Trade browser-handoff baseline. New knowledge work remains isolated
 from the price dashboard until its data, performance, and accuracy checks pass.
 
-Older sections below record what earlier releases shipped. Version 2.9.1
+Older sections below record what earlier releases shipped. Version 2.9.2
 explicitly supersedes any retired transport or data-source behavior.
 
-## Current in 2.9.1
+## Current in 2.9.2
 
 - Added the real Craft of Exile interface as a desktop-only, edge-to-edge
   workspace. It runs in a dedicated sandboxed browser profile with strict

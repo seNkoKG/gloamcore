@@ -264,6 +264,34 @@ Allow Duplicate Variants: true`,
     expect(markup).not.toMatch(/<header><span><small>Helmet<\/small><strong>Enhance<\/strong>/);
   });
 
+  it("allows a main damage skill to replace Blood Rage before engine metadata is loaded", () => {
+    const build = {
+      ...emptyPobBuild(),
+      mainSocketGroup: 1,
+      skillGroups: [{
+        id: "skill-1",
+        slot: "Body Armour",
+        label: "Attack setup",
+        enabled: true,
+        includeInFullDps: true,
+        mainActiveSkill: 1,
+        gems: [
+          { name: "Blood Rage", skillId: "BloodRage", level: 21, quality: 20, enabled: true },
+          { name: "Kinetic Blast", skillId: "KineticBlast", level: 21, quality: 20, enabled: true },
+          { name: "Increased Critical Damage Support", skillId: "SupportIncreasedCriticalDamage", level: 20, quality: 20, enabled: true },
+        ],
+      }],
+    };
+
+    const markup = renderToStaticMarkup(<PlannerSkillsPanel build={build} onChange={() => undefined}/>);
+    const selector = markup.match(/<select aria-label="Main active skill"[^>]*>/)?.[0] || "";
+
+    expect(selector).not.toContain("disabled");
+    expect(markup).toContain('value="1" selected="">Blood Rage');
+    expect(markup).toContain('value="2">Kinetic Blast');
+    expect(markup).not.toContain("Increased Critical Damage Support</option>");
+  });
+
   it("preserves imported PoB config inputs with readable labels and reset semantics", () => {
     const build = { ...emptyPobBuild(), config: { conditionBoss: true, enemyLevel: 84 } };
     const markup = renderToStaticMarkup(<PlannerConfigPanel build={build} onChange={() => undefined}/>);

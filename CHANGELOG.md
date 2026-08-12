@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2.9.2
+
+- Restored main active-skill selection before fresh Path of Building metadata
+  is available, so enabled damage gems can replace utility skills such as
+  Blood Rage instead of leaving the control disabled.
+- Kept the main socket group tied to the group actually used for calculations
+  rather than whichever group is open in the editor.
+- Update both PoB main-skill selector fields together so recalculated DPS uses
+  the visible skill choice instead of a stale `mainActiveSkillCalcs` value.
+
 ## 2.9.1
 
 - Added Craft of Exile as an edge-to-edge desktop workspace using the real
