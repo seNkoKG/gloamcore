@@ -390,6 +390,18 @@ const LEGACY_BROWSER_TOOLKIT_WORKSPACE_KEYS = [
 const MAX_BROWSER_TOOLKIT_BYTES = 2 * 1024 * 1024;
 const MAX_BROWSER_TOOLKIT_IMAGE_CHARS = 512 * 1024;
 
+function unavailableMappingJournalState(activeCharacter = "") {
+  return {
+    settings: { version: 1 as const, enabled: false, activeCharacter },
+    sessions: [],
+    activeSessionId: "",
+    activeSince: null,
+    storageError: "Mapping Journal requires the Windows app and a user-selected PoE 1 Client.txt.",
+    limits: { sessions: 25_000, noteLength: 2_000, tags: 12, tagLength: 32 },
+    log: { path: "", status: "missing" as const, error: "Client.txt is unavailable on this platform." },
+  };
+}
+
 function assertBrowserToolkitWorkspaceBudget(value: ToolkitWorkspace) {
   const images = [
     ...value.cheatSheets.map((entry) => entry.image),
@@ -752,6 +764,27 @@ const browserBridge: PoeWidgetBridge = {
     return null;
   },
   onPoeEventLog() {
+    return () => undefined;
+  },
+  async getMappingJournal() {
+    return unavailableMappingJournalState();
+  },
+  async updateMappingJournalSettings(settings) {
+    return unavailableMappingJournalState(settings.activeCharacter);
+  },
+  async updateMappingJournalSession() {
+    return unavailableMappingJournalState();
+  },
+  async removeMappingJournalSession() {
+    return unavailableMappingJournalState();
+  },
+  async clearMappingJournal() {
+    return unavailableMappingJournalState();
+  },
+  async exportMappingJournalCsv() {
+    return null;
+  },
+  onMappingJournal() {
     return () => undefined;
   },
   async getSettings() {

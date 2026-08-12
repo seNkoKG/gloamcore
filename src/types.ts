@@ -813,6 +813,37 @@ export interface PoeEventLogState {
   events: PoeEventLogEntry[];
 }
 
+export interface MappingJournalSession {
+  id: string;
+  areaName: string;
+  areaId: string;
+  areaLevel: number;
+  firstEnteredAt: number;
+  lastEnteredAt: number;
+  lastExitedAt: number | null;
+  entries: number;
+  activeMilliseconds: number;
+  deaths: number;
+  lastDeathAt: number | null;
+  timingIncomplete: boolean;
+  notes: string;
+  tags: string[];
+}
+
+export interface MappingJournalState {
+  settings: { version: 1; enabled: boolean; activeCharacter: string };
+  sessions: MappingJournalSession[];
+  activeSessionId: string;
+  activeSince: number | null;
+  storageError: string;
+  limits: { sessions: number; noteLength: number; tags: number; tagLength: number };
+  log: {
+    path: string;
+    status: "idle" | "watching" | "missing" | "error";
+    error: string;
+  };
+}
+
 export interface ToolkitPlugin {
   id: string;
   name: string;
@@ -1236,6 +1267,13 @@ export interface PoeWidgetBridge {
   clearPoeEventLog(): Promise<PoeEventLogState>;
   selectPoeEventLogPath(): Promise<PoeEventLogState | null>;
   onPoeEventLog(callback: (state: PoeEventLogState) => void): () => void;
+  getMappingJournal(): Promise<MappingJournalState>;
+  updateMappingJournalSettings(settings: { enabled: boolean; activeCharacter: string }): Promise<MappingJournalState>;
+  updateMappingJournalSession(request: { id: string; notes: string; tags: string[] }): Promise<MappingJournalState>;
+  removeMappingJournalSession(id: string): Promise<MappingJournalState>;
+  clearMappingJournal(): Promise<MappingJournalState>;
+  exportMappingJournalCsv(): Promise<{ path: string; name: string; rows: number } | null>;
+  onMappingJournal(callback: (state: MappingJournalState) => void): () => void;
   getSettings(): Promise<DesktopSettings>;
   saveSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings>;
   windowAction(action: string, payload?: unknown): Promise<DesktopSettings | null>;

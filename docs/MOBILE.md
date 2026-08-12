@@ -5,12 +5,15 @@ React economy engine as the Windows app. Mobile packages are a development
 preview and are **not** included in the public Windows GitHub Release. The
 mobile interface is designed for touch and keeps the economy catalogue,
 mobile-supported filters, trackers, item descriptions, trends, and trade links.
+Windows-only Player Toolkit features that require a local PoE process or
+`Client.txt`, including Mapping Journal, remain visible with an explicit
+platform boundary and do not fabricate mobile observations.
 
 ## Android: build, install, or share
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-3.2.0.apk`
+`deliverables/mobile/GloamCore-Android-3.3.0.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -32,7 +35,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-3.2.0.zip`
+`deliverables/mobile/GloamCore-iOS-Source-3.3.0.zip`
 
 On a Mac:
 

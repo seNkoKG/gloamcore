@@ -37,7 +37,7 @@ planning, Craft of Exile, stash wealth, and practical player tools.
 | **Build Lab** | Import, inspect, edit, and export PoB-compatible builds. Its Upgrade Assistant compares a baseline with a candidate and only calls numeric evidence authoritative after both exact states recalculate through the same verified local PoB engine. |
 | **Craft of Exile** | Run the real Craft of Exile interface edge-to-edge in a dedicated, sandboxed desktop browser profile with scoped ads-only filtering. |
 | **Stash Wealth** | Keep the real Wealthy Exile website in a different isolated profile that remembers its own sign-in. |
-| **Player Toolkit** | Use Map Mod Check, PoE Event Log, Cluster Back, regex and filter workbenches, socket tools, audits, and opt-in overlays. |
+| **Player Toolkit** | Use Map Mod Check, the verified-fact Mapping Journal, PoE Event Log, Cluster Back, regex and filter workbenches, socket tools, audits, and opt-in overlays. |
 
 ## League-correct guidance that can update safely
 
@@ -60,6 +60,25 @@ repository workflow discovers new official Atlas tags and current Navigator
 source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
+
+## New in 3.3.0: a journal that stores facts, not guesses
+
+Mapping Journal sits beside Map Mod Check and PoE Event Log in Player Toolkit.
+On Windows it follows the user-selected PoE 1 `Client.txt` read-only and creates
+a session only when the client supplies a current client-safe instance ID, an
+internal `MapWorlds…` generation record, and its matching area-entry record.
+Portal re-entry is grouped into the same instance, observed time uses the exact
+entry-to-next-generation log interval, and interrupted timing is labelled
+incomplete.
+
+Deaths are optional and count only exact, case-sensitive system records for the
+active character name you enter locally. Search, bounded notes and tags,
+summary, deliberate removal, and CSV export are included. Raw log text, chat,
+other character names, loot, profit, completion, boss kills, portal counts, and
+hidden game state are not persisted or inferred. Exact map artwork comes from
+the current league's validated poe.ninja mirror, with the current official
+Atlas map sprite as fallback, so presentation follows league refreshes without
+controlling the session logic.
 
 ## New in 2.9.1: Craft of Exile inside GloamCore
 
@@ -138,10 +157,11 @@ the engine or build family is unsupported.
   </tr>
 </table>
 
-The toolkit also includes a local map-mod verdict overlay, a read-only
-in-memory `Client.txt` event feed, an exact Large Cluster Jewel back-notable
-finder, Normal/Ruthless filter validation, socket-colour comparison, economy
-audits, themes, checkpoints, cheat sheets, and permissioned opt-in overlays.
+The toolkit also includes a local map-mod verdict overlay, a durable
+verified-fact Mapping Journal, a separate read-only in-memory `Client.txt`
+event feed, an exact Large Cluster Jewel back-notable finder, Normal/Ruthless
+filter validation, socket-colour comparison, economy audits, themes,
+checkpoints, cheat sheets, and permissioned opt-in overlays.
 
 ## Install on Windows
 

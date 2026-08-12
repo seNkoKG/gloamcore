@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 3.3.0
+
+- Added Mapping Journal beside Map Mod Check and PoE Event Log in Player
+  Toolkit. It follows only the dialog-authorized PoE 1 `Client.txt` and stores
+  sanitized map-session facts, local notes, bounded tags, and no raw log text.
+- Made a session require the current client-safe instance ID, an exact
+  `MapWorlds…` generation record, and its matching area-entry record. Re-entry
+  collapses into the same instance; observed time stops at the next generated
+  area and interrupted observations are marked incomplete.
+- Made death counts opt-in and exact-character-only so party or unrelated
+  “has been slain” lines cannot be attributed to the user. Added summary,
+  search, per-session editing/removal, guarded clearing, and CSV export.
+- Resolve exact journal map art from the current league's existing poe.ninja
+  mirror, with the current official Atlas map sprite as the honest fallback,
+  so a league refresh does not depend on frozen generic icons.
+- Kept League Navigator, Atlas Command Center, Build Lab, Craft of Exile, and
+  the bounded Ctrl+D seller snapshot intact without restoring the retired full
+  listing system.
+
 ## 3.2.0
 
 - Added a deterministic Upgrade Assistant inside Build Lab with a logical

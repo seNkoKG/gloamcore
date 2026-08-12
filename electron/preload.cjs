@@ -54,6 +54,15 @@ contextBridge.exposeInMainWorld("poeWidget", {
   stopPoeEventLog: () => ipcRenderer.invoke("poe-event-log:stop"),
   clearPoeEventLog: () => ipcRenderer.invoke("poe-event-log:clear"),
   selectPoeEventLogPath: () => ipcRenderer.invoke("poe-event-log:select-path"),
+  getMappingJournal: () => ipcRenderer.invoke("mapping-journal:get"),
+  updateMappingJournalSettings: (settings) =>
+    ipcRenderer.invoke("mapping-journal:update-settings", settings),
+  updateMappingJournalSession: (request) =>
+    ipcRenderer.invoke("mapping-journal:update-session", request),
+  removeMappingJournalSession: (id) =>
+    ipcRenderer.invoke("mapping-journal:remove-session", id),
+  clearMappingJournal: () => ipcRenderer.invoke("mapping-journal:clear", true),
+  exportMappingJournalCsv: () => ipcRenderer.invoke("mapping-journal:export-csv"),
   getPassiveTreeData: (options) => ipcRenderer.invoke("planner:get-passive-tree", options),
   decodePobBuild: (input) => ipcRenderer.invoke("planner:decode-pob", input),
   encodePobBuild: (input) => ipcRenderer.invoke("planner:encode-pob", input),
@@ -109,5 +118,10 @@ contextBridge.exposeInMainWorld("poeWidget", {
     const listener = (_event, value) => callback(value);
     ipcRenderer.on("poe-event-log:update", listener);
     return () => ipcRenderer.removeListener("poe-event-log:update", listener);
+  },
+  onMappingJournal: (callback) => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on("mapping-journal:update", listener);
+    return () => ipcRenderer.removeListener("mapping-journal:update", listener);
   },
 });

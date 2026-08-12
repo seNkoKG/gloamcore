@@ -13,6 +13,7 @@ import {
   FolderOpen,
   History,
   MessageSquareText,
+  MapPinned,
   Paintbrush,
   Palette,
   PenLine,
@@ -82,14 +83,16 @@ import { RegexWorkbench } from "./RegexWorkbench";
 import { MapModCheckPanel } from "./MapModCheckPanel";
 import { ClusterBackPanel } from "./ClusterBackPanel";
 import { PoeEventLogPanel } from "./PoeEventLogPanel";
+import { MappingJournalPanel } from "./MappingJournalPanel";
 import "../toolkit.css";
 
-type ToolkitTab = "filter" | "regex" | "map-mods" | "event-log" | "cluster-back" | "recolor" | "audit" | "workspace";
+type ToolkitTab = "filter" | "regex" | "map-mods" | "mapping-journal" | "event-log" | "cluster-back" | "recolor" | "audit" | "workspace";
 
 const TABS: Array<{ id: ToolkitTab; label: string; icon: typeof Scissors }> = [
   { id: "filter", label: "Filter editor", icon: FilePenLine },
   { id: "regex", label: "Regex tool", icon: Braces },
   { id: "map-mods", label: "Map Mod Check", icon: ShieldCheck },
+  { id: "mapping-journal", label: "Mapping Journal", icon: MapPinned },
   { id: "event-log", label: "PoE Event Log", icon: FileClock },
   { id: "cluster-back", label: "Cluster Back", icon: Waypoints },
   { id: "recolor", label: "Socket recolor", icon: Paintbrush },
@@ -180,6 +183,7 @@ export function ToolkitPanel({ league }: { league: string }) {
         {tab === "filter" && <FilterEditor />}
         {tab === "regex" && <RegexWorkbench />}
         {tab === "map-mods" && <MapModCheckPanel />}
+        {tab === "mapping-journal" && <MappingJournalPanel league={league} />}
         {tab === "event-log" && <PoeEventLogPanel />}
         {tab === "cluster-back" && <ClusterBackPanel league={league} />}
         {tab === "recolor" && <SocketRecolorWorkbench league={league} />}

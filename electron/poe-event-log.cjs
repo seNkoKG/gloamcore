@@ -106,6 +106,7 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
   let sequence = 0;
   let polling = false;
   const listeners = new Set();
+  const lineListeners = new Set();
 
   function snapshot() {
     return { settings: { ...settings }, status, error, events: events.map((event) => ({ ...event })) };
@@ -159,6 +160,13 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
       events.push(...next);
       if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
     }
+    if (lines.length) {
+      const completed = lines.map((line) => String(line).replace(/\r$/, ""));
+      // Optional local consumers must never be able to stop the Event Log.
+      for (const listener of lineListeners) {
+        try { listener(completed, identity); } catch { /* consumer owns its error state */ }
+      }
+    }
     return next.length;
   }
 
@@ -193,9 +201,9 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
     decoder = new StringDecoder("utf8");
     partial = "";
     events = [];
+    identity = fileIdentity(stat);
     const start = Math.max(0, stat.size - MAX_HISTORY_BYTES);
     readRange(filePath, start, stat.size, true);
-    identity = fileIdentity(stat);
     offset = stat.size;
   }
 
@@ -248,10 +256,11 @@ function createPoeEventLogService({ settingsPath, pollMilliseconds = 500 } = {})
   function stop() { stopTimer(); status = "idle"; return publish(); }
   function clear() { events = []; return publish(); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
-  function dispose() { stopTimer(); listeners.clear(); }
+  function subscribeLines(listener) { lineListeners.add(listener); return () => lineListeners.delete(listener); }
+  function dispose() { stopTimer(); listeners.clear(); lineListeners.clear(); }
 
   loadSettings();
-  return { authorizePath, clear, detectPoeLogPath, dispose, getState: snapshot, saveSettings, start, stop, subscribe, _poll: poll };
+  return { authorizePath, clear, detectPoeLogPath, dispose, getState: snapshot, saveSettings, start, stop, subscribe, subscribeLines, _poll: poll };
 }
 
 module.exports = {

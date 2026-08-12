@@ -28,7 +28,22 @@ Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.2.0
+## Current in 3.3.0
+
+- Added Mapping Journal beside the two existing map/log tools in Player
+  Toolkit instead of adding another top-level workspace.
+- Sessions require an exact current client-safe instance ID, internal
+  `MapWorlds…` area record, and displayed area-entry line. Re-entry is grouped
+  by the instance ID; timing is explicitly observed in-area time only.
+- Deaths count only exact, case-sensitive system lines for the locally selected
+  active character. Notes, tags, summaries, removal, and CSV export persist;
+  raw log lines, character names from other lines, loot, profit, completion,
+  and hidden state do not.
+- Exact current-league map art is resolved through the validated poe.ninja
+  mirror already used by the application and refreshes when the selected
+  league does; the current official Atlas map sprite is the fallback.
+
+## Shipped in 3.2.0
 
 - Added the deterministic Upgrade Assistant described above as a dedicated
   Build Lab tab instead of adding another top-level workspace.

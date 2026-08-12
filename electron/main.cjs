@@ -90,6 +90,7 @@ const { createPobPlannerDispatcher } = require("./pob-planner-dispatch.cjs");
 const { createToolkitRuntimeStore } = require("./toolkit-runtime.cjs");
 const { createMapModCheckService } = require("./map-mod-check.cjs");
 const { createPoeEventLogService } = require("./poe-event-log.cjs");
+const { createMappingJournalService } = require("./mapping-journal.cjs");
 const {
   currentWikiItemMetadataByName,
   normalizedWikiArtworkTitle,
@@ -142,6 +143,8 @@ let toolkitStashScrollProcess = null;
 let toolkitStashScrollConfig = "";
 let mapModCheckService = null;
 let poeEventLogService = null;
+let mappingJournalService = null;
+let poeEventLogViewActive = false;
 
 function getToolkitFileService() {
   if (!toolkitFileService) {
@@ -176,9 +179,57 @@ function getPoeEventLogService() {
     poeEventLogService = createPoeEventLogService({
       settingsPath: path.join(app.getPath("userData"), "poe-event-log.json"),
     });
-    poeEventLogService.subscribe((state) => safeSend(mainWindow, "poe-event-log:update", state));
+    poeEventLogService.subscribe((state) => {
+      safeSend(mainWindow, "poe-event-log:update", state);
+      if (mappingJournalService) {
+        if (state.status === "missing" || state.status === "error") {
+          mappingJournalService.suspendObservation();
+        }
+        publishMappingJournalState();
+      }
+    });
+    poeEventLogService.subscribeLines((lines, sourceIdentity) => {
+      getMappingJournalService().ingestLines(lines, sourceIdentity);
+    });
   }
   return poeEventLogService;
+}
+
+function getMappingJournalService() {
+  if (!mappingJournalService) {
+    mappingJournalService = createMappingJournalService({
+      storePath: path.join(app.getPath("userData"), "mapping-journal.json"),
+    });
+    mappingJournalService.subscribe(() => publishMappingJournalState());
+  }
+  return mappingJournalService;
+}
+
+function mappingJournalState() {
+  const journal = getMappingJournalService().getState();
+  const log = getPoeEventLogService().getState();
+  return {
+    ...journal,
+    log: {
+      path: log.settings.logPath,
+      status: log.status,
+      error: log.error,
+    },
+  };
+}
+
+function publishMappingJournalState() {
+  safeSend(mainWindow, "mapping-journal:update", mappingJournalState());
+}
+
+function syncPoeEventLogWatching() {
+  const journalEnabled = getMappingJournalService().getState().settings.enabled;
+  const service = getPoeEventLogService();
+  const state = service.getState();
+  if (poeEventLogViewActive || journalEnabled) {
+    return state.status === "watching" ? state : service.start();
+  }
+  return state.status === "idle" ? state : service.stop();
 }
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 const MAX_MARKET_STALE_MS = 2 * 60 * 60 * 1000;
@@ -5216,6 +5267,10 @@ app.whenReady().then(() => {
   });
   void getMirrorLeagues(false).catch(() => undefined);
   getToolkitRuntimeStore();
+  getMappingJournalService();
+  if (getMappingJournalService().getState().settings.enabled) {
+    getPoeEventLogService().start();
+  }
   if (settingsNeedPersist) tryPersistSettings();
   if (!registerPriceCheckShortcut()) {
     priceCheckShortcutWarning =
@@ -5317,6 +5372,8 @@ app.on("before-quit", () => {
   pobPlannerDispatcher.dispose();
   poeEventLogService?.dispose();
   poeEventLogService = null;
+  mappingJournalService = null;
+  poeEventLogViewActive = false;
   stopPriceCheckPanelTracker();
   globalShortcut.unregisterAll();
   if (
@@ -5835,12 +5892,14 @@ ipcMain.handle("poe-event-log:get", (event) => {
 
 ipcMain.handle("poe-event-log:start", (event) => {
   assertDashboardSender(event);
-  return getPoeEventLogService().start();
+  poeEventLogViewActive = true;
+  return syncPoeEventLogWatching();
 });
 
 ipcMain.handle("poe-event-log:stop", (event) => {
   assertDashboardSender(event);
-  return getPoeEventLogService().stop();
+  poeEventLogViewActive = false;
+  return syncPoeEventLogWatching();
 });
 
 ipcMain.handle("poe-event-log:clear", (event) => {
@@ -5859,7 +5918,50 @@ ipcMain.handle("poe-event-log:select-path", async (event) => {
   if (selected.canceled || selected.filePaths.length !== 1) return null;
   const service = getPoeEventLogService();
   service.authorizePath(selected.filePaths[0]);
-  return service.start();
+  service.stop();
+  return syncPoeEventLogWatching();
+});
+
+ipcMain.handle("mapping-journal:get", (event) => {
+  assertDashboardSender(event);
+  syncPoeEventLogWatching();
+  return mappingJournalState();
+});
+
+ipcMain.handle("mapping-journal:update-settings", (event, settings) => {
+  assertDashboardSender(event);
+  getMappingJournalService().updateSettings(settings);
+  syncPoeEventLogWatching();
+  return mappingJournalState();
+});
+
+ipcMain.handle("mapping-journal:update-session", (event, request) => {
+  assertDashboardSender(event);
+  getMappingJournalService().updateSession(request);
+  return mappingJournalState();
+});
+
+ipcMain.handle("mapping-journal:remove-session", (event, id) => {
+  assertDashboardSender(event);
+  getMappingJournalService().removeSession(id);
+  return mappingJournalState();
+});
+
+ipcMain.handle("mapping-journal:clear", (event, confirm) => {
+  assertDashboardSender(event);
+  getMappingJournalService().clearSessions(confirm);
+  return mappingJournalState();
+});
+
+ipcMain.handle("mapping-journal:export-csv", async (event) => {
+  assertDashboardSender(event);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export Mapping Journal CSV",
+    defaultPath: `GloamCore-Mapping-Journal-${new Date().toISOString().slice(0, 10)}.csv`,
+    filters: [{ name: "CSV file", extensions: ["csv"] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  return getMappingJournalService().saveCsv(result.filePath);
 });
 
 ipcMain.handle("planner:get-passive-tree", (event, options) => {

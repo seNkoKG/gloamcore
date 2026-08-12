@@ -162,6 +162,25 @@ counts remain low confidence and are excluded from confidence-sensitive market
 pulse and target alerts. GloamCore does not claim ownership of poe.ninja data,
 and poe.ninja does not endorse this project.
 
+## Local Mapping Journal facts
+
+Mapping Journal reads only the newest bounded portion and appended UTF-8 bytes
+of the user-selected PoE 1 `logs/Client.txt` through the same read-only service
+as PoE Event Log. The accepted grammar is intentionally narrow: client-safe
+instance ID, exact `Generating level … area "…" with seed …`, exact
+`You have entered …`, and exact player-slain/player-suicide system records.
+The session classifier accepts only internal area IDs beginning with
+`MapWorlds`; it does not classify maps from a hand-maintained area-name list.
+
+The persisted journal contains the hashed local session identity, sanitized
+internal/display area names, area level, entry and observed-boundary times,
+entry/death counts, bounded notes, and bounded tags. It does not persist raw log
+lines, network addresses, chat, party member names, unrelated death subjects,
+instance seeds, or the selected log's contents. Exact current-league map art is
+resolved at presentation time from the validated poe.ninja `Map` route
+described below, with the current official Atlas map sprite as fallback.
+Missing art never changes session classification.
+
 ## Combined regex pack
 
 `public/data/toolkit/regex-v1.json` is a transformed search-reference pack with

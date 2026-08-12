@@ -59,4 +59,30 @@ describe("PoE event log", () => {
     expect(service.start().status).toBe("watching");
     service.dispose();
   });
+
+  it("publishes completed raw lines to local consumers without retaining extra history", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-event-log-")); roots.push(root);
+    const logPath = path.join(root, "Client.txt");
+    fs.writeFileSync(logPath, line('Generating level 83 area "MapWorldsCitySquare"', "01"), "utf8");
+    const service = eventLog.createPoeEventLogService({ settingsPath: path.join(root, "settings.json"), pollMilliseconds: 10_000 });
+    service.authorizePath(logPath);
+    const batches: Array<{ lines: string[]; identity: string }> = [];
+    service.subscribeLines((lines: string[], identity: string) => batches.push({ lines, identity }));
+    service.start();
+    expect(batches).toHaveLength(1);
+    expect(batches[0].lines).toEqual([line('Generating level 83 area "MapWorldsCitySquare"', "01").trim()]);
+    expect(batches[0].identity).toMatch(/^\d+:\d+:/);
+    service.dispose();
+  });
+
+  it("isolates a failing local line consumer from the Event Log", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "gloamcore-event-log-")); roots.push(root);
+    const logPath = path.join(root, "Client.txt");
+    fs.writeFileSync(logPath, line("Trade accepted", "01"), "utf8");
+    const service = eventLog.createPoeEventLogService({ settingsPath: path.join(root, "settings.json") });
+    service.authorizePath(logPath);
+    service.subscribeLines(() => { throw new Error("consumer failed"); });
+    expect(service.start()).toMatchObject({ status: "watching", events: [{ category: "trade" }] });
+    service.dispose();
+  });
 });

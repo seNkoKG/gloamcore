@@ -49,6 +49,31 @@ written or uploaded; only the selected file path persists. Zone, level, death,
 status, whisper, trade, party, item, public-chat, and unclassified filters are
 presentation controls only and never trigger game actions.
 
+## Mapping Journal
+
+Mapping Journal shares the Event Log's dialog-authorized, regular-file-only
+PoE 1 `Client.txt` reader. A journal session is created only after the log
+provides a client-safe instance ID, a `MapWorlds…` generation record, and the
+matching displayed area-entry record for the same client process. The
+client-safe instance ID, internal area ID, and seed form the local session
+identity, so portals back into one instance increase its entry count instead of
+creating another map. No maintained map-name allowlist is required when a new
+league changes the Atlas.
+
+Observed time begins on the area-entry record and stops at the next exact area-
+generation boundary. Rotation, truncation, log replacement, app restart, and
+disabled watching terminate the observation without inventing an exit time and
+mark it incomplete where applicable. Deaths count only exact, case-sensitive
+`has been slain` or `has committed suicide` system lines matching the locally
+configured active character; other names are discarded.
+
+The durable journal contains sanitized map facts, bounded notes, and bounded
+tags, not raw log lines. It supports local search, summary, explicit per-session
+removal, confirmed full clearing, and CSV export through a user-selected file.
+Exact current-league map artwork comes from the validated poe.ninja mirror; the
+current official Atlas map sprite is the fallback. Loot, profit, completion,
+boss kills, portal counts, and hidden game state are never inferred.
+
 ## Cluster Back
 
 Cluster Back is limited to current, non-legacy, 8-passive Large Cluster Jewels.
