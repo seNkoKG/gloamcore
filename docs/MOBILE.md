@@ -9,11 +9,14 @@ Windows-only Player Toolkit features that require a local PoE process or
 `Client.txt`, including Mapping Journal, remain visible with an explicit
 platform boundary and do not fabricate mobile observations.
 
+The newest packaged mobile preview in `deliverables/mobile` is 3.4.2. No 3.4.4
+Android or iOS package has been built or published.
+
 ## Android: build, install, or share
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-3.4.4.apk`
+`deliverables/mobile/GloamCore-Android-VERSION.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -35,7 +38,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-3.4.4.zip`
+`deliverables/mobile/GloamCore-iOS-Source-VERSION.zip`
 
 On a Mac:
 

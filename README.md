@@ -341,7 +341,8 @@ Read [Price checker behavior](docs/PRICE_CHECKER.md),
 The public GitHub release is Windows x64. Android and iOS projects are
 development previews built from the same React economy engine; mobile does not
 include the Windows global capture overlay or embedded desktop site sessions.
-See [Mobile builds](docs/MOBILE.md).
+The newest packaged mobile preview is 3.4.2 and is not a public GitHub Release
+asset. See [Mobile builds](docs/MOBILE.md).
 
 ## Development
 

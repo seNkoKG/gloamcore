@@ -312,9 +312,9 @@ intact and the retired full official-trade-listings subsystem remains prohibited
 ## Product principles
 
 - Prefer documented GGG APIs, permitted game-data exports, and clearly licensed
-  community datasets. Never call the official Trade website's undocumented
-  search, exchange, or fetch APIs. Build Trade filters locally and open them
-  only through an explicit user-clicked browser handoff.
+  community datasets. Windows Trade search and fetch access stays
+  user-triggered, anonymous, bounded, rate-limited, and separate from the
+  explicit browser handoff. Never use the exchange route or account cookies.
 - Never use player session cookies such as `POESESSID`, reverse-engineer private
   endpoints, automate whispers/trades, or represent public Trade website access
   as an authenticated developer API.
@@ -326,6 +326,9 @@ intact and the retired full official-trade-listings subsystem remains prohibited
   independently testable modules. Keep documented Public Currency Exchange
   completed-hour evidence isolated from active Trade results and other market
   sources.
+
+The phases below are future proposals, not shipped features or release
+commitments.
 
 ## Phase 1 - Versioned PoE data foundation
 
