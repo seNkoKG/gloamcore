@@ -116,11 +116,19 @@ respective owners.
 
 ## Grinding Gear Games data and Trade handoff
 
-The app does not call the official Trade website's undocumented search,
-exchange, or fetch APIs. Item text and filter edits stay local. A deliberate
-user click opens `pathofexile.com/trade` in the system browser with the complete
-encoded query. GloamCore receives no Trade result payload or result ID from
-that page.
+The Windows price checker uses the same publicly reachable, non-OAuth Trade
+search and fetch routes used by the official Trade website to provide a small
+seller-price snapshot after a user invokes an item check or edits its selected
+filters. These routes are not part of Grinding Gear Games' documented
+Developer API, and GloamCore does not claim that they are officially supported
+or that the project is authorised by Grinding Gear Games. Requests are
+anonymous, use no `POESESSID` or account-session cookie, are serialized, follow
+the service's rate-limit and `Retry-After` headers, share identical in-flight
+work, and use a brief 30-second cache. Superseded filter states are discarded,
+and each fetch is limited to at most ten public listings. GloamCore does not
+use the Trade exchange route, send whispers, or retain private account data.
+The complete encoded query remains available through a deliberate user click
+that opens `pathofexile.com/trade` in the system browser.
 
 Market Explorer's Faustus source is limited to documented Public Currency
 Exchange completed-hour evidence. Current poe.ninja economy item names are
