@@ -752,8 +752,8 @@ export const mobileBridge: PoeWidgetBridge = {
     return {
       data: manifest.data.leagueSnapshot.data,
       ...times,
-      stale: manifest.stale,
-      cache: manifest.cache,
+      stale: manifest.stale || times.stale,
+      cache: manifest.stale || times.stale ? "stale" : manifest.cache,
       error: manifest.error,
     };
   },
@@ -774,7 +774,8 @@ export const mobileBridge: PoeWidgetBridge = {
     return {
       ...payload,
       ...times,
-      stale: manifest.stale || payload.stale,
+      stale: manifest.stale || payload.stale || times.stale,
+      cache: manifest.stale || payload.stale || times.stale ? "stale" : payload.cache,
       error: [manifest.error, payload.error].filter(Boolean).join("; ") || undefined,
     };
   },

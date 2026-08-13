@@ -107,7 +107,7 @@ describe("Trade price snapshot", () => {
     ));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.3",
+      userAgent: "GloamCore/3.4.4",
       minimumIntervalMs: 0,
       nowImpl: () => now,
     });
@@ -142,7 +142,7 @@ describe("Trade price snapshot", () => {
     }));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.3",
+      userAgent: "GloamCore/3.4.4",
       minimumIntervalMs: 0,
     });
     const request = {
@@ -178,7 +178,7 @@ describe("Trade price snapshot", () => {
     });
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.3",
+      userAgent: "GloamCore/3.4.4",
       minimumIntervalMs: 0,
     });
     const request = (minimum: number) => ({
@@ -220,7 +220,7 @@ describe("Trade price snapshot", () => {
     ));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.3",
+      userAgent: "GloamCore/3.4.4",
       minimumIntervalMs: 0,
       nowImpl: () => 1_000,
     });
@@ -251,7 +251,7 @@ describe("Trade price snapshot", () => {
     ));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.3",
+      userAgent: "GloamCore/3.4.4",
       minimumIntervalMs: 0,
       nowImpl: () => now,
       waitImpl: async (milliseconds: number) => {
@@ -286,7 +286,7 @@ describe("Trade price snapshot", () => {
     ));
     const service = createTradePriceSnapshotService({
       fetchImpl,
-      userAgent: "GloamCore/3.4.3",
+      userAgent: "GloamCore/3.4.4",
       minimumIntervalMs: 0,
       nowImpl: () => 1_000,
     });

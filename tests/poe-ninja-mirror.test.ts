@@ -7,6 +7,7 @@ const mirror = require("../electron/poe-ninja-mirror.cjs") as {
   mirrorEnvelopeTimes(value: Record<string, number>, now?: number): {
     fetchedAt: number;
     expiresAt: number;
+    stale: boolean;
   };
 };
 
@@ -51,7 +52,7 @@ describe("desktop market mirror contract", () => {
     expect(mirror.isPoeNinjaMirrorManifest(value, now)).toBe(true);
   });
 
-  it("rejects unbounded refresh times and snapshots older than two hours", () => {
+  it("marks delayed snapshots stale and rejects them after one day", () => {
     const now = Date.now();
     const value = manifest(now);
     value.leagueSnapshot.nextRefreshAt = Number.MAX_SAFE_INTEGER;
@@ -71,9 +72,14 @@ describe("desktop market mirror contract", () => {
         lastReferencedAt: now - 1,
       }],
     }, now)).toBe(true);
-    expect(() => mirror.mirrorEnvelopeTimes({
+    expect(mirror.mirrorEnvelopeTimes({
       checkedAt: now - 2 * 60 * 60 * 1000 - 1,
       sourceUpdatedAt: now - 2 * 60 * 60 * 1000 - 1,
+      nextRefreshAt: now,
+    }, now).stale).toBe(true);
+    expect(() => mirror.mirrorEnvelopeTimes({
+      checkedAt: now - 24 * 60 * 60 * 1000 - 1,
+      sourceUpdatedAt: now - 24 * 60 * 60 * 1000 - 1,
       nextRefreshAt: now,
     }, now)).toThrow(/too old/i);
   });

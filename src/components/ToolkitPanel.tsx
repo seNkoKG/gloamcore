@@ -850,7 +850,6 @@ function EconomyAudit({ league }: { league: string }) {
   const cardEv = divinationAreaExpectedValue(
     entries.map((entry) => ({
       chaosValue: entry.chaosValue,
-      stackSize: rows.find((row) => row.key === entry.key)?.stackSize || 1,
       weight: cardWeights[entry.key] || 0,
       excluded: excludedCards.has(entry.key),
     })),
@@ -1010,10 +1009,7 @@ function EconomyAudit({ league }: { league: string }) {
         <div className="card-ev-grid">
           <section className="card-ev-summary"><small>MANUAL WEIGHTED VALUE PER CARD DROP</small><strong>{cardEv.perDrop.toFixed(2)} chaos</strong><span>Total included weight: {cardEv.totalWeight.toLocaleString()}</span><p>Prices are live; area drop weights are manual because this build does not bundle a verified current area-weight dataset. Exclude suspicious prices without deleting the card.</p></section>
           <div className="card-ev-table">
-            {entries.slice(0, 150).map((entry) => {
-              const row = rows.find((candidate) => candidate.key === entry.key);
-              return <div key={entry.key} className={excludedCards.has(entry.key) ? "is-excluded" : ""}>{entry.icon && <img src={entry.icon} alt="" />}<span><strong>{entry.name}</strong><small>{entry.chaosValue.toFixed(1)} c / stack {row?.stackSize || 1}</small></span><label>Weight<input type="number" min="0" value={cardWeights[entry.key] || ""} onChange={(event) => setCardWeights((current) => ({ ...current, [entry.key]: Number(event.target.value) || 0 }))} /></label><button type="button" onClick={() => setExcludedCards((current) => { const next = new Set(current); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })}>{excludedCards.has(entry.key) ? "Include" : "Outlier"}</button></div>;
-            })}
+            {entries.slice(0, 150).map((entry) => <div key={entry.key} className={excludedCards.has(entry.key) ? "is-excluded" : ""}>{entry.icon && <img src={entry.icon} alt="" />}<span><strong>{entry.name}</strong><small>{entry.chaosValue.toFixed(1)} c per card</small></span><label>Weight<input type="number" min="0" value={cardWeights[entry.key] || ""} onChange={(event) => setCardWeights((current) => ({ ...current, [entry.key]: Number(event.target.value) || 0 }))} /></label><button type="button" onClick={() => setExcludedCards((current) => { const next = new Set(current); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })}>{excludedCards.has(entry.key) ? "Include" : "Outlier"}</button></div>)}
           </div>
         </div>
       )}

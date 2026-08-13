@@ -5,7 +5,8 @@ const POE_NINJA_MIRROR_ROOT =
 const POE_NINJA_MIRROR_MANIFEST_URL = `${POE_NINJA_MIRROR_ROOT}/manifest.json`;
 const MIRROR_SCHEMA_VERSION = 1;
 const MIRROR_CADENCE_MS = 30 * 60 * 1000;
-const MAX_ACTIONABLE_MIRROR_AGE_MS = 2 * 60 * 60 * 1000;
+const MAX_FRESH_MIRROR_AGE_MS = 2 * 60 * 60 * 1000;
+const MAX_ACTIONABLE_MIRROR_AGE_MS = 24 * 60 * 60 * 1000;
 const EXPECTED_ROUTES_PER_LEAGUE = 46;
 const MAX_ACTIVE_LEAGUES = 12;
 const MAX_ROUTE_BYTES = 16 * 1024 * 1024;
@@ -160,6 +161,9 @@ function mirrorEnvelopeTimes(snapshot, now = Date.now()) {
       Math.max(snapshot.nextRefreshAt, now + 60_000),
       now + MIRROR_CADENCE_MS,
     ),
+    stale:
+      checkedAge > MAX_FRESH_MIRROR_AGE_MS ||
+      sourceAge > MAX_FRESH_MIRROR_AGE_MS,
   };
 }
 

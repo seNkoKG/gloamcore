@@ -69,13 +69,13 @@ describe("filter economy audit", () => {
 
   it("computes weighted per-card expected value and excludes outliers", () => {
     expect(divinationAreaExpectedValue([
-      { chaosValue: 100, stackSize: 5, weight: 1 },
-      { chaosValue: 20, stackSize: 2, weight: 3 },
-      { chaosValue: 10000, stackSize: 1, weight: 100, excluded: true },
-    ]).perDrop).toBeCloseTo(12.5);
+      { chaosValue: 100, weight: 1 },
+      { chaosValue: 20, weight: 3 },
+      { chaosValue: 10000, weight: 100, excluded: true },
+    ]).perDrop).toBeCloseTo(40);
     expect(divinationAreaExpectedValue([
-      { chaosValue: Number.POSITIVE_INFINITY, stackSize: 1, weight: 100 },
-      { chaosValue: 10, stackSize: 1, weight: Number.NaN },
+      { chaosValue: Number.POSITIVE_INFINITY, weight: 100 },
+      { chaosValue: 10, weight: Number.NaN },
     ])).toEqual({ perDrop: 0, totalWeight: 0 });
   });
 });

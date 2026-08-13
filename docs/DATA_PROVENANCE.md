@@ -72,13 +72,21 @@ third-party notices. Bandit and quest images are attributed Path of Exile game
 art referenced from their PoE Wiki file pages; they are presentation only and
 never supply game logic.
 
+The public gem-name catalogue in the pinned Awakened PoE Trade reference pack
+filters Royale, unused, and internal variants from Navigator. When upstream
+records share a display name, the generator keeps the record with the strongest
+reviewed quest and vendor acquisition evidence.
+
 `scripts/game-data-sources.json` is the review lock. The generator rejects a
 source whose checksum, size, UTF-8 JSON, route directives, Atlas geometry, or
 graph references do not match the reviewed contract. Renderer activation then
 rechecks manifest shape, pack byte size, SHA-256, graph symmetry, node identity,
-route branches, area/gem bounds, and exact game-version agreement. Both packs
-must pass before one atomic cache record changes; the prior validated bundle is
-retained for rollback and the bundled release remains the offline fallback.
+route branches, area/gem bounds, exact game-version agreement, and the explicit
+pack revision. Both packs must pass before one atomic cache record changes. A
+client accepts only a newer semantic game version or a higher revision of the
+same version; reused version/revision identities with different hashes and all
+downgrades are rejected. The prior validated bundle is retained for rollback,
+and the bundled release remains the offline fallback.
 Source discovery also requires the Navigator revision to postdate the official
 Atlas revision and its commit message to explicitly identify the detected
 major/minor league family. A missing compatibility signal stops the workflow
@@ -160,12 +168,16 @@ to direct poe.ninja API requests.
 
 The manifest preserves upstream ETags plus checked, source-updated, and next
 refresh timestamps. Clients use those source timestamps rather than the Pages
-response date, verify route size and SHA-256 where they fetch it, and fail closed
-once a last-good source snapshot is more than two hours old. GitHub schedules
-can be delayed, dropped during high load, or disabled after prolonged public
-repository inactivity, so an unavailable or old mirror is reported as
-unavailable/stale instead of being disguised as current. GloamCore does not
-infer a missing Divine conversion from unrelated rows. Missing or zero sample
+response date and verify route size and SHA-256 where they fetch it. Evidence
+older than two hours is explicitly stale and informational: it cannot drive
+confidence-sensitive market pulse or target alerts. An integrity-verified
+last-good mirror remains viewable for up to 24 hours so a delayed GitHub
+schedule does not cause an immediate market outage; after 24 hours clients fail
+closed. GitHub schedules can be delayed, dropped during high load, or disabled
+after prolonged public repository inactivity, so an unavailable or old mirror
+is reported as unavailable/stale instead of being disguised as current.
+GloamCore does not infer a missing Divine conversion from unrelated rows.
+Missing or zero sample
 counts remain low confidence and are excluded from confidence-sensitive market
 pulse and target alerts. GloamCore does not claim ownership of poe.ninja data,
 and poe.ninja does not endorse this project.

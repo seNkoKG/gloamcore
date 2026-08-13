@@ -1069,8 +1069,8 @@ async function getMirrorLeagues(force = false) {
   return {
     data: manifest.data.leagueSnapshot.data,
     ...times,
-    stale: manifest.stale,
-    cache: manifest.stale ? "stale" : manifest.cache,
+    stale: manifest.stale || times.stale,
+    cache: manifest.stale || times.stale ? "stale" : manifest.cache,
     error: manifest.error,
   };
 }
@@ -1092,7 +1092,7 @@ async function getMirrorOverview(key, request, force = false) {
       maximumBytes: MAX_MIRROR_ROUTE_BYTES,
     },
   );
-  const stale = manifest.stale || payload.stale;
+  const stale = manifest.stale || payload.stale || times.stale;
   return {
     ...payload,
     ...times,

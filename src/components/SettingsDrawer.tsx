@@ -645,7 +645,7 @@ export function SettingsDrawer({
           <strong>Cache-safe by design</strong>
           <p>
             The app respects ETags, CDN age and source cache windows. Market
-            snapshots older than two hours are rejected instead of shown as current.
+            data older than two hours is informational only, and the verified mirror is rejected after 24 hours.
             It never reads game memory. A manual price-check shortcut sends one
             copy action, then the app reads only that copied item text.
           </p>

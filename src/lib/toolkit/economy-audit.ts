@@ -115,18 +115,17 @@ export function calculateDustValue(
 }
 
 export function divinationAreaExpectedValue(
-  cards: Array<{ chaosValue: number; stackSize: number; weight: number; excluded?: boolean }>,
+  cards: Array<{ chaosValue: number; weight: number; excluded?: boolean }>,
 ) {
   const usable = cards.filter(
     (card) => !card.excluded &&
       Number.isFinite(card.weight) && card.weight > 0 &&
-      Number.isFinite(card.stackSize) && card.stackSize > 0 &&
       Number.isFinite(card.chaosValue) && card.chaosValue >= 0,
   );
   const totalWeight = usable.reduce((sum, card) => sum + card.weight, 0);
   if (!Number.isFinite(totalWeight) || totalWeight <= 0) return { perDrop: 0, totalWeight: 0 };
   const perDrop = usable.reduce(
-    (sum, card) => sum + (card.weight / totalWeight) * (card.chaosValue / card.stackSize),
+    (sum, card) => sum + (card.weight / totalWeight) * card.chaosValue,
     0,
   );
   return {

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 3.4.4
+
+- Corrected all pinned campaign-route directive rendering, removed Royale,
+  internal, and duplicate gem entries, and replaced positional progress keys
+  with stable content identities.
+- Made game-data activation monotonic by semantic PoE version and explicit pack
+  revision, rejecting downgrades and reused identities with different content.
+- Kept integrity-verified poe.ninja snapshots viewable for up to 24 hours while
+  treating evidence older than two hours as stale, informational, and unable to
+  drive confidence-sensitive movers or alerts.
+- Corrected divination-card expected value to use poe.ninja's per-card prices,
+  and aligned the website and documentation with the bounded desktop Trade
+  seller snapshot.
+
 ## 3.4.3
 
 - Fixed Path of Exile's single-bound Advanced Description grammar for legacy

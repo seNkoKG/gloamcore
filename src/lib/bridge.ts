@@ -434,8 +434,7 @@ const browserBridge: PoeWidgetBridge = {
     return {
       data: manifest.data.leagueSnapshot.data,
       ...times,
-      stale: false,
-      cache: "browser",
+      cache: times.stale ? "stale" : "browser",
     };
   },
   async getOverview(request) {
@@ -465,8 +464,7 @@ const browserBridge: PoeWidgetBridge = {
       const envelope = {
         data,
         ...times,
-        stale: false,
-        cache: "browser" as const,
+        cache: times.stale ? "stale" as const : "browser" as const,
       };
       browserCache.set(key, envelope);
       return envelope;

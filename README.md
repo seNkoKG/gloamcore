@@ -61,7 +61,27 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
-## New in 3.4.3: accurate legacy unique rolls
+## New in 3.4.4: audited PoE data and resilient market fallback
+
+Campaign directions, portals, waypoints, Labyrinth steps, crafting recipes, and
+other pinned Exile Leveling directives now render as actual instructions. The
+gem finder excludes Royale and internal variants, collapses duplicate display
+names, and keeps class-specific acquisition evidence. Route progress now uses
+content identities, so future pack updates preserve unchanged steps even when
+unrelated instructions move.
+
+Game-data updates reject downgrades and altered content that reuses an existing
+version/revision identity. The poe.ninja mirror keeps an integrity-verified
+snapshot visible for up to 24 hours when GitHub scheduling is delayed, but data
+older than two hours is marked informational and cannot drive confidence-based
+movers or alerts. Divination-card expected value now uses poe.ninja's per-card
+prices directly.
+
+Updating from an older build can reset existing campaign checkmarks once while
+the app moves from positional IDs to content IDs. Unchanged steps remain stable
+after that migration.
+
+## Shipped in 3.4.3: accurate legacy unique rolls
 
 The price checker now understands Path of Exile's single-bound Advanced
 Description grammar, such as `+1170(1000) to maximum Life` on a legacy Kaom's
@@ -211,16 +231,17 @@ shows a compact overlay without taking keyboard focus away from the game.
 The checker keeps query-relevant state visible for uniques, rares, magic
 items, maps, gems, jewels, weapons, armour, and other supported item families.
 For supported Trade queries, changing selected modifiers automatically refreshes
-up to five sanitized public seller prices below the editor. Requests use fixed
-official Path of Exile search and fetch routes, strict response limits, short
+up to ten sanitized public seller prices below the editor. Requests use fixed
+Path of Exile Trade website search and fetch routes, strict response limits, short
 timeouts, and a brief cache; they require no account authorization or POESESSID.
 Corruption implicits, influences, links, item level, map state, and supported
 roll ranges remain explicit. When the evidence is incomplete, GloamCore marks
 it incomplete instead of manufacturing a conversion or confidence signal.
 
-GloamCore does not automate the Trade website's undocumented search, exchange,
-or fetch endpoints. Filters are assembled locally; only a deliberate **Trade**
-click opens the encoded query on `pathofexile.com/trade`.
+After a user invokes a desktop item check, supported selected-filter changes
+refresh the bounded snapshot through fixed official Trade search and fetch
+routes. Filters are assembled locally, and only a deliberate **Trade** click
+opens the complete encoded query on `pathofexile.com/trade`.
 
 > Use Borderless or Windowed Fullscreen for the native overlay. Aggregate
 > values and completed-hour evidence are context, not guaranteed sale prices.

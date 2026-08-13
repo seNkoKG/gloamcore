@@ -58,7 +58,7 @@ describe("owned poe.ninja mirror client contract", () => {
     );
   });
 
-  it("rejects incomplete manifests and snapshots older than two hours", () => {
+  it("rejects invalid manifests and bounds delayed snapshots to one day", () => {
     const value = manifest();
     expect(isPoeNinjaMirrorManifest({ ...value, routes: value.routes.slice(1) })).toBe(false);
     expect(isPoeNinjaMirrorManifest({
@@ -94,12 +94,17 @@ describe("owned poe.ninja mirror client contract", () => {
         file: `routes/${"f".repeat(64)}.json`,
         sha256: "f".repeat(64),
         bytes: 10,
-        lastReferencedAt: value.generatedAt - 2 * 60 * 60 * 1000 - 1,
+        lastReferencedAt: value.generatedAt - 24 * 60 * 60 * 1000 - 1,
       }],
     })).toBe(false);
-    expect(() => mirrorEnvelopeTimes({
+    expect(mirrorEnvelopeTimes({
       checkedAt: value.generatedAt - 2 * 60 * 60 * 1000 - 1,
       sourceUpdatedAt: value.generatedAt - 2 * 60 * 60 * 1000 - 1,
+      nextRefreshAt: value.generatedAt,
+    }, value.generatedAt).stale).toBe(true);
+    expect(() => mirrorEnvelopeTimes({
+      checkedAt: value.generatedAt - 24 * 60 * 60 * 1000 - 1,
+      sourceUpdatedAt: value.generatedAt - 24 * 60 * 60 * 1000 - 1,
       nextRefreshAt: value.generatedAt,
     }, value.generatedAt)).toThrow(/too old/i);
   });

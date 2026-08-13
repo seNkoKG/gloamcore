@@ -199,7 +199,7 @@ export function CommandCenterPanel({ navigation }: {
       setData(result.data);
       setNavigatorState(loadNavigatorState(result.data.bundle.manifest.gameVersion, result.data.bundle.navigator));
       setMessage(result.status === "updated"
-        ? `Activated validated PoE ${result.data.bundle.manifest.gameVersion} data. Route progress was migrated by stable step ID.`
+        ? `Activated validated PoE ${result.data.bundle.manifest.gameVersion} data. Progress was preserved for unchanged route steps.`
         : "The validated game-data pack is current.");
     } catch (error) {
       setMessage(`Update rejected; the current validated pack was not changed. ${error instanceof Error ? error.message : String(error)}`);
@@ -308,7 +308,7 @@ export function CommandCenterPanel({ navigation }: {
                   <header><div><small>{gem.support ? "SUPPORT" : "ACTIVE"} · LEVEL {gem.requiredLevel}</small><h3>{gem.name}</h3></div><span>{gem.attribute || "Any attribute"}</span></header>
                   {sources.length ? <ul>{sources.map((source, index) => (
                     <li key={`${source.kind}-${source.questId}-${source.offerId}-${index}`}><strong>{source.kind === "quest" ? "Quest reward" : "Vendor"}</strong><span>Act {source.act} · {source.quest}{source.npc ? ` · ${source.npc}` : ""}</span></li>
-                  ))}</ul> : <p>No quest or vendor acquisition is listed for {navigatorState.characterClass} in this source pack.</p>}
+                  ))}</ul> : <p>No quest or vendor acquisition is listed for {navigatorState.characterClass}. This gem may be drop-only or unavailable to that class.</p>}
                 </article>
               );
             })}

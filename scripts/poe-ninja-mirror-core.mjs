@@ -11,7 +11,7 @@ export const MAX_ROUTE_BYTES = 16 * 1024 * 1024;
 export const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 export const MAX_MIRROR_BYTES = 512 * 1024 * 1024;
 export const MAX_PAGES_SITE_BYTES = 768 * 1024 * 1024;
-export const MAX_RETAINED_PAYLOAD_AGE_MS = 2 * 60 * 60 * 1000;
+export const MAX_RETAINED_PAYLOAD_AGE_MS = 24 * 60 * 60 * 1000;
 
 const ROUTE_SOURCES = new Set(["exchange", "stash-currency", "stash-item"]);
 const ROUTE_FILE = /^routes\/[a-f0-9]{64}\.json$/;

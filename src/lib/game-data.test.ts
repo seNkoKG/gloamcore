@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  compareGameDataVersions,
   fetchGameDataBundle,
   isAtlasDataPack,
   isGameDataManifest,
@@ -40,6 +41,9 @@ describe("patch-safe game data", () => {
     expect(bundle.atlas.nodes.length).toBeGreaterThan(900);
     expect(bundle.navigator.acts).toHaveLength(10);
     expect(bundle.navigator.art.bandits.alira.url).toContain("poewiki.net/images/");
+    expect(new Set(bundle.navigator.gems.map((gem) => gem.name.toLocaleLowerCase())).size)
+      .toBe(bundle.navigator.gems.length);
+    expect(bundle.navigator.gems.some((gem) => gem.id.endsWith("Royale"))).toBe(false);
   });
 
   it("rejects a corrupt pack before parsing or activation", async () => {
@@ -62,5 +66,24 @@ describe("patch-safe game data", () => {
     const atlas = JSON.parse(atlasBytes.toString("utf8"));
     delete atlas.sprites.frame.coords.NotableFrameAllocated;
     expect(isAtlasDataPack(atlas, manifest.gameVersion)).toBe(false);
+  });
+
+  it("orders updates by game version and explicit pack revision", () => {
+    expect(compareGameDataVersions(
+      { gameVersion: "3.30.0", packRevision: 1 },
+      { gameVersion: "3.29.9", packRevision: 99 },
+    )).toBe(1);
+    expect(compareGameDataVersions(
+      { gameVersion: "3.29.1", packRevision: 2 },
+      { gameVersion: "3.29.1", packRevision: 1 },
+    )).toBe(1);
+    expect(compareGameDataVersions(
+      { gameVersion: "3.29.1", packRevision: 1 },
+      { gameVersion: "3.29.1", packRevision: 2 },
+    )).toBe(-1);
+    expect(compareGameDataVersions(
+      { gameVersion: "3.29.1", packRevision: 2 },
+      { gameVersion: "3.29.1", packRevision: 2 },
+    )).toBe(0);
   });
 });

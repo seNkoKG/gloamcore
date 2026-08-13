@@ -13,7 +13,7 @@ platform boundary and do not fabricate mobile observations.
 
 After a maintainer completes the signed mobile release workflow, its output is:
 
-`deliverables/mobile/GloamCore-Android-3.4.3.apk`
+`deliverables/mobile/GloamCore-Android-3.4.4.apk`
 
 Copy it to the Android phone, open it, and allow installs from the app used to
 open the file when Android asks. GloamCore supports Android 7.0 and newer. It
@@ -35,7 +35,7 @@ build.
 Apple requires every native iOS build to be signed on macOS. The complete Xcode
 project is in `ios/App` and the friend-ready full source archive is:
 
-`deliverables/mobile/GloamCore-iOS-Source-3.4.3.zip`
+`deliverables/mobile/GloamCore-iOS-Source-3.4.4.zip`
 
 On a Mac:
 
@@ -53,8 +53,9 @@ There is intentionally no unsigned IPA: iOS will not install one.
 
 - poe.ninja economy data comes from GloamCore's 30-minute GitHub Pages mirror;
   the app verifies its source timestamps and payload digest and never falls back
-  to a direct end-user API request. A last-good snapshot is usable for at most
-  two hours.
+  to a direct end-user API request. Evidence older than two hours is marked
+  informational and cannot trigger alerts. The verified mirror is rejected
+  after 24 hours.
 - Documented Public Currency Exchange completed-hour evidence from Faustus is
   checked every five minutes, with one-minute catch-up checks while a newly
   completed hour is unpublished.
@@ -63,8 +64,8 @@ There is intentionally no unsigned IPA: iOS will not install one.
 - Cached snapshots and item descriptions remain available offline.
 - League Navigator ships the validated campaign, area, quest, and gem pack for
   offline use, checks the project-controlled update channel while opened, and
-  activates only complete SHA-256-verified packs. Campaign progress migrates by
-  stable step ID when a new league pack is activated.
+  activates only complete SHA-256-verified, monotonically newer packs. Campaign
+  progress is preserved for route steps whose content identity is unchanged.
 - Atlas Command Center uses the same validated pack for authentic official
   sprites, the exact graph and point budget, current official URL sharing, and
   migration of connected saved loadouts after a league update.
@@ -80,8 +81,9 @@ There is intentionally no unsigned IPA: iOS will not install one.
 - Mobile opens the correct official Trade league through a user-clicked
   handoff. It does not provide the Windows `Ctrl+D` capture, global PoE-attached
   overlay, or native input helper.
-- No GloamCore package calls the Trade website's undocumented search, exchange,
-  or fetch APIs. Mobile never uses account cookies or `POESESSID`.
+- The mobile package does not call Trade search, exchange, or fetch routes; it
+  only opens the encoded query after a user click. Mobile never uses account
+  cookies or `POESESSID`.
 - Target notifications are local and require notification permission. A
   Divine-denominated target pauses when its conversion is unavailable, and
   low-confidence or stale rows cannot trigger an alert.

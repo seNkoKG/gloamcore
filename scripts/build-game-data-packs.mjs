@@ -6,8 +6,14 @@ import { fileURLToPath } from "node:url";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = path.join(projectRoot, "public", "data", "game", "v1");
 const sourceLock = JSON.parse(fs.readFileSync(path.join(projectRoot, "scripts", "game-data-sources.json"), "utf8"));
+const priceCheckBasePack = JSON.parse(fs.readFileSync(
+  path.join(projectRoot, "src", "lib", "price-check", "base-types-v1.json"),
+  "utf8",
+));
+const PUBLIC_GEM_NAMES = new Set(Object.keys(priceCheckBasePack.gemProfiles || {}));
 
-if (sourceLock.schemaVersion !== 1 || !/^\d+\.\d+\.\d+$/.test(sourceLock.gameVersion)
+if (sourceLock.schemaVersion !== 1 || !Number.isSafeInteger(sourceLock.packRevision) || sourceLock.packRevision < 1
+  || !/^\d+\.\d+\.\d+$/.test(sourceLock.gameVersion) || PUBLIC_GEM_NAMES.size < 300
   || !sourceLock.atlas || sourceLock.atlas.linkFormat?.version !== 6
   || !/^https:\/\/web\.poecdn\.com\//.test(sourceLock.atlas.linkFormat?.url || "")
   || !/^[a-f0-9]{64}$/.test(sourceLock.atlas.linkFormat?.sha256 || "")
@@ -231,30 +237,51 @@ function leagueStartRouteLines(raw) {
 
 function routeLabel(raw, areas, quests) {
   const source = raw.trim().replace(/^#sub\s*/, "");
-  return source.replace(/\{([^{}]+)\}/g, (_match, body) => {
+  const label = source.replace(/\{([^{}]+)\}/g, (_match, body) => {
     const [kind, ...values] = body.split("|");
-    if (kind === "enter") return areas[values[0]]?.name || values[0] || "Area";
-    if (kind === "waypoint") return `Waypoint: ${areas[values[0]]?.name || values[0] || "Area"}`;
-    if (kind === "waypoint_get") return "Activate waypoint";
+    if (kind === "area" || kind === "enter") return areas[values[0]]?.name || values[0] || "Area";
+    if (kind === "waypoint") return values[0]
+      ? `Waypoint to ${areas[values[0]]?.name || values[0]}`
+      : "waypoint";
+    if (kind === "waypoint_get") return "waypoint";
     if (kind === "quest") return quests[values[0]]?.name || values[0] || "Quest";
-    if (kind === "trial") return "Labyrinth trial";
+    if (["arena", "generic", "kill", "quest_text", "reward_quest"].includes(kind)) return values[0] || kind;
+    if (kind === "reward_vendor") return values[0] || "vendor reward";
+    if (kind === "portal") return "portal";
+    if (kind === "trial") return "Trial of Ascendancy";
+    if (kind === "ascend") return `Complete ${values[0]?.[0]?.toUpperCase() || ""}${values[0]?.slice(1) || ""} Labyrinth`;
+    if (kind === "crafting") {
+      const recipes = areas[values[0]]?.crafting_recipes;
+      return Array.isArray(recipes) && recipes.length
+        ? `crafting recipe (${recipes.join(", ")})`
+        : "crafting recipe";
+    }
+    if (kind === "dir") {
+      const directions = ["up", "up-right", "right", "down-right", "down", "down-left", "left", "up-left"];
+      const degrees = Number(values[0]);
+      return directions[((degrees % 360) + 360) % 360 / 45] || `${values[0]}° direction`;
+    }
+    if (kind === "copy") return values.join("");
     if (kind === "logout") return "Log out to character selection";
-    return values.at(-1) || kind.replaceAll("_", " ");
+    throw new Error(`Unsupported route directive: ${kind}`);
   }).replace(/\s+#.*$/, "").replace(/\s+/g, " ").trim();
+  return label === "portal" ? "Use portal" : label;
 }
 
 function routeKind(raw) {
-  if (/\{trial\}/.test(raw)) return "trial";
+  if (/\{(?:ascend\||trial\})/.test(raw)) return "trial";
   if (/\{quest\|/.test(raw) || /^Hand in\b/.test(raw.trim())) return "quest";
-  if (/\{waypoint/.test(raw)) return "waypoint";
+  if (/^\s*\{waypoint\|/.test(raw) || /\{waypoint_get\}/.test(raw)) return "waypoint";
   if (/\bkill\b|\{arena\|/i.test(raw)) return "boss";
-  if (/\{enter\||^\s*➞/.test(raw)) return "travel";
+  if (/\{enter\||\{portal\||^\s*➞/.test(raw)) return "travel";
   if (/^\s*#sub\b/.test(raw)) return "note";
   return "action";
 }
 
-function acquisitionsFor(quests, gems) {
-  const result = new Map(Object.entries(gems).map(([id, gem]) => [id, {
+function acquisitionsFor(quests, gems, publicGemNames) {
+  const result = new Map(Object.entries(gems).filter(([id, gem]) =>
+    !id.endsWith("Royale") && publicGemNames.has(String(gem.name || "")),
+  ).map(([id, gem]) => [id, {
     id,
     name: String(gem.name || id),
     attribute: String(gem.primary_attribute || ""),
@@ -290,23 +317,41 @@ function acquisitionsFor(quests, gems) {
       return true;
     }).sort((left, right) => left.act - right.act || left.quest.localeCompare(right.quest) || left.kind.localeCompare(right.kind));
   }
-  return [...result.values()].sort((left, right) => left.name.localeCompare(right.name));
+  const byName = new Map();
+  for (const gem of result.values()) {
+    const key = gem.name.toLowerCase();
+    const current = byName.get(key);
+    if (!current || gem.acquisitions.length > current.acquisitions.length
+      || (gem.acquisitions.length === current.acquisitions.length && gem.id.localeCompare(current.id) < 0)) {
+      byName.set(key, gem);
+    }
+  }
+  return [...byName.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
-export function buildNavigatorPack({ areas, gems, quests, routes }) {
+function stableRouteStepId(act, line, conditions, occurrences) {
+  const source = line.trim().replace(/\s+#.*$/, "").replace(/\s+/g, " ");
+  const digest = sha256(Buffer.from(`${act}\0${conditions.join("\0")}\0${source}`));
+  const occurrence = (occurrences.get(digest) || 0) + 1;
+  occurrences.set(digest, occurrence);
+  return `a${act}-${digest.slice(0, 12)}-${occurrence}`;
+}
+
+export function buildNavigatorPack({ areas, gems, quests, routes, publicGemNames = PUBLIC_GEM_NAMES }) {
   if (!areas || !gems || !quests || !Array.isArray(routes) || routes.length !== 10) {
     throw new Error("The Exile Leveling source set is incomplete.");
   }
   const acts = routes.map((raw, index) => {
     const act = index + 1;
-    const steps = leagueStartRouteLines(raw).flatMap(({ line, conditions }, lineIndex) => {
+    const occurrences = new Map();
+    const steps = leagueStartRouteLines(raw).flatMap(({ line, conditions }) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#section")) return [];
       const label = routeLabel(line, areas, quests);
       if (!label) return [];
-      const areaIds = [...line.matchAll(/\{(?:enter|waypoint)\|([^|}]+)/g)].map((match) => match[1]);
+      const areaIds = [...line.matchAll(/\{(?:area|enter|waypoint)\|([^|}]+)/g)].map((match) => match[1]);
       const questIds = [...line.matchAll(/\{quest\|([^|}]+)/g)].map((match) => match[1]);
-      return [{ id: `a${act}-${lineIndex + 1}`, act, label, kind: routeKind(line), areaIds, questIds, conditions }];
+      return [{ id: stableRouteStepId(act, line, conditions, occurrences), act, label, kind: routeKind(line), areaIds, questIds, conditions }];
     });
     if (!steps.length) throw new Error(`Act ${act} produced no route steps.`);
     return { act, steps };
@@ -315,6 +360,7 @@ export function buildNavigatorPack({ areas, gems, quests, routes }) {
     schemaVersion: 1,
     game: "poe1",
     gameVersion: GAME_VERSION,
+    packRevision: sourceLock.packRevision,
     source: {
       name: "Exile Leveling",
       url: `https://github.com/HeartofPhos/exile-leveling/commit/${NAVIGATOR_SOURCE.revision}`,
@@ -342,7 +388,7 @@ export function buildNavigatorPack({ areas, gems, quests, routes }) {
       town: area.is_town_area === true,
       recipes: Array.isArray(area.crafting_recipes) ? area.crafting_recipes.map(String) : [],
     })).filter((area) => area.id && area.name).sort((left, right) => left.act - right.act || left.level - right.level || left.name.localeCompare(right.name)),
-    gems: acquisitionsFor(quests, gems),
+    gems: acquisitionsFor(quests, gems, publicGemNames),
   };
 }
 
@@ -380,6 +426,7 @@ export async function buildGameDataPacks({ fetchImpl = fetch, target = outputRoo
     schemaVersion: 1,
     game: "poe1",
     gameVersion: GAME_VERSION,
+    packRevision: sourceLock.packRevision,
     generatedAt: NAVIGATOR_SOURCE.releasedAt,
     packs: Object.fromEntries(Object.entries(packs).map(([id, pack]) => [id, {
       file: pack.file,

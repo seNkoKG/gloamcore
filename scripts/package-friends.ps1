@@ -150,10 +150,11 @@ item-state controls. Watcher's Eye effects and exact Timeless Jewel seeds are
 included, alongside Forbidden Flame/Flesh choices, Thread of Hope rings,
 Chronicle rooms, Veiled state, calculated equipment properties, and
 direction-aware unique roll ranges. The desktop checker builds an exact local
-Trade plan without contacting the Trade website. Filter edits remain local. A
-deliberate Trade click opens the official league page in the user's browser
-with mapped filters prefilled for final verification. GloamCore does not call
-the site's undocumented search, exchange, or fetch APIs.
+Trade plan and requests up to ten sanitized seller rows from fixed public
+search/fetch routes after the user checks an item or changes supported filters.
+A deliberate Trade click opens the official league page in the user's browser
+with the complete mapped query for final verification. GloamCore does not call
+the exchange route.
 No account session, POESESSID, game memory, DLL injection, whisper automation,
 or automated gameplay is used.
 

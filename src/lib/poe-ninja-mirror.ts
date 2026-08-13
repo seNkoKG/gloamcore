@@ -5,7 +5,8 @@ export const POE_NINJA_MIRROR_ROOT =
 export const POE_NINJA_MIRROR_MANIFEST_URL = `${POE_NINJA_MIRROR_ROOT}/manifest.json`;
 export const POE_NINJA_MIRROR_SCHEMA_VERSION = 1;
 export const POE_NINJA_MIRROR_CADENCE_MS = 30 * 60 * 1000;
-export const MAX_ACTIONABLE_MIRROR_AGE_MS = 2 * 60 * 60 * 1000;
+export const MAX_FRESH_MIRROR_AGE_MS = 2 * 60 * 60 * 1000;
+export const MAX_ACTIONABLE_MIRROR_AGE_MS = 24 * 60 * 60 * 1000;
 
 const EXPECTED_ROUTES_PER_LEAGUE = 46;
 const MAX_ACTIVE_LEAGUES = 12;
@@ -224,6 +225,8 @@ export function mirrorEnvelopeTimes(
   now = Date.now(),
 ) {
   assertActionableMirrorSnapshot(snapshot, now);
+  const checkedAge = now - snapshot.checkedAt;
+  const sourceAge = now - snapshot.sourceUpdatedAt;
   return {
     fetchedAt: snapshot.sourceUpdatedAt,
     // Avoid a per-second retry loop when a scheduled workflow is delayed.
@@ -231,6 +234,9 @@ export function mirrorEnvelopeTimes(
       Math.max(snapshot.nextRefreshAt, now + 60_000),
       now + POE_NINJA_MIRROR_CADENCE_MS,
     ),
+    stale:
+      checkedAge > MAX_FRESH_MIRROR_AGE_MS ||
+      sourceAge > MAX_FRESH_MIRROR_AGE_MS,
   };
 }
 

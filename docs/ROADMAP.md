@@ -36,12 +36,29 @@ explicitly supersedes any retired transport or data-source behavior.
 8. **3.4.3 — Legacy unique roll accuracy.** Parse Path of Exile's single-bound
    Advanced Description rolls, retain the copied value and historic domain,
    map official pseudo stats, and prevent unfiltered legacy-unique searches.
+9. **3.4.4 — Data correctness audit.** Render the complete campaign directive
+   grammar, filter the public gem catalogue, stabilize campaign progress,
+   enforce monotonic game packs, preserve safe stale market context, and repair
+   per-card divination expected value.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.3
+## Current in 3.4.4
+
+- Render every pinned Exile Leveling directive as a valid in-game instruction
+  and fail generation on unknown syntax instead of leaking template text.
+- Keep only public, unique gem display names with reviewed class acquisition
+  evidence, and preserve future campaign progress by content identity.
+- Accept only newer PoE pack versions or higher revisions; reject downgrades and
+  conflicting content under a reused identity.
+- Keep verified stale poe.ninja evidence informational for a bounded 24-hour
+  fallback while preventing it from driving confidence-sensitive UI or alerts.
+- Calculate divination-card expected value from per-card prices without dividing
+  by stack size a second time.
+
+## Shipped in 3.4.3
 
 - Interpret a copied roll such as `+1170(1000)` as the current `1170` value
   plus a single historic endpoint, never as two independent modifier values.

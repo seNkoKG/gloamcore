@@ -27,7 +27,7 @@ const UPSTREAM_ROOT = "https://poe.ninja";
 const DEFAULT_PREVIOUS_ROOT = "https://senkokg.github.io/gloamcore/data/poe-ninja/v1";
 const REQUEST_TIMEOUT_MS = 30_000;
 const CONCURRENCY = 4;
-const MAX_REUSED_SNAPSHOT_AGE_MS = 2 * 60 * 60 * 1000;
+const MAX_REUSED_SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000;
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function argument(name, fallback) {

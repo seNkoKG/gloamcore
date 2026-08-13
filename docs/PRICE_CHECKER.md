@@ -56,10 +56,10 @@ hidden app surface.
   Watcher's Eye aura effects, Split Personality rolls, corrupted jewel
   implicits, Forbidden Flame/Flesh choices, Thread of Hope ring variants, and
   exact Timeless Jewel seed/conqueror pseudo-stats.
-- The local planner does not value a rare or magic item by counting Trade
-  results. It builds the exact filters that the user can inspect and then open
-  on the official Trade website. GloamCore does not fetch or display Trade
-  result payloads, result totals, stock, or offers from that page.
+- The local planner does not turn Trade result count into a final rare or magic
+  item valuation. After a desktop item check, it requests up to ten sanitized
+  public seller rows for supported selected filters and keeps the complete
+  encoded query available for inspection on the official Trade website.
 - Exchangeable items retain their exact item and result-currency side in the
   encoded handoff instead of reopening an ambiguous two-currency query.
 - Aggregate poe.ninja prices are not completed sales. Thin, fuzzy, or
@@ -160,9 +160,10 @@ set of otherwise unproven numeric lines.
 
 Modifier checkboxes, number fields, modes, item-state toggles, sliders,
 availability, listed age, and result-currency choices rebuild the small local
-query plan immediately and mark it for review. These edits never send a Trade
-website request. Opening Trade is a separate user gesture that hands the encoded
-plan to the system browser.
+query plan immediately. Supported desktop changes replace any obsolete queued
+request and refresh the bounded seller snapshot after a short delay. Opening
+Trade remains a separate user gesture that hands the complete encoded plan to
+the system browser.
 
 The compact editor has no modifier-list scroll: all query-relevant rows stay
 visible and the native card follows their content. Supporting market context
@@ -177,11 +178,13 @@ action. Dashboard and mobile manual-paste checks generate none. GloamCore does
 not inspect game memory, automate gameplay, read account-session cookies, use
 `POESESSID`, or send whispers.
 
-GloamCore never calls the Trade website's undocumented search, exchange, or
-fetch APIs. It does not receive Trade result payloads, result IDs, stock,
-offers, or account data from that site.
+The Windows price checker calls fixed public Trade search and fetch routes only
+after a user invokes an item check or changes its supported selected filters.
+Requests are anonymous, serialized, rate-limited, cached briefly, and capped at
+ten sanitized listings. GloamCore does not call the exchange route, use account
+cookies, retain private account data, or send whispers.
 
 `TRADE` and **Open Trade** are user-clicked browser handoffs with the complete
 mapped filters encoded for verification. An edited plan is not silently
-replaced by a bare league page. Windows, Android, iOS, and the browser preview
-share this boundary.
+replaced by a bare league page. Mobile and browser preview keep manual paste
+and this handoff but do not use the Windows seller-snapshot transport.

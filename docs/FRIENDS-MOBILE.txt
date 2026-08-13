@@ -1,7 +1,7 @@
-GLOAMCORE 3.4.3 — POE 1 ECONOMY + LEAGUE COMMAND CENTER ON YOUR PHONE
+GLOAMCORE 3.4.4 — POE 1 ECONOMY + LEAGUE COMMAND CENTER ON YOUR PHONE
 
 Android:
-1. Copy GloamCore-Android-3.4.3.apk to your phone.
+1. Copy GloamCore-Android-3.4.4.apk to your phone.
 2. Open it and approve “Install unknown apps” for your file/browser app.
 3. Launch GloamCore and allow notifications if you want price-target alerts.
 
@@ -38,7 +38,7 @@ account. Apple does not permit a normal unsigned IPA to be shared directly.
 Privacy:
 GloamCore uses bounded market and Wiki services. It does not read game memory
 or automate gameplay. Mobile price checks use manual paste, send no game input,
-and never use account cookies or POESESSID. No GloamCore package calls the
-Trade website's undocumented search, exchange, or fetch APIs.
+and never use account cookies or POESESSID. The mobile package does not call
+Trade search, exchange, or fetch routes; it only opens a query after a user click.
 
 Not affiliated with Grinding Gear Games or poe.ninja.

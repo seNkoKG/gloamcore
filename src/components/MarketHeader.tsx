@@ -127,7 +127,7 @@ export function MarketHeader({
           <CircleAlert size={14} />
           {source === "faustus"
             ? "The official Faustus history feed could not be reached. Showing the last successfully cached completed hour."
-            : "poe.ninja could not be reached. Showing a clearly marked recent snapshot; market cache older than two hours is rejected."}
+            : "The poe.ninja mirror is unavailable or stale. Data older than two hours is informational only; the verified mirror is rejected after 24 hours."}
         </div>
       )}
       {!stale && fetchedAt && (

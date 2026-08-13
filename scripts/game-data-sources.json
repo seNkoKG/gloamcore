@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "gameVersion": "3.29.1",
+  "packRevision": 1,
   "atlas": {
     "revision": "0ae2e0f94f266fc21c86ee8dd561d7b559bf2db4",
     "releasedAt": "2026-07-31T00:27:57Z",

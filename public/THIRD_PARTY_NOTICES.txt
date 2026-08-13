@@ -26,7 +26,7 @@ filter plan. StatGroup category selection, merged IDs, per-ID numeric
 transforms, base-property discriminators, and unique fixed-stat declarations
 remain pinned to that source release.
 GloamCore does not use POESESSID or account-session cookies. The Windows price
-checker can request a bounded, short-lived snapshot of at most five sanitized
+checker can request a bounded, short-lived snapshot of at most ten sanitized
 public seller-price rows through fixed Path of Exile Trade search/fetch routes.
 It does not send whispers or restore the retired full-listings subsystem; the
 complete query remains an explicit official Trade browser handoff. Awakened

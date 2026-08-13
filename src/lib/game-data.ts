@@ -24,6 +24,7 @@ export interface GameDataManifest {
   schemaVersion: 1;
   game: "poe1";
   gameVersion: string;
+  packRevision: number;
   generatedAt: string;
   packs: {
     atlas: GameDataPackDescriptor;
@@ -132,6 +133,7 @@ export interface NavigatorDataPack {
   schemaVersion: 1;
   game: "poe1";
   gameVersion: string;
+  packRevision: number;
   source: GameDataSource & { license: "MIT" };
   art: {
     questIcon: { name: string; url: string; source: string };
@@ -220,6 +222,7 @@ function isSource(value: unknown): value is GameDataSource {
 export function isGameDataManifest(value: unknown): value is GameDataManifest {
   if (!record(value) || value.schemaVersion !== GAME_DATA_SCHEMA_VERSION || value.game !== "poe1"
     || !text(value.gameVersion, 20) || !GAME_VERSION.test(value.gameVersion)
+    || !safeInteger(value.packRevision, 1)
     || !text(value.generatedAt, 40) || !Number.isFinite(Date.parse(value.generatedAt))
     || !record(value.packs)) return false;
   const packs = value.packs;
@@ -348,12 +351,17 @@ export function isAtlasDataPack(value: unknown, gameVersion?: string): value is 
 const ROUTE_KINDS = new Set(["action", "boss", "note", "quest", "travel", "trial", "waypoint"]);
 const ACQUISITION_KINDS = new Set(["quest", "vendor"]);
 
-export function isNavigatorDataPack(value: unknown, gameVersion?: string): value is NavigatorDataPack {
+export function isNavigatorDataPack(
+  value: unknown,
+  gameVersion?: string,
+  packRevision?: number,
+): value is NavigatorDataPack {
   if (!record(value)) return false;
   const source = value.source;
   const art = value.art;
   if (!record(value) || value.schemaVersion !== 1 || value.game !== "poe1"
     || !text(value.gameVersion, 20) || (gameVersion != null && value.gameVersion !== gameVersion)
+    || !safeInteger(value.packRevision, 1) || (packRevision != null && value.packRevision !== packRevision)
     || !isSource(source) || !record(source) || source.license !== "MIT" || !record(art) || !record(art.questIcon)
     || !text(art.questIcon.name) || !text(art.questIcon.url, 1_000) || !text(art.questIcon.source, 1_000)
     || !art.questIcon.url.startsWith("https://www.poewiki.net/images/")
@@ -392,14 +400,17 @@ export function isNavigatorDataPack(value: unknown, gameVersion?: string): value
     areaIds.add(area.id);
   }
   const gemIds = new Set<string>();
+  const gemNames = new Set<string>();
   for (const gem of value.gems) {
     if (!record(gem)) return false;
     const requiredLevel = gem.requiredLevel;
-    if (!text(gem.id, 160) || gemIds.has(gem.id) || !text(gem.name)
+    const gemName = typeof gem.name === "string" ? gem.name.toLowerCase() : "";
+    if (!text(gem.id, 160) || gemIds.has(gem.id) || !text(gem.name) || gemNames.has(gemName)
       || typeof gem.attribute !== "string" || gem.attribute.length > 40
       || !safeInteger(requiredLevel, 1) || requiredLevel > 100
       || typeof gem.support !== "boolean" || !Array.isArray(gem.acquisitions) || gem.acquisitions.length > 100) return false;
     gemIds.add(gem.id);
+    gemNames.add(gemName);
     for (const acquisition of gem.acquisitions) {
       if (!record(acquisition)) return false;
       const acquisitionAct = acquisition.act;
@@ -417,7 +428,7 @@ export function isNavigatorDataPack(value: unknown, gameVersion?: string): value
 function isBundle(value: unknown): value is GameDataBundle {
   return record(value) && isGameDataManifest(value.manifest)
     && isAtlasDataPack(value.atlas, value.manifest.gameVersion)
-    && isNavigatorDataPack(value.navigator, value.manifest.gameVersion)
+    && isNavigatorDataPack(value.navigator, value.manifest.gameVersion, value.manifest.packRevision)
     && safeInteger(value.activatedAt) && (value.origin === "bundled" || value.origin === "remote");
 }
 
@@ -490,7 +501,7 @@ export async function fetchGameDataBundle(
   const atlas = parseJson(atlasBytes, "Atlas pack");
   const navigator = parseJson(navigatorBytes, "Navigator pack");
   if (!isAtlasDataPack(atlas, manifestValue.gameVersion)) throw new Error("The Atlas pack has an unsupported schema.");
-  if (!isNavigatorDataPack(navigator, manifestValue.gameVersion)) throw new Error("The Navigator pack has an unsupported schema.");
+  if (!isNavigatorDataPack(navigator, manifestValue.gameVersion, manifestValue.packRevision)) throw new Error("The Navigator pack has an unsupported schema.");
   return { manifest: manifestValue, atlas, navigator, activatedAt: Date.now(), origin } satisfies GameDataBundle;
 }
 
@@ -512,12 +523,31 @@ export function loadGameData() {
   return activePromise;
 }
 
+export function compareGameDataVersions(
+  left: Pick<GameDataManifest, "gameVersion" | "packRevision">,
+  right: Pick<GameDataManifest, "gameVersion" | "packRevision">,
+) {
+  const leftVersion = left.gameVersion.split(".").map(Number);
+  const rightVersion = right.gameVersion.split(".").map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    if (leftVersion[index] !== rightVersion[index]) {
+      return leftVersion[index] > rightVersion[index] ? 1 : -1;
+    }
+  }
+  return Math.sign(left.packRevision - right.packRevision);
+}
+
 export async function checkForGameDataUpdate(fetchImpl: typeof fetch = fetch) {
   const current = await loadGameData();
   const candidate = await fetchGameDataBundle(GAME_DATA_REMOTE_ROOT, "remote", fetchImpl);
-  if (candidate.manifest.gameVersion === current.bundle.manifest.gameVersion
-    && candidate.manifest.packs.atlas.sha256 === current.bundle.manifest.packs.atlas.sha256
-    && candidate.manifest.packs.navigator.sha256 === current.bundle.manifest.packs.navigator.sha256) {
+  const comparison = compareGameDataVersions(candidate.manifest, current.bundle.manifest);
+  const sameContent = candidate.manifest.packs.atlas.sha256 === current.bundle.manifest.packs.atlas.sha256
+    && candidate.manifest.packs.navigator.sha256 === current.bundle.manifest.packs.navigator.sha256;
+  if (comparison < 0) throw new Error("The remote game-data pack is older than the active pack.");
+  if (comparison === 0 && !sameContent) {
+    throw new Error("The remote game-data pack reuses an existing version with different content.");
+  }
+  if (comparison === 0) {
     return { status: "current" as const, data: current };
   }
   const stored = { schemaVersion: 1, active: candidate, previous: current.bundle } satisfies StoredGameData;
