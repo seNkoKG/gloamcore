@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   EXPECTED_ROUTE_COUNT,
   MAX_MANIFEST_BYTES,
+  MAX_RECOVERY_RETAINED_PAYLOAD_AGE_MS,
   MAX_ROUTE_BYTES,
   MIRROR_CADENCE_MS,
   MIRROR_SCHEMA_VERSION,
@@ -131,7 +132,9 @@ async function previousManifest(previousRoot, userAgent) {
     allowMissing: true,
   });
   if (!result) return null;
-  const manifest = parseManifestText(result.text);
+  const manifest = parseManifestText(result.text, {
+    maxRetainedPayloadAgeMs: MAX_RECOVERY_RETAINED_PAYLOAD_AGE_MS,
+  });
   if (!manifest) throw new Error("Previous mirror manifest failed validation.");
   return manifest;
 }

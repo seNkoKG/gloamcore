@@ -11,7 +11,8 @@ export const MAX_ROUTE_BYTES = 16 * 1024 * 1024;
 export const MAX_MANIFEST_BYTES = 2 * 1024 * 1024;
 export const MAX_MIRROR_BYTES = 512 * 1024 * 1024;
 export const MAX_PAGES_SITE_BYTES = 768 * 1024 * 1024;
-export const MAX_RETAINED_PAYLOAD_AGE_MS = 24 * 60 * 60 * 1000;
+export const MAX_RETAINED_PAYLOAD_AGE_MS = 2 * 60 * 60 * 1000;
+export const MAX_RECOVERY_RETAINED_PAYLOAD_AGE_MS = 24 * 60 * 60 * 1000;
 
 const ROUTE_SOURCES = new Set(["exchange", "stash-currency", "stash-item"]);
 const ROUTE_FILE = /^routes\/[a-f0-9]{64}\.json$/;
@@ -185,7 +186,13 @@ export function overviewUrl(root, league, route) {
   return `${root}/poe1/api/economy/${path}?${search}`;
 }
 
-export function validateMirrorManifest(value, { now = Date.now() } = {}) {
+export function validateMirrorManifest(
+  value,
+  {
+    now = Date.now(),
+    maxRetainedPayloadAgeMs = MAX_RETAINED_PAYLOAD_AGE_MS,
+  } = {},
+) {
   if (
     !isRecord(value) ||
     value.schemaVersion !== MIRROR_SCHEMA_VERSION ||
@@ -266,7 +273,7 @@ export function validateMirrorManifest(value, { now = Date.now() } = {}) {
       payload.bytes > MAX_ROUTE_BYTES ||
       !isTimestamp(payload.lastReferencedAt) ||
       payload.lastReferencedAt > value.generatedAt ||
-      value.generatedAt - payload.lastReferencedAt > MAX_RETAINED_PAYLOAD_AGE_MS ||
+      value.generatedAt - payload.lastReferencedAt > maxRetainedPayloadAgeMs ||
       files.has(payload.file)
     ) return false;
     files.set(payload.file, payload.bytes);

@@ -7,9 +7,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   MAX_ACTIVE_LEAGUES,
+  MAX_RECOVERY_RETAINED_PAYLOAD_AGE_MS,
   MAX_RETAINED_PAYLOAD_AGE_MS,
   MAX_ROUTE_BYTES,
   marketRoutes,
+  parseManifestText,
   parseCategoryCatalog,
   publishMirrorGeneration,
   retainedPayloadsForGeneration,
@@ -82,6 +84,30 @@ describe("poe.ninja static mirror contract", () => {
     expect(routeFile(first)).toBe(`routes/${first}.json`);
     expect(routeFile(first)).not.toBe(routeFile(second));
     expect(() => routeFile("not-a-digest")).toThrow(/digest/i);
+  });
+
+  it("keeps retained routes inside the released client compatibility window", () => {
+    expect(MAX_RETAINED_PAYLOAD_AGE_MS).toBe(2 * 60 * 60 * 1000);
+  });
+
+  it("accepts an older manifest for recovery without republishing incompatible routes", () => {
+    const now = Date.now();
+    const previous = generation(now, "previous").manifest;
+    const text = JSON.stringify({
+      ...previous,
+      retainedPayloads: [{
+        file: routeFile("f".repeat(64)),
+        bytes: 10,
+        sha256: "f".repeat(64),
+        lastReferencedAt: now - 3 * 60 * 60 * 1000,
+      }],
+    });
+    expect(parseManifestText(text)).toBeNull();
+    const recovery = parseManifestText(text, {
+      maxRetainedPayloadAgeMs: MAX_RECOVERY_RETAINED_PAYLOAD_AGE_MS,
+    });
+    expect(recovery).not.toBeNull();
+    expect(retainedPayloadsForGeneration(recovery, previous.routes, now)).toEqual([]);
   });
 
   it("keeps old and new manifests loadable across a mixed Pages deployment", { timeout: 30_000 }, async () => {
