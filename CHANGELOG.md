@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 3.4.6
+
+- Corrected Atlas same-orbit connections so they render only between actual
+  neighboring nodes as short arcs instead of repeating a quarter-arc sprite
+  around every group.
+- Removed the detached blue quarter circles and segmented ring artifacts while
+  retaining straight connectors for cross-group and cross-orbit graph edges.
+- Added geometry regression coverage for clockwise, anticlockwise, and
+  angle-boundary orbit connections.
+
 ## 3.4.5
 
 - Added a compact main-skill selector to the Build Lab stat rail and made both
@@ -10,8 +20,8 @@
 - Automatically recalculate the selected main skill through the verified local
   Path of Building engine, clearing stale imported outputs while calculation is
   pending or unavailable.
-- Reconstructed complete Atlas orbit rings from Grinding Gear Games' quarter-ring
-  sprite so isolated blue quarter-arcs no longer appear on the tree.
+- Attempted to reconstruct complete Atlas orbit rings from Grinding Gear Games'
+  quarter-arc asset. Version 3.4.6 supersedes this incorrect group-level use.
 
 ## 3.4.4
 

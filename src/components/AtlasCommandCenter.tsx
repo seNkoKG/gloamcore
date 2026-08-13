@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AtlasDataNode, AtlasDataPack, AtlasSpriteKind } from "../lib/game-data";
+import { atlasConnectorArc } from "../lib/atlas-render";
 import { bridge } from "../lib/bridge";
 import {
   ATLAS_WORKSPACE_KEY,
@@ -154,32 +155,23 @@ function drawConnector(
   return true;
 }
 
-function drawOrbit(
+function drawArcConnector(
   context: CanvasRenderingContext2D,
-  image: HTMLImageElement | undefined,
-  coordinate: { x: number; y: number; w: number; h: number } | undefined,
   center: { x: number; y: number },
-  width: number,
-  height: number,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  color: string,
+  thickness: number,
 ) {
-  if (!coordinate || !image?.complete) return;
-  for (let quarter = 0; quarter < 4; quarter += 1) {
-    context.save();
-    context.translate(center.x, center.y);
-    context.rotate(quarter * Math.PI / 2);
-    context.drawImage(
-      image,
-      coordinate.x,
-      coordinate.y,
-      coordinate.w,
-      coordinate.h,
-      -width,
-      -height,
-      width,
-      height,
-    );
-    context.restore();
-  }
+  const radius = (Math.hypot(from.x - center.x, from.y - center.y)
+    + Math.hypot(to.x - center.x, to.y - center.y)) / 2;
+  if (radius < 1) return;
+  const arc = atlasConnectorArc(center, from, to);
+  context.strokeStyle = color;
+  context.lineWidth = thickness;
+  context.beginPath();
+  context.arc(center.x, center.y, radius, arc.startAngle, arc.endAngle, arc.anticlockwise);
+  context.stroke();
 }
 
 function atlasCenter(atlas: AtlasDataPack) {
@@ -306,6 +298,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
     const lineImage = imagesRef.current.get(lineSheet.filename);
     const groupSheet = atlas.sprites.groupBackground;
     const groupImage = imagesRef.current.get(groupSheet.filename);
+    const groups = new Map(atlas.groups.map((group) => [group.id, group]));
     for (const group of atlas.groups) {
       const point = worldToScreen(group.x, group.y);
       if (group.background) {
@@ -328,19 +321,6 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
           context.globalAlpha = 1;
         }
       }
-      const groupNodes = group.nodeIds.map((id) => nodes.get(id)).filter((node) => node != null);
-      for (const orbit of group.orbits) {
-        if (orbit === 0) continue;
-        const orbitNodes = groupNodes.filter((node) => node.orbit === orbit);
-        const active = orbitNodes.some((node) => allocated.has(node.id));
-        const available = !active && orbitNodes.some((node) => node.neighbors.some((id) => id === atlas.rootId || allocated.has(id)));
-        const key = `Orbit${orbit}${active ? "Active" : available ? "Intermediate" : "Normal"}`;
-        const coordinate = lineSheet.coords[key];
-        if (!coordinate || !lineImage?.complete) continue;
-        const width = (coordinate.w / 0.5) * viewport.zoom;
-        const height = (coordinate.h / 0.5) * viewport.zoom;
-        drawOrbit(context, lineImage, coordinate, point, width, height);
-      }
     }
     context.lineCap = "round";
     for (const node of atlas.nodes) {
@@ -355,8 +335,18 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         const available = !active && (
           node.id === atlas.rootId || neighbor.id === atlas.rootId || allocated.has(node.id) || allocated.has(neighbor.id)
         );
-        const lineKey = active ? "LineConnectorActive" : available ? "LineConnectorIntermediate" : "LineConnectorNormal";
         const scale = nodeScale(viewport.zoom);
+        const sameOrbit = node.groupId === neighbor.groupId && node.orbit > 0 && node.orbit === neighbor.orbit;
+        if (sameOrbit) {
+          const group = groups.get(node.groupId);
+          if (group) {
+            const center = worldToScreen(group.x, group.y);
+            const color = active ? "#68a9ff" : available ? "rgba(176, 142, 83, 0.58)" : "rgba(88, 102, 104, 0.38)";
+            drawArcConnector(context, center, from, to, color, Math.max(1.1, 10 * scale));
+            continue;
+          }
+        }
+        const lineKey = active ? "LineConnectorActive" : available ? "LineConnectorIntermediate" : "LineConnectorNormal";
         const textured = drawConnector(context, lineImage, lineSheet.coords[lineKey], from, to, Math.max(1.2, 17 * scale));
         if (!textured) {
           context.strokeStyle = active ? accent : available ? "rgba(176, 142, 83, 0.5)" : "rgba(88, 102, 104, 0.34)";

@@ -61,7 +61,16 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
-## New in 3.4.5: correct main-skill calculations and clean Atlas rings
+## New in 3.4.6: correct Atlas connection arcs
+
+Atlas Command Center now treats Grinding Gear Games' `OrbitN` art according to
+its graph meaning: it belongs to a connection between neighboring nodes on the
+same orbit, not to a decorative ring around every group. Same-orbit edges now
+follow the shortest circular sweep, while cross-group and cross-orbit edges
+remain straight. This removes the detached quarter circles and segmented blue
+rings visible in 3.4.5 without changing allocation, refund, URL, or point logic.
+
+## Shipped in 3.4.5: correct main-skill calculations
 
 Build Lab now exposes the selected main skill directly in the stat rail. Changing
 it there or in the Skills workspace synchronizes Path of Building's display and
@@ -70,9 +79,8 @@ through the verified local PoB engine. A utility skill such as Blood Rage can no
 longer leave Kinetic Blast labeled as the main skill while showing Blood Rage's
 zero damage.
 
-Atlas Command Center now reconstructs complete orbit rings from Grinding Gear
-Games' official quarter-ring sprite. The tree retains its official art and
-geometry without the detached blue quarter-circle fragments.
+The Atlas ring change included in 3.4.5 was incorrect and is superseded by the
+per-connection arc renderer in 3.4.6.
 
 ## Shipped in 3.4.4: audited PoE data and resilient market fallback
 

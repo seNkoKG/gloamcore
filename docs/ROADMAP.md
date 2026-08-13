@@ -42,20 +42,32 @@ explicitly supersedes any retired transport or data-source behavior.
    per-card divination expected value.
 10. **3.4.5 — Planner selection and Atlas presentation.** Synchronize the
     selected PoB display/calculation skill, recalculate it automatically, and
-    reconstruct complete official Atlas orbit rings from the quarter-ring
+    attempt to reconstruct Atlas orbit presentation from the quarter-arc
     sprite.
+11. **3.4.6 — Atlas connector hotfix.** Render same-orbit connections only for
+    real neighboring graph nodes, following the shortest circular sweep, and
+    remove the incorrect group-level segmented rings from 3.4.5.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.5
+## Current in 3.4.6
+
+- Draw Atlas same-orbit graph edges as clean short arcs between neighboring
+  nodes, including connections that cross the angle boundary.
+- Keep cross-group and cross-orbit edges straight and preserve exact
+  allocation, refund, point, gateway, and URL logic.
+- Remove the detached quarter-circle and segmented-ring artifacts introduced
+  by treating connector art as a group decoration.
+
+## Shipped in 3.4.5
 
 - Select the main skill directly from the Build Lab stat rail or Skills tab.
 - Keep Path of Building's main display and calculation indices synchronized,
   clear stale imported values, and immediately run the verified local engine.
-- Draw complete official Atlas orbit rings without detached quarter-circle
-  sprite fragments.
+- The group-level orbit-ring reconstruction was later found to be incorrect;
+  3.4.6 replaces it with per-edge arcs.
 
 ## Shipped in 3.4.4
 

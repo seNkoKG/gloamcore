@@ -1,6 +1,6 @@
 {
   "name": "gloamcore",
-  "version": "3.4.5",
+  "version": "3.4.6",
   "packageManager": "pnpm@11.16.0",
   "private": true,
   "type": "module",
