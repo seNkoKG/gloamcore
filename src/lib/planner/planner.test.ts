@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PassiveTreeData, PassiveTreeNodeData } from "../../types";
-import { addPobConfigSet, addPobSkillSet, emptyPobBuild, itemsWithPassiveSpecLoadout, normalizeImportedPobBuild, normalizeImportedPassiveSpecs, parsePobXml, pobConfigSetSummaries, pobCustomModifierBlocks, pobSkillSetSummaries, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout, withActivePobConfigSet, withActivePobItemSet, withActivePobSkillSet, withPobConfigSetTitle, withPobCustomModifierBlocks, withPobItemEquipped, withPobItemText, withPobSkillSetTitle, withoutPobConfigSet, withoutPobItem, withoutPobSkillSet } from "./pob-build";
+import { addPobConfigSet, addPobSkillSet, emptyPobBuild, importedPobActiveSkills, itemsWithPassiveSpecLoadout, normalizeImportedPobBuild, normalizeImportedPassiveSpecs, parsePobXml, pobConfigSetSummaries, pobCustomModifierBlocks, pobSkillSetSummaries, pobStatPercent, serializePobXml, specsWithActiveJewelLoadout, withActivePobConfigSet, withActivePobItemSet, withActivePobSkillSet, withPobConfigSetTitle, withPobCustomModifierBlocks, withPobItemEquipped, withPobItemText, withPobMainSkill, withPobSkillSetTitle, withoutPobConfigSet, withoutPobItem, withoutPobSkillSet } from "./pob-build";
 import { applyImportedMasteryEffects } from "./cluster-jewel-graph";
 import {
   comparePlannerBuilds,
@@ -541,6 +541,38 @@ describe("Path of Building XML import", () => {
 
     const removed = withoutPobConfigSet(returned, duplicateId);
     expect(pobConfigSetSummaries(removed)).toHaveLength(2);
+  });
+
+  it("selects one exact main skill for display and calculation and invalidates stale outputs", () => {
+    const build = {
+      ...emptyPobBuild(),
+      playerStats: [{ name: "CombinedDPS", label: "Combined DPS", value: 0, category: "offence" as const, percent: false }],
+      statSource: "pob-snapshot" as const,
+      skillGroups: [{
+        id: "skill-1",
+        slot: "Body Armour",
+        label: "Attack setup",
+        enabled: true,
+        includeInFullDps: false,
+        mainActiveSkill: 1,
+        mainActiveSkillCalcs: 1,
+        gems: [
+          { name: "Blood Rage", skillId: "BloodRage", level: 20, quality: 0, enabled: true },
+          { name: "Increased Critical Damage Support", skillId: "SupportIncreasedCriticalDamage", level: 20, quality: 0, enabled: true },
+          { name: "Kinetic Blast", skillId: "KineticBlast", level: 20, quality: 0, enabled: true },
+        ],
+      }],
+    };
+
+    expect(importedPobActiveSkills(build.skillGroups[0])).toMatchObject([
+      { index: 1, name: "Blood Rage", sourceGemIndex: 1 },
+      { index: 2, name: "Kinetic Blast", sourceGemIndex: 3 },
+    ]);
+    const selected = withPobMainSkill(build, 0, 2);
+    expect(selected.skillGroups[0]).toMatchObject({ mainActiveSkill: 2, mainActiveSkillCalcs: 2 });
+    expect(selected.playerStats).toEqual([]);
+    expect(selected.statSource).toBe("none");
+    expect(serializePobXml(selected)).toMatch(/<Skill\b(?=[^>]*mainActiveSkill="2")(?=[^>]*mainActiveSkillCalcs="2")[^>]*>/);
   });
 
   it("emits and reparses exact gem identity and skill-group selection attributes", () => {

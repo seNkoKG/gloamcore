@@ -61,7 +61,20 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
-## New in 3.4.4: audited PoE data and resilient market fallback
+## New in 3.4.5: correct main-skill calculations and clean Atlas rings
+
+Build Lab now exposes the selected main skill directly in the stat rail. Changing
+it there or in the Skills workspace synchronizes Path of Building's display and
+calculation indices, discards stale imported outputs, and immediately recalculates
+through the verified local PoB engine. A utility skill such as Blood Rage can no
+longer leave Kinetic Blast labeled as the main skill while showing Blood Rage's
+zero damage.
+
+Atlas Command Center now reconstructs complete orbit rings from Grinding Gear
+Games' official quarter-ring sprite. The tree retains its official art and
+geometry without the detached blue quarter-circle fragments.
+
+## Shipped in 3.4.4: audited PoE data and resilient market fallback
 
 Campaign directions, portals, waypoints, Labyrinth steps, crafting recipes, and
 other pinned Exile Leveling directives now render as actual instructions. The

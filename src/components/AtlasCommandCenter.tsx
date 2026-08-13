@@ -154,6 +154,34 @@ function drawConnector(
   return true;
 }
 
+function drawOrbit(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement | undefined,
+  coordinate: { x: number; y: number; w: number; h: number } | undefined,
+  center: { x: number; y: number },
+  width: number,
+  height: number,
+) {
+  if (!coordinate || !image?.complete) return;
+  for (let quarter = 0; quarter < 4; quarter += 1) {
+    context.save();
+    context.translate(center.x, center.y);
+    context.rotate(quarter * Math.PI / 2);
+    context.drawImage(
+      image,
+      coordinate.x,
+      coordinate.y,
+      coordinate.w,
+      coordinate.h,
+      -width,
+      -height,
+      width,
+      height,
+    );
+    context.restore();
+  }
+}
+
 function atlasCenter(atlas: AtlasDataPack) {
   return {
     x: (atlas.bounds.minX + atlas.bounds.maxX) / 2,
@@ -311,17 +339,7 @@ function AtlasCanvas({ atlas, allocated, selectedId, searchMatches, focusNodeId,
         if (!coordinate || !lineImage?.complete) continue;
         const width = (coordinate.w / 0.5) * viewport.zoom;
         const height = (coordinate.h / 0.5) * viewport.zoom;
-        context.drawImage(
-          lineImage,
-          coordinate.x,
-          coordinate.y,
-          coordinate.w,
-          coordinate.h,
-          point.x - width / 2,
-          point.y - height / 2,
-          width,
-          height,
-        );
+        drawOrbit(context, lineImage, coordinate, point, width, height);
       }
     }
     context.lineCap = "round";

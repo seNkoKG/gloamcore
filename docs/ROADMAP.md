@@ -40,12 +40,24 @@ explicitly supersedes any retired transport or data-source behavior.
    grammar, filter the public gem catalogue, stabilize campaign progress,
    enforce monotonic game packs, preserve safe stale market context, and repair
    per-card divination expected value.
+10. **3.4.5 — Planner selection and Atlas presentation.** Synchronize the
+    selected PoB display/calculation skill, recalculate it automatically, and
+    reconstruct complete official Atlas orbit rings from the quarter-ring
+    sprite.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.4
+## Current in 3.4.5
+
+- Select the main skill directly from the Build Lab stat rail or Skills tab.
+- Keep Path of Building's main display and calculation indices synchronized,
+  clear stale imported values, and immediately run the verified local engine.
+- Draw complete official Atlas orbit rings without detached quarter-circle
+  sprite fragments.
+
+## Shipped in 3.4.4
 
 - Render every pinned Exile Leveling directive as a valid in-game instruction
   and fail generation on unknown syntax instead of leaking template text.

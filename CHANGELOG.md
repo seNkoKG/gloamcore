@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 3.4.5
+
+- Added a compact main-skill selector to the Build Lab stat rail and made both
+  planner selectors update Path of Building's display and calculation skill
+  indices together.
+- Automatically recalculate the selected main skill through the verified local
+  Path of Building engine, clearing stale imported outputs while calculation is
+  pending or unavailable.
+- Reconstructed complete Atlas orbit rings from Grinding Gear Games' quarter-ring
+  sprite so isolated blue quarter-arcs no longer appear on the tree.
+
 ## 3.4.4
 
 - Corrected all pinned campaign-route directive rendering, removed Royale,

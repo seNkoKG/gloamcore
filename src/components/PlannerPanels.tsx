@@ -29,6 +29,7 @@ import type { PobEngineConfigInput, PobEngineGemCatalogEntry, PobEngineScalar } 
 import {
   addPobConfigSet,
   addPobSkillSet,
+  importedPobActiveSkills,
   importedPobGemArtworkKey,
   pobConfigSetSummaries,
   pobCustomModifierBlocks,
@@ -41,11 +42,11 @@ import {
   withPobCustomModifierBlocks,
   withPobItemEquipped,
   withPobItemText,
+  withPobMainSkill,
   withPobSkillSetTitle,
   withoutPobConfigSet,
   withoutPobItem,
   withoutPobSkillSet,
-  type ImportedPobActiveSkill,
   type ImportedPobBuild,
   type ImportedPobItem,
   type ImportedPobStat,
@@ -580,7 +581,7 @@ export function PlannerItemsPanel({ build, artwork, artworkDimensions = EMPTY_IT
   </div>;
 }
 
-export function PlannerSkillsPanel({ build, artwork = EMPTY_GEM_ARTWORK, catalog = EMPTY_GEM_CATALOG, onChange }: { build: ImportedPobBuild | null; artwork?: ReadonlyMap<string, string>; catalog?: readonly PobEngineGemCatalogEntry[]; onChange: (build: ImportedPobBuild) => void }) {
+export function PlannerSkillsPanel({ build, artwork = EMPTY_GEM_ARTWORK, catalog = EMPTY_GEM_CATALOG, calculating = false, onChange, onMainSkillChange }: { build: ImportedPobBuild | null; artwork?: ReadonlyMap<string, string>; catalog?: readonly PobEngineGemCatalogEntry[]; calculating?: boolean; onChange: (build: ImportedPobBuild) => void; onMainSkillChange?: (build: ImportedPobBuild) => void }) {
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [gemQuery, setGemQuery] = useState("");
   const skillSets = useMemo(() => build ? pobSkillSetSummaries(build) : [], [build]);
@@ -628,6 +629,10 @@ export function PlannerSkillsPanel({ build, artwork = EMPTY_GEM_ARTWORK, catalog
       gems: group.gems.map((gem, index2) => index2 === gemIndex ? { ...gem, ...patch } : gem),
     } : group),
   });
+  const selectMainSkill = (groupIndex: number, activeSkillIndex: number) => {
+    const next = withPobMainSkill(build, groupIndex, activeSkillIndex);
+    (onMainSkillChange || onChange)(next);
+  };
   const requestedGroupIndex = build.skillGroups.findIndex((group) => group.id === selectedGroupId);
   const importedMainGroupIndex = Math.max(0, Math.min(build.skillGroups.length - 1, (build.mainSocketGroup || 1) - 1));
   const selectedGroupIndex = requestedGroupIndex >= 0 ? requestedGroupIndex : importedMainGroupIndex;
@@ -666,11 +671,7 @@ export function PlannerSkillsPanel({ build, artwork = EMPTY_GEM_ARTWORK, catalog
   };
   const isSupport = (gem: typeof selected.gems[number]) => gem.support === true || /support/i.test(`${gem.skillId} ${gem.gemId || ""}`);
   const hasAuthoritativeActiveSkills = Boolean(selected.activeSkills?.length);
-  const activeSkills: ImportedPobActiveSkill[] = hasAuthoritativeActiveSkills
-    ? selected.activeSkills || []
-    : selected.gems.flatMap((gem, gemIndex) => gem.enabled && !isSupport(gem)
-      ? [{ name: gem.name, sourceGemIndex: gemIndex + 1 }]
-      : []).map((skill, index) => ({ ...skill, index: index + 1 }));
+  const activeSkills = importedPobActiveSkills(selected);
   const selectedActiveSkill = activeSkills.find((skill) => skill.index === (selected.mainActiveSkill || 1)) || activeSkills[0];
   const selectedGemIndex = (selectedActiveSkill?.sourceGemIndex || 0) - 1;
   const selectedGem = selectedGemIndex >= 0 ? selected.gems[selectedGemIndex] : undefined;
@@ -704,8 +705,8 @@ export function PlannerSkillsPanel({ build, artwork = EMPTY_GEM_ARTWORK, catalog
       <header><span><small>{selected.slot}</small><strong>{selected.label || selected.gems[0]?.name || "Socket group"}</strong></span><label><input type="checkbox" checked={selected.enabled} onChange={(event) => updateGroup(selectedGroupIndex, { enabled: event.target.checked })}/> Group enabled</label></header>
       <div className="planner-socket-group-controls"><label><span>Label</span><input aria-label="Socket group label" value={selected.label} onChange={(event) => updateGroup(selectedGroupIndex, { label: event.target.value.slice(0, 160) })}/></label><label><span>Socketed in</span><input aria-label="Socket group slot" value={selected.slot} onChange={(event) => updateGroup(selectedGroupIndex, { slot: event.target.value.slice(0, 160) })}/></label><label><span>Group count</span><input aria-label="Socket group count" type="number" min="1" max="1000" value={selected.groupCount || 1} onChange={(event) => updateGroup(selectedGroupIndex, { groupCount: Math.max(1, Math.min(1000, Number(event.target.value) || 1)) })}/></label></div>
       <div className="planner-main-skill-controls">
-        <label><span>Main socket group</span><select aria-label="Main socket group" value={build.mainSocketGroup || 1} onChange={(event) => { const index = Math.max(0, Math.min(build.skillGroups.length - 1, Number(event.target.value) - 1)); setSelectedGroupId(build.skillGroups[index].id); onChange({ ...build, mainSocketGroup: index + 1 }); }}>{build.skillGroups.map((group, index) => { const mainSkill = group.activeSkills?.find((skill) => skill.index === (group.mainActiveSkill || 1))?.name || group.gems.find((gem) => gem.enabled && !(gem.support === true || /support/i.test(`${gem.skillId} ${gem.gemId || ""}`)))?.name || group.label || group.slot || `Socket group ${index + 1}`; return <option key={group.id} value={index + 1}>{mainSkill} · {group.slot || `Group ${index + 1}`}</option>; })}</select></label>
-        <label><span>Main active skill</span><select aria-label="Main active skill" value={selectedActiveSkill?.index || 1} disabled={!activeSkills.length} title={hasAuthoritativeActiveSkills ? "Path of Building active-skill list" : "Enabled active gems; recalculate to verify exact Path of Building choices"} onChange={(event) => { const mainActiveSkill = Number(event.target.value); updateGroup(selectedGroupIndex, { mainActiveSkill, mainActiveSkillCalcs: mainActiveSkill }); }}>{activeSkills.map((skill) => <option key={`${skill.index}-${skill.name}`} value={skill.index}>{skill.name}</option>)}</select></label>
+        <label><span>Main socket group</span><select aria-label="Main socket group" value={build.mainSocketGroup || 1} disabled={calculating} onChange={(event) => { const index = Math.max(0, Math.min(build.skillGroups.length - 1, Number(event.target.value) - 1)); const group = build.skillGroups[index]; const mainActiveSkill = importedPobActiveSkills(group).find((skill) => skill.index === (group.mainActiveSkill || 1))?.index || 1; setSelectedGroupId(group.id); selectMainSkill(index, mainActiveSkill); }}>{build.skillGroups.map((group, index) => { const mainSkill = importedPobActiveSkills(group).find((skill) => skill.index === (group.mainActiveSkill || 1))?.name || group.label || group.slot || `Socket group ${index + 1}`; return <option key={group.id} value={index + 1}>{mainSkill} · {group.slot || `Group ${index + 1}`}</option>; })}</select></label>
+        <label><span>Main active skill</span><select aria-label="Main active skill" value={selectedActiveSkill?.index || 1} disabled={calculating || !activeSkills.length} title={hasAuthoritativeActiveSkills ? "Path of Building active-skill list" : "Enabled active gems; recalculate to verify exact Path of Building choices"} onChange={(event) => selectMainSkill(selectedGroupIndex, Number(event.target.value))}>{activeSkills.map((skill) => <option key={`${skill.index}-${skill.name}`} value={skill.index}>{skill.name}</option>)}</select></label>
         {(selectedActiveSkill?.parts?.length || 0) > 1 && <label><span>Skill part</span><select aria-label="Main skill part" value={selectedGem?.skillPart || selectedGem?.skillPartCalcs || 1} disabled={!selectedGem || !hasAuthoritativeActiveSkills} onChange={(event) => updateSelectedGem({ skillPart: Number(event.target.value) })}>{selectedActiveSkill?.parts?.map((part, index) => <option key={`${index}-${part}`} value={index + 1}>{part}</option>)}</select></label>}
         {selectedActiveSkill?.stages && <label><span>Skill stages</span><input aria-label="Main skill stages" type="number" min={selectedActiveSkill.stages.min} max={selectedActiveSkill.stages.max} value={selectedGem?.skillStageCount || selectedGem?.skillStageCountCalcs || selectedActiveSkill.stages.max} disabled={!selectedGem || !hasAuthoritativeActiveSkills} onChange={(event) => { const value = Math.max(selectedActiveSkill.stages!.min, Math.min(selectedActiveSkill.stages!.max, Number(event.target.value) || selectedActiveSkill.stages!.min)); updateSelectedGem({ skillStageCount: value }); }}/></label>}
         {selectedActiveSkill?.mine && <label><span>Active mines</span><input aria-label="Active mine count" type="number" min="0" value={selectedGem?.skillMineCount ?? selectedGem?.skillMineCountCalcs ?? ""} placeholder="PoB default" disabled={!selectedGem || !hasAuthoritativeActiveSkills} onChange={(event) => { const value = event.target.value === "" ? undefined : Math.max(0, Number(event.target.value) || 0); updateSelectedGem({ skillMineCount: value }); }}/></label>}

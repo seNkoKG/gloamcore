@@ -46,12 +46,14 @@ import {
 import { bridge, isDesktop } from "../lib/bridge";
 import {
   emptyPobBuild,
+  importedPobActiveSkills,
   importedPobGemArtworkKey,
   parsePobXml,
   itemsWithPassiveSpecLoadout,
   serializePobXml,
   specsWithActiveJewelLoadout,
   withPassiveSpecAllocation,
+  withPobMainSkill,
   type ImportedPassiveSpec,
   type ImportedPobBuild,
   type ImportedPobItem,
@@ -197,16 +199,22 @@ function railValue(stat: ReturnType<typeof railStat>, suffix = "") {
   return `${value}${stat.percent ? "%" : suffix}`;
 }
 
-function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calculating }: {
+function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, onMainSkillChange, calculating }: {
   build: ImportedPobBuild | null;
   collapsed: boolean;
   onCollapsed: () => void;
   onRecalculate: () => void;
+  onMainSkillChange: (build: ImportedPobBuild) => void;
   calculating: boolean;
 }) {
-  const mainSkill = build?.skillGroups[Math.max(0, (build.mainSocketGroup || 1) - 1)]
+  const mainSkillGroupIndex = Math.max(0, (build?.mainSocketGroup || 1) - 1);
+  const mainSkill = build?.skillGroups[mainSkillGroupIndex]
     || build?.skillGroups.find((group) => group.enabled);
-  const mainActiveSkill = mainSkill?.activeSkills?.find((skill) => skill.index === (mainSkill.mainActiveSkill || 1));
+  const mainActiveSkill = mainSkill && importedPobActiveSkills(mainSkill).find((skill) => skill.index === (mainSkill.mainActiveSkill || 1));
+  const mainSkillOptions = build?.skillGroups.flatMap((group, groupIndex) => importedPobActiveSkills(group).map((skill) => ({
+    value: `${groupIndex}:${skill.index}`,
+    label: `${skill.name} · ${group.slot || `Group ${groupIndex + 1}`}`,
+  }))) || [];
   const hasFullDpsGroups = Boolean(build?.skillGroups.some((group) => group.enabled && group.includeInFullDps));
   const sections = [
     { title: "Offence", rows: [
@@ -247,7 +255,9 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
         <span><strong>{railValue(railStat(build, "EnergyShield"))}</strong><small>ES</small></span>
         <span><strong>{railValue(railStat(build, "ManaUnreserved", "Mana"))}</strong><small>Mana</small></span>
       </div>
-      <section className="planner-active-skill"><small>Main skill</small><strong>{mainActiveSkill?.name || mainSkill?.gems.find((gem) => gem.enabled && gem.support !== true && !/support/i.test(`${gem.skillId} ${gem.gemId || ""}`))?.name || mainSkill?.label || "No evaluated skill"}</strong></section>
+      <section className="planner-active-skill"><small>Main skill</small>{build && mainSkillOptions.length
+        ? <select aria-label="Main skill" value={`${mainSkillGroupIndex}:${mainActiveSkill?.index || 1}`} disabled={calculating} onChange={(event) => { const [groupIndex, activeSkillIndex] = event.target.value.split(":").map(Number); onMainSkillChange(withPobMainSkill(build, groupIndex, activeSkillIndex)); }}>{mainSkillOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+        : <strong>{mainSkill?.label || "No evaluated skill"}</strong>}</section>
       {!build?.playerStats.length && <button type="button" className="planner-stat-empty" onClick={onRecalculate} disabled={calculating || !build}>
         {calculating ? <LoaderCircle className="is-spinning" size={13}/> : <CircleGauge size={13}/>} Calculate build stats
       </button>}
@@ -255,7 +265,7 @@ function PlannerStatRail({ build, collapsed, onCollapsed, onRecalculate, calcula
         <h3>{section.title}</h3>
         {section.rows.map(([label, stat]) => <div key={label as string}><span>{label as string}</span><strong>{railValue(stat as ReturnType<typeof railStat>)}</strong></div>)}
       </section>)}</div>
-      <footer><span className={build?.statSource === "pob-engine" ? "is-live" : ""}/>{build?.statSource === "pob-engine" ? "Verified local PoB" : "Imported PoB snapshot"}</footer>
+      <footer><span className={build?.statSource === "pob-engine" ? "is-live" : ""}/>{build?.statSource === "pob-engine" ? "Verified local PoB" : build?.statSource === "pob-snapshot" ? "Imported PoB snapshot" : calculating ? "Calculating selected skill" : "Stats need recalculation"}</footer>
     </>}
   </aside>;
 }
@@ -2444,7 +2454,7 @@ export function BuildPlannerPanel({ league = "", savedBuildId, navigationNonce =
     setMessage("Path of Building import code copied. PoB will recalculate outputs after import.");
   };
 
-  const recalculateWithPob = async () => {
+  const calculateWithPob = async (requestedBuild?: ImportedPobBuild) => {
     if (!tree) return;
     const request = asyncGuardRef.current.begin("calculation");
     const sourceIdentity = plannerIdentityRef.current;
@@ -2466,7 +2476,7 @@ export function BuildPlannerPanel({ league = "", savedBuildId, navigationNonce =
       }
       return "current" as const;
     };
-    const effectiveBuild = buildWithCurrentIdentity(build || emptyPobBuild(currentClass?.name || "Scion"));
+    const effectiveBuild = buildWithCurrentIdentity(requestedBuild || build || emptyPobBuild(currentClass?.name || "Scion"));
     const sourceSpecs = persistedSpecs();
     const effectiveSpecs = sourceSpecs.map((spec) => materializeImportedPassiveSpec(tree, spec, effectiveBuild.items).spec);
     const effectiveActiveSpecId = activeSpecId || effectiveSpecs[0]?.id || "";
@@ -2508,6 +2518,15 @@ export function BuildPlannerPanel({ league = "", savedBuildId, navigationNonce =
     } finally {
       if (asyncGuardRef.current.isLatest(request)) setCalculating(false);
     }
+  };
+
+  const recalculateWithPob = () => { void calculateWithPob(); };
+  const selectMainSkill = (nextBuild: ImportedPobBuild) => {
+    markPlannerChanged();
+    plannerIdentityRef.current = { ...plannerIdentityRef.current, build: nextBuild };
+    setBuild(nextBuild);
+    setEditedSinceImport(true);
+    if (engineCapability?.ok === true) void calculateWithPob(nextBuild);
   };
 
   const commitValidatedItemBuild = async (candidate: ImportedPobBuild) => {
@@ -2645,7 +2664,7 @@ export function BuildPlannerPanel({ league = "", savedBuildId, navigationNonce =
       </header>
       {message && <div className="planner-message"><span>{message}</span><button type="button" aria-label="Dismiss planner message" onClick={() => setMessage("")}><X size={13} /></button></div>}
       <div className="planner-workspace">
-        <PlannerStatRail build={build} collapsed={statRailCollapsed} onCollapsed={() => setStatRailCollapsed((value) => !value)} onRecalculate={recalculateWithPob} calculating={calculating}/>
+        <PlannerStatRail build={build} collapsed={statRailCollapsed} onCollapsed={() => setStatRailCollapsed((value) => !value)} onRecalculate={recalculateWithPob} onMainSkillChange={selectMainSkill} calculating={calculating}/>
         <div className="planner-surface">
           <div className="planner-body">
         {tab === "tree" && (
@@ -2701,7 +2720,7 @@ export function BuildPlannerPanel({ league = "", savedBuildId, navigationNonce =
           </div>
         )}
         {tab === "items" && <PlannerItemsPanel build={build} artwork={itemArtwork} artworkDimensions={itemArtworkDimensions} onChange={editBuild} onCommitItem={commitValidatedItemBuild} />}
-        {tab === "skills" && <PlannerSkillsPanel build={build} artwork={gemArtwork} catalog={gemCatalog} onChange={editBuild} />}
+        {tab === "skills" && <PlannerSkillsPanel build={build} artwork={gemArtwork} catalog={gemCatalog} calculating={calculating} onChange={editBuild} onMainSkillChange={selectMainSkill} />}
         {tab === "config" && <PlannerConfigPanel build={build} catalog={configCatalog} onChange={editBuild} />}
         {tab === "calcs" && <PlannerCalcsPanel build={build} editedSinceImport={editedSinceImport} comparison={comparison} />}
         {tab === "progression" && <BuildProgressionPanel build={build} league={league} />}

@@ -33,6 +33,20 @@ function minimalBuild(level: number) {
 </PathOfBuilding>`;
 }
 
+function mainSkillBuild(mainActiveSkill: number) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="90" targetVersion="3_0" bandit="None" className="Scion" ascendClassName="None" mainSocketGroup="1" viewMode="CALCS" />
+  <Import />
+  <Calcs />
+  <Skills activeSkillSet="1"><SkillSet id="1"><Skill slot="Weapon 1" enabled="true" includeInFullDPS="false" mainActiveSkill="${mainActiveSkill}" mainActiveSkillCalcs="${mainActiveSkill}"><Gem nameSpec="Blood Rage" skillId="BloodRage" gemId="Metadata/Items/Gems/SkillGemBloodRage" level="20" quality="0" enabled="true"/><Gem nameSpec="Kinetic Blast" skillId="KineticBlast" gemId="Metadata/Items/Gems/SkillGemKineticBlast" level="20" quality="0" enabled="true"/></Skill></SkillSet></Skills>
+  <Tree activeSpec="1"><Spec title="Default" treeVersion="3_29" classId="0" ascendClassId="0" nodes="" /></Tree>
+  <Items activeItemSet="1"><Item id="1">Rarity: NORMAL\nDriftwood Wand</Item><ItemSet id="1"><Slot name="Weapon 1" itemId="1"/></ItemSet></Items>
+  <Config activeConfigSet="1"><ConfigSet id="1" /></Config>
+  <Notes />
+</PathOfBuilding>`;
+}
+
 describe("authoritative local Path of Building bridge", () => {
   it("reports a missing installation without inventing calculations", async () => {
     const missing = path.join(os.tmpdir(), `gloamcore-missing-pob-${process.pid}-${Date.now()}`);
@@ -180,6 +194,16 @@ describe("authoritative local Path of Building bridge", () => {
   });
 
   const capability = diagnosePobEngine();
+  it.runIf(capability.available)("calculates the selected Kinetic Blast instead of stale Blood Rage output", async () => {
+    const bloodRage = await calculatePobBuild({ xml: mainSkillBuild(1), name: "Blood Rage selection" });
+    const kineticBlast = await calculatePobBuild({ xml: mainSkillBuild(2), name: "Kinetic Blast selection" });
+
+    expect(bloodRage).toMatchObject({ ok: true, calculation: { mainSkillName: "Blood Rage", stats: { CombinedDPS: 0 } } });
+    expect(kineticBlast).toMatchObject({ ok: true, calculation: { mainSkillName: "Kinetic Blast" } });
+    expect(kineticBlast.calculation.stats.CombinedDPS).toBeGreaterThan(0);
+    expect(kineticBlast.calculation.stats.TotalDPS).toBeGreaterThan(0);
+  }, 20_000);
+
   it.runIf(capability.available)("uses PoB's exact passive power and official Timeless Jewel lookup tables", async () => {
     const analysis = await analyzePobNodes({ xml: minimalBuild(1), maxPoints: 2 });
     expect(analysis).toMatchObject({ ok: true, authoritative: true, engine: { version: "2.67.2" }, analysis: { maxPoints: 2 } });

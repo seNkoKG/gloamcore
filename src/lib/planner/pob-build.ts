@@ -144,6 +144,40 @@ export interface ImportedPobBuild {
   notes: string;
 }
 
+export function importedPobActiveSkills(group: ImportedPobSkillGroup): ImportedPobActiveSkill[] {
+  if (group.activeSkills?.length) return group.activeSkills;
+  return group.gems.flatMap((gem, gemIndex) => {
+    const support = gem.support === true || /support/i.test(`${gem.skillId} ${gem.gemId || ""}`);
+    return gem.enabled && !support ? [{ name: gem.name, sourceGemIndex: gemIndex + 1 }] : [];
+  }).map((skill, index) => ({ ...skill, index: index + 1 }));
+}
+
+export function withPobMainSkill(
+  build: ImportedPobBuild,
+  requestedGroupIndex: number,
+  requestedActiveSkill: number,
+) {
+  if (!build.skillGroups.length) return build;
+  const groupIndex = Math.max(0, Math.min(build.skillGroups.length - 1, requestedGroupIndex));
+  const group = build.skillGroups[groupIndex];
+  const activeSkills = importedPobActiveSkills(group);
+  const activeSkill = activeSkills.find((skill) => skill.index === requestedActiveSkill)
+    || activeSkills.find((skill) => skill.index === group.mainActiveSkill)
+    || activeSkills[0];
+  const mainActiveSkill = activeSkill?.index || 1;
+  return {
+    ...build,
+    mainSocketGroup: groupIndex + 1,
+    skillGroups: build.skillGroups.map((entry, index) => index === groupIndex ? {
+      ...entry,
+      mainActiveSkill,
+      mainActiveSkillCalcs: mainActiveSkill,
+    } : entry),
+    playerStats: [],
+    statSource: "none" as const,
+  };
+}
+
 export interface PobPlannerSetSummary {
   id: number;
   title: string;
