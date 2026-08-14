@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 3.4.7
+
+- Reorganized the in-game Ctrl+D modifier editor into clear provenance lanes
+  for calculated properties, enchantments, implicits, prefixes, suffixes,
+  crafted modifiers, and pseudo totals.
+- Kept multi-line Advanced Description affixes visually linked while leaving
+  each modifier independently selectable for the official Trade query.
+- Preserved the bounded live seller-price snapshot directly below the modifier
+  lanes and kept its checking, empty, and failure states visually distinct.
+- Synchronized the compact overlay with the selected app theme and strengthened
+  corruption, contrast, constrained-height, and native focus regression proof.
+- Replaced the public product captures with fresh images of the current app and
+  redesigned price-check overlay.
+
 ## 3.4.6
 
 - Corrected Atlas same-orbit connections so they render only between actual

@@ -24,8 +24,8 @@ function expectOrdered(...fragments: string[]) {
 }
 
 describe("native price-check smoke harness", () => {
-  it("binds source and packaged runs to the current 3.4.6 release identity", () => {
-    expect(packageMetadata.version).toBe("3.4.6");
+  it("binds source and packaged runs to the current 3.4.7 release identity", () => {
+    expect(packageMetadata.version).toBe("3.4.7");
     expect(smoke).toContain('(Join-Path $projectRoot "package.json")');
     expect(smoke).toContain(").version)");
     expect(smoke).toContain("$provenance.gitHead -ne $snapshotHead.Trim()");

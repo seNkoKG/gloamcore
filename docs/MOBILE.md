@@ -9,7 +9,7 @@ Windows-only Player Toolkit features that require a local PoE process or
 `Client.txt`, including Mapping Journal, remain visible with an explicit
 platform boundary and do not fabricate mobile observations.
 
-The newest packaged mobile preview in `deliverables/mobile` is 3.4.2. No 3.4.6
+The newest packaged mobile preview in `deliverables/mobile` is 3.4.2. No 3.4.7
 Android or iOS package has been built or published.
 
 ## Android: build, install, or share

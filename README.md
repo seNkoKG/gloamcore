@@ -61,7 +61,16 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
-## New in 3.4.6: correct Atlas connection arcs
+## New in 3.4.7: readable in-game modifier lanes
+
+The Ctrl+D price-check overlay now separates calculated properties,
+enchantments, implicits, prefixes, suffixes, crafted modifiers, and pseudo
+totals into clear lanes. Multi-line Advanced Description affixes remain linked,
+every modifier keeps its existing query control, and the bounded live seller
+prices remain directly below the editor. The overlay follows the active app
+theme while retaining clear corruption and error states.
+
+## Shipped in 3.4.6: correct Atlas connection arcs
 
 Atlas Command Center now treats Grinding Gear Games' `OrbitN` art according to
 its graph meaning: it belongs to a connection between neighboring nodes on the

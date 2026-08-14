@@ -47,12 +47,24 @@ explicitly supersedes any retired transport or data-source behavior.
 11. **3.4.6 — Atlas connector hotfix.** Render same-orbit connections only for
     real neighboring graph nodes, following the shortest circular sweep, and
     remove the incorrect group-level segmented rings from 3.4.5.
+12. **3.4.7 - In-game modifier readability.** Group Ctrl+D modifiers by their
+    actual provenance, preserve linked Advanced Description affixes and live
+    seller prices, and follow the selected app theme in the compact overlay.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.6
+## Current in 3.4.7
+
+- Separate calculated properties, enchantments, implicits, prefixes, suffixes,
+  crafted modifiers, and pseudo totals in the in-game Ctrl+D overlay.
+- Keep proven multi-line affixes linked without merging their independent Trade
+  query controls or flattening ordinary copied modifiers into false groups.
+- Retain live seller-price rows below the modifier lanes and synchronize the
+  overlay with the selected app theme.
+
+## Shipped in 3.4.6
 
 - Draw Atlas same-orbit graph edges as clean short arcs between neighboring
   nodes, including connections that cross the angle boundary.
