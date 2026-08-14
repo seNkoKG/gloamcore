@@ -7,7 +7,7 @@ import {
   retiredProductStorageKey,
 } from "./storage-migration";
 
-const STORAGE_KEY = "gloamcore:preferences:v1";
+export const PREFERENCES_STORAGE_KEY = "gloamcore:preferences:v1";
 const LEGACY_STORAGE_KEYS = [
   retiredProductStorageKey("preferences:v1"),
   "poe-economy-widget:preferences:v1",
@@ -48,6 +48,19 @@ export const defaultPreferences: AppPreferences = {
   watchlist: [],
   lastViewed: [],
 };
+
+export function applyDisplayPreferences(
+  preferences: Pick<
+    AppPreferences,
+    "theme" | "textScale" | "reducedMotion" | "colorVision"
+  >,
+  root: Pick<HTMLElement, "dataset">,
+) {
+  root.dataset.theme = preferences.theme;
+  root.dataset.textScale = preferences.textScale;
+  root.dataset.reducedMotion = preferences.reducedMotion ? "true" : "false";
+  root.dataset.colorVision = preferences.colorVision;
+}
 
 function validRevision(value: unknown) {
   const revision = Number(value);
@@ -116,7 +129,11 @@ function encodePreferencesRecord(
 
 function nextPreferenceRevision() {
   const local = decodePreferencesRecord(
-    readMigratedStorage(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEYS),
+    readMigratedStorage(
+      localStorage,
+      PREFERENCES_STORAGE_KEY,
+      LEGACY_STORAGE_KEYS,
+    ),
   );
   currentPreferenceRevision = Math.max(
     currentPreferenceRevision,
@@ -132,7 +149,10 @@ function nextPreferenceRevision() {
 function enqueueNativePreferenceWrite(serialized: string) {
   if (!isNativeMobile) return;
   nativePreferenceWriteChain = nativePreferenceWriteChain
-    .then(() => Preferences.set({ key: STORAGE_KEY, value: serialized }))
+    .then(() => Preferences.set({
+      key: PREFERENCES_STORAGE_KEY,
+      value: serialized,
+    }))
     .then(
       () => undefined,
       () => undefined,
@@ -181,9 +201,13 @@ export async function hydratePreferences() {
   if (!isNativeMobile) return;
   try {
     const local = decodePreferencesRecord(
-      readMigratedStorage(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEYS),
+      readMigratedStorage(
+        localStorage,
+        PREFERENCES_STORAGE_KEY,
+        LEGACY_STORAGE_KEYS,
+      ),
     );
-    const { value } = await Preferences.get({ key: STORAGE_KEY });
+    const { value } = await Preferences.get({ key: PREFERENCES_STORAGE_KEY });
     let native = decodePreferencesRecord(value);
     if (!native) {
       for (const legacyKey of LEGACY_STORAGE_KEYS) {
@@ -207,9 +231,12 @@ export async function hydratePreferences() {
       ? encodePreferencesRecord(normalized.preferences, revision, updatedAt)
       : winner.serialized;
     currentPreferenceRevision = Math.max(currentPreferenceRevision, revision);
-    localStorage.setItem(STORAGE_KEY, serialized);
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, serialized);
     if (native?.serialized !== serialized) {
-      await Preferences.set({ key: STORAGE_KEY, value: serialized });
+      await Preferences.set({
+        key: PREFERENCES_STORAGE_KEY,
+        value: serialized,
+      });
     }
   } catch {
     // The newer WebView copy remains available if native storage is unavailable.
@@ -219,7 +246,11 @@ export async function hydratePreferences() {
 export function loadPreferences(): AppPreferences {
   try {
     const record = decodePreferencesRecord(
-      readMigratedStorage(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEYS),
+      readMigratedStorage(
+        localStorage,
+        PREFERENCES_STORAGE_KEY,
+        LEGACY_STORAGE_KEYS,
+      ),
     );
     const normalized = normalizeStoredPreferences(
       record?.preferences || {},
@@ -238,7 +269,7 @@ export function savePreferences(preferences: AppPreferences) {
   let serialized = "";
   try {
     serialized = encodePreferencesRecord(preferences, revision, updatedAt);
-    localStorage.setItem(STORAGE_KEY, serialized);
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, serialized);
   } catch {
     try {
       serialized = encodePreferencesRecord(
@@ -246,7 +277,7 @@ export function savePreferences(preferences: AppPreferences) {
         revision,
         updatedAt,
       );
-      localStorage.setItem(STORAGE_KEY, serialized);
+      localStorage.setItem(PREFERENCES_STORAGE_KEY, serialized);
     } catch {
       // The active in-memory settings remain usable if browser storage is unavailable.
     }

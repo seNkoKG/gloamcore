@@ -15,6 +15,7 @@
 
 .crme-heading {
   height: 24px;
+  flex: 0 0 24px;
   color: #91a5b2;
   background: #17212a;
   border-bottom: 1px solid #2d3d49;
@@ -38,6 +39,7 @@
 .crme-states {
   min-width: 0;
   height: var(--crme-state-strip-height, 29px);
+  flex: 0 0 var(--crme-state-strip-height, 29px);
   display: flex;
   align-items: center;
   align-content: center;
@@ -66,9 +68,9 @@
 }
 
 .crme-state.is-active {
-  border-color: #3f7168;
+  border-color: var(--teal-line);
   color: #cce0dc;
-  background: #14241f;
+  background: var(--teal-soft);
 }
 
 .crme-state > input[type="checkbox"],
@@ -96,14 +98,14 @@
 .crme-state.is-active > span,
 .crme-state--number.is-active label > span,
 .crme-check input:checked + span {
-  border-color: #69dfc2;
-  color: #071411;
-  background: #69dfc2;
+  border-color: var(--teal);
+  color: var(--accent-contrast);
+  background: var(--teal);
 }
 
 .crme-state input:focus-visible + span,
 .crme-check input:focus-visible + span {
-  outline: 1px solid #69dfc2;
+  outline: 1px solid var(--teal);
   outline-offset: 1px;
 }
 
@@ -164,8 +166,8 @@
 }
 
 .crme-state-number-input:focus-visible {
-  border-left-color: #69dfc2;
-  box-shadow: inset 0 0 0 1px #69dfc2;
+  border-left-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
 }
 
 .crme-state-number-input:disabled {
@@ -175,8 +177,106 @@
 
 .crme-list {
   min-height: auto;
+  display: flex;
   flex: 0 0 auto;
+  flex-direction: column;
   overflow: visible;
+}
+
+.crme.is-constrained {
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.crme.is-constrained .crme-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--line) var(--bg-0);
+  scrollbar-width: thin;
+}
+
+.crme.is-constrained .crme-list::-webkit-scrollbar { width: 6px; }
+.crme.is-constrained .crme-list::-webkit-scrollbar-track { background: var(--bg-0); }
+.crme.is-constrained .crme-list::-webkit-scrollbar-thumb { background: var(--line); }
+
+.crme-section {
+  --crme-section-accent: var(--text-3);
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.crme-section[data-section="properties"] { --crme-section-accent: var(--blue); }
+.crme-section[data-section="enchant"] { --crme-section-accent: var(--amber); }
+.crme-section[data-section="corrupted-implicit"] { --crme-section-accent: var(--red); }
+.crme-section[data-section="implicit"] { --crme-section-accent: var(--blue); }
+.crme-section[data-section="prefix"] { --crme-section-accent: var(--teal); }
+.crme-section[data-section="suffix"] { --crme-section-accent: var(--amber); }
+.crme-section[data-section="fractured"] { --crme-section-accent: var(--teal); }
+.crme-section[data-section="veiled"] { --crme-section-accent: var(--amber); }
+.crme-section[data-section="crafted"] { --crme-section-accent: var(--teal); }
+.crme-section[data-section="special"] { --crme-section-accent: var(--red); }
+.crme-section[data-section="pseudo"] { --crme-section-accent: var(--blue); }
+
+.crme-section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px 0 9px;
+  color: var(--text-3);
+  background: var(--poe-surface-1, var(--bg-2));
+  border-bottom: 1px solid var(--poe-line, var(--line));
+  box-shadow: inset 2px 0 var(--crme-section-accent);
+  font-size: calc(8px * var(--ui-text-scale));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.crme-section-heading strong {
+  overflow: hidden;
+  color: var(--crme-section-accent);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crme-section-heading span {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.crme-section-list,
+.crme-affix-group {
+  min-width: 0;
+}
+
+.crme-affix-group {
+  position: relative;
+}
+
+.crme-affix-group.is-linked::before {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 3px;
+  z-index: 1;
+  width: 5px;
+  border-block: 1px solid var(--crme-section-accent);
+  border-left: 1px solid var(--crme-section-accent);
+  content: "";
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.crme-affix-group.is-linked .crme-row {
+  padding-left: 9px;
 }
 
 .crme-row {
@@ -192,10 +292,10 @@
   background: #101820;
 }
 
-.crme-row:nth-child(even) { background: #121c24; }
+.crme-affix-group:nth-child(even) .crme-row { background: #121c24; }
 
 .crme-row.is-enabled {
-  background: linear-gradient(90deg, rgba(105, 223, 194, 0.05), transparent 45%), #111b23;
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.07), transparent 45%), #111b23;
   opacity: 1;
 }
 
@@ -204,7 +304,7 @@
   grid-template-rows: 36px 10px;
 }
 
-.crme-row.is-invalid { box-shadow: inset 2px 0 #db6672; }
+.crme-row.is-invalid { box-shadow: inset 2px 0 var(--red); }
 
 .crme-check {
   width: 22px;
@@ -245,7 +345,7 @@
   white-space: nowrap;
 }
 
-.crme-row.is-unmapped .crme-copy small { color: #b28c60; }
+.crme-row.is-unmapped .crme-copy small { color: var(--amber); }
 
 .crme-row.is-enabled .crme-label { color: #e0ebea; }
 
@@ -266,7 +366,7 @@
 .crme-number { text-align: right; }
 
 .crme-number:focus-visible {
-  border-color: #69dfc2;
+  border-color: var(--teal);
 }
 
 .crme-number:disabled {
@@ -304,7 +404,7 @@
     linear-gradient(
       to right,
       #2b3d48 0 var(--crme-from),
-      #69dfc2 var(--crme-from) var(--crme-to),
+      var(--teal) var(--crme-from) var(--crme-to),
       #2b3d48 var(--crme-to) 100%
     );
   content: "";
@@ -331,9 +431,9 @@
   height: 14px;
   margin-top: -6px;
   appearance: none;
-  border: 1px solid #8ee8d2;
+  border: 1px solid var(--teal);
   border-radius: 50%;
-  background: #14251f;
+  background: var(--teal-soft);
   cursor: ew-resize;
   pointer-events: auto;
 }
@@ -346,15 +446,15 @@
 .crme-dual-range input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  border: 1px solid #8ee8d2;
+  border: 1px solid var(--teal);
   border-radius: 50%;
-  background: #14251f;
+  background: var(--teal-soft);
   cursor: ew-resize;
   pointer-events: auto;
 }
 
 .crme-dual-range input:focus-visible::-webkit-slider-thumb {
-  outline: 1px solid #69dfc2;
+  outline: 1px solid var(--teal);
   outline-offset: 1px;
 }
 

@@ -19,13 +19,16 @@ import {
 } from "../lib/price-check/stat-catalog";
 import type {
   ParsedPoeItem,
+  ParsedPoeModifier,
   PriceCheckModifierFilter,
 } from "../lib/price-check/types";
 import {
   COMPACT_ITEM_STATE_ONE_ROW_HEIGHT,
   COMPACT_MODIFIER_RANGE_ROW_HEIGHT,
   COMPACT_MODIFIER_ROW_HEIGHT,
+  COMPACT_MODIFIER_SECTION_HEIGHT,
   CompactRareModifierEditor,
+  compactModifierFilterSections,
   compactModifierEditPatch,
   compactPriceCheckItemStateControlCount,
   compactPriceCheckItemStateRowCount,
@@ -167,7 +170,7 @@ describe("compact rare modifier markup", () => {
     expect(markup).not.toContain('aria-label="Minimum slider for Energy Shield: 300"');
     expect(markup).not.toContain('type="range"');
     expect(compactPriceCheckModifierRowsHeight(item, planned)).toBe(
-      COMPACT_MODIFIER_ROW_HEIGHT,
+      COMPACT_MODIFIER_SECTION_HEIGHT + COMPACT_MODIFIER_ROW_HEIGHT,
     );
     expect(markup).not.toContain('aria-label="Match mode for');
     expect(markup).not.toContain("UNMAPPED");
@@ -223,7 +226,7 @@ describe("compact rare modifier markup", () => {
     expect(markup).not.toContain("They believed themselves");
   });
 
-  it("renders flat editable stats, a dual range, and concise item-state controls", () => {
+  it("renders grouped editable stats, a dual range, and concise item-state controls", () => {
     const markup = renderToStaticMarkup(
       <CompactRareModifierEditor
         item={rareItem()}
@@ -238,6 +241,9 @@ describe("compact rare modifier markup", () => {
     expect(markup).toContain("All non-hidden stats are visible");
     expect(markup).not.toContain("SHOW 1");
     expect(markup).toContain('aria-label="Item modifier filters"');
+    expect(markup).toContain(
+      'class="crme-list" role="group" aria-label="Modifier groups"',
+    );
     expect(markup).toContain(">ILVL<");
     expect(markup).not.toContain(">LINKS<");
     expect(markup).not.toContain(">CLEAN<");
@@ -255,7 +261,8 @@ describe("compact rare modifier markup", () => {
     expect(markup.match(/type="range"/g)).toHaveLength(2);
     expect(markup.match(/type="range" min="38" max="48"/g)).toHaveLength(2);
     expect(compactPriceCheckModifierRowsHeight(rareItem(), filters())).toBe(
-      COMPACT_MODIFIER_RANGE_ROW_HEIGHT + COMPACT_MODIFIER_ROW_HEIGHT,
+      COMPACT_MODIFIER_RANGE_ROW_HEIGHT + COMPACT_MODIFIER_ROW_HEIGHT +
+        2 * COMPACT_MODIFIER_SECTION_HEIGHT,
     );
     expect(markup).toContain('aria-label="Minimum value for +43% to Chaos Resistance"');
     expect(markup).toContain('aria-label="Maximum value for +43% to Chaos Resistance"');
@@ -272,6 +279,167 @@ describe("compact rare modifier markup", () => {
     expect(compactPriceCheckItemStateControlCount(rareItem())).toBe(4);
     expect(compactPriceCheckItemStateStripHeight(rareItem()))
       .toBe(COMPACT_ITEM_STATE_ONE_ROW_HEIGHT);
+  });
+
+  it("orders provenance lanes and brackets only real multi-line affixes", () => {
+    const modifier = (
+      id: string,
+      kind: ParsedPoeModifier["kind"],
+      generation?: ParsedPoeModifier["generation"],
+      sourceGroupId?: string,
+    ): ParsedPoeModifier => ({
+      id,
+      kind,
+      generation,
+      sourceGroupId,
+      source: sourceGroupId ? "Hybrid test affix" : undefined,
+      text: `${id} value`,
+      normalizedText: `${id} # value`,
+      values: [10],
+      selectedByDefault: false,
+      tags: [],
+      advanced: true,
+    });
+    const item: ParsedPoeItem = {
+      ...rareItem(),
+      modifiers: [
+        modifier("suffix", "explicit", "suffix"),
+        modifier("crafted", "crafted", "suffix"),
+        modifier("corrupted", "implicit", "corrupted"),
+        modifier("prefix-a", "explicit", "prefix", "hybrid-prefix"),
+        modifier("enchant", "enchant"),
+        modifier("implicit", "implicit", "eldritch"),
+        modifier("prefix-b", "explicit", "prefix", "hybrid-prefix"),
+        modifier("fractured", "fractured", "prefix"),
+        modifier("veiled", "veiled", "suffix"),
+        modifier("explicit", "explicit"),
+        modifier("scourge", "scourge", "prefix"),
+      ],
+    };
+    const planned: PriceCheckModifierFilter[] = [
+      {
+        modifierId: "property:es",
+        label: "Energy Shield: 300",
+        equipmentProperty: { group: "armour_filters", key: "es" },
+        enabled: false,
+        mode: "presence",
+        importance: "optional",
+        explanation: "Calculated property",
+      },
+      ...item.modifiers.map((entry) => ({
+        modifierId: entry.id,
+        tradeId: `explicit.stat_${entry.id}`,
+        enabled: entry.id === "prefix-a",
+        mode: entry.id === "prefix-a" ? "range" as const : "presence" as const,
+        min: entry.id === "prefix-a" ? 8 : undefined,
+        max: entry.id === "prefix-a" ? 12 : undefined,
+        bounds: entry.id === "prefix-a" ? { min: 5, max: 15 } : undefined,
+        importance: "optional" as const,
+        explanation: "Presentation fixture",
+      })),
+    ];
+    const sections = compactModifierFilterSections(item, planned);
+    const markup = renderToStaticMarkup(
+      <CompactRareModifierEditor
+        item={item}
+        filters={planned}
+        onModifierChange={() => undefined}
+        onItemFilterChange={() => undefined}
+      />,
+    );
+
+    expect(sections.map((section) => section.kind)).toEqual([
+      "properties",
+      "enchant",
+      "corrupted-implicit",
+      "implicit",
+      "prefix",
+      "suffix",
+      "fractured",
+      "veiled",
+      "crafted",
+      "explicit",
+      "special",
+    ]);
+    expect(sections.find((section) => section.kind === "prefix")?.groups)
+      .toEqual([expect.objectContaining({
+        sourceGroupId: "hybrid-prefix",
+        linked: true,
+        entries: expect.arrayContaining([
+          expect.objectContaining({ filter: expect.objectContaining({ modifierId: "prefix-a" }) }),
+          expect.objectContaining({ filter: expect.objectContaining({ modifierId: "prefix-b" }) }),
+        ]),
+      })]);
+    expect(markup).toContain('data-source-group="hybrid-prefix"');
+    expect(markup).toContain('aria-label="Linked prefixes, 2 lines"');
+    expect(markup.match(/class="crme-row/g)).toHaveLength(planned.length);
+    expect(markup.match(/aria-label="Include /g)).toHaveLength(planned.length);
+    expect(markup.indexOf("Calculated properties")).toBeLessThan(
+      markup.indexOf("Enchantments"),
+    );
+    expect(markup.indexOf("Corrupted implicits")).toBeLessThan(
+      markup.indexOf("Implicits"),
+    );
+    expect(compactPriceCheckModifierRowsHeight(item, planned)).toBe(
+      COMPACT_MODIFIER_RANGE_ROW_HEIGHT +
+        (planned.length - 1) * COMPACT_MODIFIER_ROW_HEIGHT +
+        sections.length * COMPACT_MODIFIER_SECTION_HEIGHT,
+    );
+    expect(compactPriceCheckModifierRowsHeight(item, planned, false)).toBe(
+      planned.length * COMPACT_MODIFIER_ROW_HEIGHT +
+        sections.length * COMPACT_MODIFIER_SECTION_HEIGHT,
+    );
+    expect(markup).not.toContain('role="list"');
+    expect(markup).not.toContain('role="listitem"');
+  });
+
+  it("does not bracket unrelated lines from a plain copied modifier section", () => {
+    const plainGroup = "section:4:plain";
+    const item: ParsedPoeItem = {
+      ...rareItem(),
+      modifiers: [
+        {
+          ...rareItem().modifiers[0],
+          id: "plain-life",
+          text: "+84 to maximum Life",
+          normalizedText: "+# to maximum Life",
+          sourceGroupId: plainGroup,
+          advanced: false,
+        },
+        {
+          ...rareItem().modifiers[0],
+          id: "plain-resistance",
+          text: "+43% to Chaos Resistance",
+          normalizedText: "+#% to Chaos Resistance",
+          sourceGroupId: plainGroup,
+          advanced: false,
+        },
+      ],
+    };
+    const planned: PriceCheckModifierFilter[] = item.modifiers.map((modifier) => ({
+      modifierId: modifier.id,
+      tradeId: `explicit.stat_${modifier.id}`,
+      enabled: true,
+      mode: "range",
+      min: modifier.values[0],
+      importance: "key",
+      explanation: "Plain copied modifier",
+    }));
+    const sections = compactModifierFilterSections(item, planned);
+    const markup = renderToStaticMarkup(
+      <CompactRareModifierEditor
+        item={item}
+        filters={planned}
+        onModifierChange={() => undefined}
+        onItemFilterChange={() => undefined}
+      />,
+    );
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.groups).toHaveLength(2);
+    expect(sections[0]?.groups.every((group) => !group.linked)).toBe(true);
+    expect(markup).not.toContain("is-linked");
+    expect(markup).not.toContain("data-source-group");
   });
 
   it("sizes and renders every item-state row when a legal plan has ten controls", () => {

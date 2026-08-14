@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { AppPreferences, WatchEntry } from "../types";
 import { migrateStoredPreferences } from "./preference-migration";
 import {
+  applyDisplayPreferences,
   decodePreferencesRecord,
+  defaultPreferences,
   normalizeStoredPreferences,
+  PREFERENCES_STORAGE_KEY,
   selectNewestPreferencesRecord,
 } from "./preferences";
 
@@ -62,6 +65,32 @@ describe("stored preference migrations", () => {
       reducedMotion: "yes",
       colorVision: "random",
     }).migrated).toBe(true);
+  });
+
+  it("reapplies every display preference to one mounted renderer root", () => {
+    const root = { dataset: {} } as Pick<HTMLElement, "dataset">;
+    applyDisplayPreferences({
+      ...defaultPreferences,
+      theme: "gloam",
+      textScale: "small",
+      reducedMotion: false,
+      colorVision: "standard",
+    }, root);
+    applyDisplayPreferences({
+      ...defaultPreferences,
+      theme: "wraeclast",
+      textScale: "large",
+      reducedMotion: true,
+      colorVision: "accessible",
+    }, root);
+
+    expect(PREFERENCES_STORAGE_KEY).toBe("gloamcore:preferences:v1");
+    expect(root.dataset).toMatchObject({
+      theme: "wraeclast",
+      textScale: "large",
+      reducedMotion: "true",
+      colorVision: "accessible",
+    });
   });
 
   it("preserves valid Faustus sources and watches while repairing incompatible selections", () => {

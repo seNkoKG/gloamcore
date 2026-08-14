@@ -60,6 +60,7 @@ import {
   isMarketSnapshotActionable,
 } from "./lib/market-freshness";
 import {
+  applyDisplayPreferences,
   defaultPreferences,
   loadPreferences,
   savePreferences,
@@ -490,15 +491,13 @@ export default function App() {
   }, [desktopSettings]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = preferences.theme;
-  }, [preferences.theme]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.dataset.textScale = preferences.textScale;
-    root.dataset.reducedMotion = preferences.reducedMotion ? "true" : "false";
-    root.dataset.colorVision = preferences.colorVision;
-  }, [preferences.colorVision, preferences.reducedMotion, preferences.textScale]);
+    applyDisplayPreferences(preferences, document.documentElement);
+  }, [
+    preferences.colorVision,
+    preferences.reducedMotion,
+    preferences.textScale,
+    preferences.theme,
+  ]);
 
   useEffect(() => {
     let active = true;

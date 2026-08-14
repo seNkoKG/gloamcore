@@ -450,7 +450,12 @@ export function CompactPriceCheckOverlay({
             compact
             onIdentify={(name) => onIdentifyUnique?.(name)}
           />
-          <div className={clsx("pco-item", `is-${session.item!.rarity}`, itemIcon && "has-icon")}>
+          <div className={clsx(
+            "pco-item",
+            `is-${session.item!.rarity}`,
+            itemIcon && "has-icon",
+            session.item!.corrupted && "is-corrupted",
+          )}>
             {itemIcon ? <img className="pco-item-art" src={itemIcon} alt="" /> : null}
             <div className="pco-item-name">
               <strong title={title}>{title}</strong>
@@ -464,7 +469,13 @@ export function CompactPriceCheckOverlay({
                 data-total-facts={facts.all.length}
               >
                 {facts.visible.map((fact) => (
-                  <b title={fact.description} key={fact.key}>{fact.label}</b>
+                  <b
+                    data-fact={fact.key}
+                    title={fact.description}
+                    key={fact.key}
+                  >
+                    {fact.label}
+                  </b>
                 ))}
               </div>
             ) : null}
@@ -605,7 +616,7 @@ export function CompactPriceCheckOverlay({
                   CHECKING {appliedModifierFilters} SELECTED {appliedModifierFilters === 1 ? "STAT" : "STATS"}
                 </div>
               ) : session.tradePriceSnapshot?.error ? (
-                <div className="pco-no-results" title={session.tradePriceSnapshot.error}>
+                <div className="pco-no-results is-error" title={session.tradePriceSnapshot.error}>
                   {tradePriceErrorLabel(session.tradePriceSnapshot.error)}
                 </div>
               ) : tradePriceRows.length ? (

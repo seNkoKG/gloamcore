@@ -5,6 +5,8 @@ import {
   advancedRareFixture,
   armourModifierParityFixture,
   currencyFixture,
+  doubleCorruptedFledglingFixture,
+  foulbornWatcherEyeAdvancedFixture,
   gemFixture,
   golemSpellKineticWandFixture,
   influencedStatusFixture,
@@ -326,12 +328,17 @@ describe("compact overlay sizing", () => {
       };
     };
     const malachaiMarkup = renderCompact(planned(malachaisLoopVestigialFixture));
+    const foulbornMarkup = renderCompact(planned(foulbornWatcherEyeAdvancedFixture));
     const golemSession = planned(golemSpellKineticWandFixture);
     const golemMarkup = renderCompact(golemSession);
 
     expect(malachaiMarkup).toContain("3/8 STATS");
     expect(malachaiMarkup.match(/class="crme-row/g)).toHaveLength(3);
     expect(malachaiMarkup).not.toContain("Lose all Power Charges");
+    expect(malachaiMarkup).toContain('data-section="special"');
+    expect(malachaiMarkup).toContain(">Special modifiers<");
+    expect(foulbornMarkup).toContain('data-section="special"');
+    expect(foulbornMarkup).toContain(">Special modifiers<");
     expect(golemSession.query?.filters).toContainEqual(expect.objectContaining({
       modifierId: "special:empty-or-crafted-modifier",
       enabled: false,
@@ -344,6 +351,37 @@ describe("compact overlay sizing", () => {
     expect(golemMarkup).toContain("Physical DPS: 756");
     expect(golemMarkup).not.toContain("Weapon Damage");
     expect(golemMarkup).not.toContain("Total DPS");
+    expect(golemMarkup).toContain(">Enchantments<");
+    expect(golemMarkup).toContain(">Implicits<");
+    expect(golemMarkup).toContain(">Prefixes<");
+    expect(golemMarkup).toContain(">Pseudo<");
+  });
+
+  it("separates the corrupted identity and implicits on the reported helmet", () => {
+    const item = applyTradeStatCatalog(
+      parsePoeItem(doubleCorruptedFledglingFixture),
+      actualCatalog as unknown as TradeStatCatalogPack,
+    );
+    const session: PriceCheckSession = {
+      id: "double-corrupted-fledgling",
+      capturedAt: Date.now(),
+      league: "Allflame",
+      status: "ready",
+      item,
+      matches: [],
+      estimate: null,
+      query: buildPriceCheckQueryPlan(item, "Allflame"),
+      sourceStale: false,
+    };
+
+    const markup = renderCompact(session);
+    expect(markup).toMatch(/class="pco-item[^"]*is-corrupted"/);
+    expect(markup).toContain('data-fact="corrupted"');
+    expect(markup).toContain('data-section="corrupted-implicit"');
+    expect(markup).toContain(">Corrupted implicits<");
+    expect(markup).toContain("1 to Maximum Power Charges");
+    expect(markup).toContain("increased Effect of Shock");
+    expect(markup).toContain('aria-label="Live Trade prices"');
   });
 
   it("renders the full Awakened Mageblood stat model without exposing hidden invariants", () => {
@@ -383,7 +421,7 @@ describe("compact overlay sizing", () => {
     expect(markup).toContain(">NOT CORRUPTED<");
     expect(markup.match(/type="range"/g)).toHaveLength(8);
     expect(markup.match(/aria-label="Range slider for/g)).toHaveLength(4);
-    expect(compactPriceCheckModifierRowsHeight(item, query.filters)).toBe(224);
+    expect(compactPriceCheckModifierRowsHeight(item, query.filters)).toBe(268);
   });
 
   it("keeps an eleven-row stress fixture fully open on a short work area", () => {
@@ -530,10 +568,16 @@ describe("compact overlay sizing", () => {
     expect(constrainedMarkup.match(/class="crme-row/g)).toHaveLength(11);
     expect(compactPriceCheckUsesConstrainedModifierRows(session, 752)).toBe(true);
     expect(compactPriceCheckUsesConstrainedModifierRows(session, 1_064)).toBe(false);
+    expect(constrainedMarkup).toContain(
+      'class="crme is-without-sliders is-constrained pco-rare-editor"',
+    );
     expect(constrainedMarkup).not.toContain('aria-label="Range slider for');
     expect(constrainedMarkup).toContain(
       'aria-label="Minimum value for Attacks per Second: 1.9"',
     );
+    expect(constrainedMarkup).toContain('aria-label="Live Trade prices"');
+    expect(constrainedMarkup.indexOf('aria-label="Live Trade prices"'))
+      .toBeGreaterThan(constrainedMarkup.indexOf('aria-label="Modifier groups"'));
   });
 });
 
@@ -675,6 +719,31 @@ describe("compact empty market state", () => {
     expect(markup).toContain("1.25k CHAOS");
     expect(markup).toContain("WandSeller");
     expect(markup).toContain("ChaosSeller");
+    const modifierGroupsAt = markup.indexOf('aria-label="Modifier groups"');
+    const livePricesAt = markup.indexOf('aria-label="Live Trade prices"');
+    expect(modifierGroupsAt).toBeGreaterThan(-1);
+    expect(livePricesAt).toBeGreaterThan(modifierGroupsAt);
+
+    const noListingsSession: PriceCheckSession = {
+      ...session,
+      tradePriceSnapshot: {
+        ...session.tradePriceSnapshot!,
+        listings: [],
+        total: 0,
+      },
+    };
+    expect(compactPriceCheckPanelHeight(session)).toBe(
+      compactPriceCheckPanelHeight(noListingsSession) + 28,
+    );
+
+    const constrainedMarkup = renderCompact(session, 400);
+    expect(constrainedMarkup).toContain(
+      'class="crme is-without-sliders is-constrained pco-rare-editor"',
+    );
+    expect(constrainedMarkup).toContain('aria-label="Live Trade prices"');
+    expect(constrainedMarkup).toContain("8 DIVINE");
+    expect(constrainedMarkup.indexOf('aria-label="Live Trade prices"'))
+      .toBeGreaterThan(constrainedMarkup.indexOf('aria-label="Modifier groups"'));
 
     const cooldownMarkup = renderCompact({
       ...session,
@@ -689,12 +758,16 @@ describe("compact empty market state", () => {
     });
     expect(cooldownMarkup).toContain("TRADE COOLDOWN · 10S");
 
+    expect(cooldownMarkup).toContain('class="pco-no-results is-error"');
+
     const loadingMarkup = renderCompact({
       ...session,
       tradePriceSnapshot: undefined,
       tradePriceLoading: true,
     });
     expect(loadingMarkup).toContain("CHECKING 1 SELECTED STAT");
+
+    expect(loadingMarkup).not.toContain('class="pco-no-results is-error"');
 
     const timeoutMarkup = renderCompact({
       ...session,
@@ -708,6 +781,7 @@ describe("compact empty market state", () => {
       },
     });
     expect(timeoutMarkup).toContain("TRADE TIMED OUT · RETRY");
+    expect(timeoutMarkup).toContain('class="pco-no-results is-error"');
   });
 
   it("renders a single-bound legacy Unique with its copied roll selected", () => {
@@ -964,6 +1038,8 @@ describe("compact empty market state", () => {
     expect(facts).not.toContain(">ILVL 100<");
     expect(facts).not.toContain(">Q 30%<");
     expect(markup).toContain('data-total-facts="5"');
+    expect(markup).toMatch(/class="pco-item[^"]*is-corrupted"/);
+    expect(markup).toContain('data-fact="corrupted"');
     expect(markup).toContain(
       'aria-label="Foulborn, Corrupted, 6 linked sockets, Item level 100, Quality 30%"',
     );

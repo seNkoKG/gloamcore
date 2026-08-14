@@ -6,6 +6,10 @@ const projectRoot = process.cwd();
 const smokePath = path.join(projectRoot, "scripts", "price-check-smoke.ps1");
 const smoke = fs.readFileSync(smokePath, "utf8");
 const compact = smoke.replace(/\s+/g, " ");
+const electronMain = fs.readFileSync(
+  path.join(projectRoot, "electron", "main.cjs"),
+  "utf8",
+);
 const packageMetadata = JSON.parse(
   fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"),
 ) as { version?: string };
@@ -59,6 +63,59 @@ describe("native price-check smoke harness", () => {
       "$focusStableSince = $null",
       "$identityProbe = Start-Process",
       "$appProcess = Start-Process @launch",
+    );
+  });
+
+  it("drives the Alt-Tab lifecycle through verified native foreground HWNDs", () => {
+    expect(smoke).toContain('$nativeAltTabRequestPath = Join-Path $qaRootFull "native-alt-tab-request.json"');
+    expect(smoke).toContain('$nativeAltTabAckPath = Join-Path $qaRootFull "native-alt-tab-ack.json"');
+    expect(smoke).toContain("public static extern bool IsWindowVisible(IntPtr window);");
+    expect(smoke).toContain(
+      "public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);",
+    );
+    expect(smoke).toContain("public static bool ForceForegroundWindow(IntPtr window)");
+    expect(smoke).toContain("AttachThreadInput(currentThread, foregroundThread, true)");
+    expect(compact).toContain(
+      "$focusStableSince = $null [void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)",
+    );
+    expect(smoke).toContain("$qaSwitchForegroundVerified = $false");
+    expect(smoke).toContain("$qaTargetReturnVerified = $false");
+    expect(compact).toContain(
+      "$nativeAltTabRequest.phase -eq \"focus-unrelated\"",
+    );
+    expect(compact).toContain(
+      "$switchOwnerProcessId -ne [uint32]$appProcess.Id",
+    );
+    expect(compact).toContain(
+      "[GloamCoreQaWindow]::IsWindowVisible($qaSwitchWindow)",
+    );
+    expect(compact).toContain(
+      "[GloamCoreQaWindow]::ForceForegroundWindow($qaSwitchWindow)",
+    );
+    expect(compact).toContain(
+      'phase = "unrelated-focused"',
+    );
+    expect(compact).toContain(
+      "$nativeAltTabRequest.phase -eq \"focus-target\"",
+    );
+    expect(compact).toContain(
+      "[GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)",
+    );
+    expect(compact).toContain('phase = "target-focused"');
+    expect(electronMain).toContain('"native-alt-tab-request.json"');
+    expect(electronMain).toContain('"native-alt-tab-ack.json"');
+    expect(electronMain).toContain('qaSwitchWindow.getNativeWindowHandle()');
+    expect(electronMain).toContain('writeNativeAltTabRequest("focus-unrelated"');
+    expect(electronMain).toContain('waitForNativeAltTabAck("unrelated-focused"');
+    expect(electronMain).toContain('writeNativeAltTabRequest("focus-target"');
+    expect(electronMain).toContain('waitForNativeAltTabAck("target-focused"');
+    expect(electronMain).toContain("fs.rmSync(nativeAltTabRequestPath, { force: true });");
+    expect(compact).toContain("$result.lifecycle.altTab.targetActive -or");
+    expect(compact).not.toContain(
+      "-not $result.lifecycle.altTab.unrelatedWindowFocused",
+    );
+    expect(smoke).toContain(
+      "Native Alt-Tab QA did not verify the unrelated window and signed synthetic Path of Exile target as consecutive foreground HWNDs.",
     );
   });
 
@@ -134,6 +191,11 @@ describe("native price-check smoke harness", () => {
     expect(smoke).toContain(
       "The complete modifier list retained an internal scrollbar:",
     );
+  });
+
+  it("measures grouped modifier lanes in the native overlay height gate", () => {
+    expect(electronMain).toContain("(modifierList?.scrollHeight || 0)");
+    expect(electronMain).not.toContain("modifierRowsHeight");
   });
 
   it("locks the legacy Unique renderer scenario to its copied Life roll", () => {

@@ -201,6 +201,8 @@ $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $qaRootFull = [System.IO.Path]::GetFullPath($qaRoot)
 $resultPath = Join-Path $qaRootFull "price-check-smoke.json"
 $nativeCloseSignalPath = Join-Path $qaRootFull "native-close.json"
+$nativeAltTabRequestPath = Join-Path $qaRootFull "native-alt-tab-request.json"
+$nativeAltTabAckPath = Join-Path $qaRootFull "native-alt-tab-ack.json"
 $stdoutPath = Join-Path $qaRootFull "electron-stdout.log"
 $stderrPath = Join-Path $qaRootFull "electron-stderr.log"
 $targetStdoutPath = Join-Path $qaRootFull "target-stdout.log"
@@ -212,6 +214,9 @@ $qaWindowApiReady = $false
 $originalForegroundWindow = [IntPtr]::Zero
 $originalCursorPosition = $null
 $nativeCloseHandled = $false
+$qaSwitchWindow = [IntPtr]::Zero
+$qaSwitchForegroundVerified = $false
+$qaTargetReturnVerified = $false
 $smokeMutex = New-Object System.Threading.Mutex(
   $false,
   "Local\GloamCorePriceCheckSmoke"
@@ -255,11 +260,42 @@ public static class GloamCoreQaWindow {
   [DllImport("user32.dll")]
   public static extern bool IsWindow(IntPtr window);
   [DllImport("user32.dll")]
+  public static extern bool IsWindowVisible(IntPtr window);
+  [DllImport("user32.dll")]
+  public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+  [DllImport("user32.dll")]
+  private static extern bool AttachThreadInput(uint attachThread, uint attachToThread, bool attach);
+  [DllImport("user32.dll")]
+  private static extern bool BringWindowToTop(IntPtr window);
+  [DllImport("kernel32.dll")]
+  private static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")]
   public static extern bool GetCursorPos(out GloamCoreQaPoint point);
   [DllImport("user32.dll")]
   public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")]
   public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extraInfo);
+
+  public static bool ForceForegroundWindow(IntPtr window) {
+    if (window == IntPtr.Zero || !IsWindow(window)) return false;
+    var foreground = GetForegroundWindow();
+    uint ignoredProcessId;
+    var foregroundThread = foreground == IntPtr.Zero
+      ? 0
+      : GetWindowThreadProcessId(foreground, out ignoredProcessId);
+    var currentThread = GetCurrentThreadId();
+    var attached = foregroundThread != 0 &&
+      foregroundThread != currentThread &&
+      AttachThreadInput(currentThread, foregroundThread, true);
+    try {
+      ShowWindowAsync(window, 5);
+      BringWindowToTop(window);
+      SetForegroundWindow(window);
+      return GetForegroundWindow() == window;
+    } finally {
+      if (attached) AttachThreadInput(currentThread, foregroundThread, false);
+    }
+  }
 }
 "@
   $qaWindowApiReady = $true
@@ -412,8 +448,7 @@ try {
       }
     } else {
       $focusStableSince = $null
-      [void][GloamCoreQaWindow]::ShowWindowAsync($qaTargetWindow, 5)
-      [void][GloamCoreQaWindow]::SetForegroundWindow($qaTargetWindow)
+      [void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)
     }
     if (
       $focusStableSince -and
@@ -499,7 +534,86 @@ try {
     $appWaitSeconds = 240
     $appDeadline = [DateTime]::UtcNow.AddSeconds($appWaitSeconds)
     do {
-      Start-Sleep -Milliseconds 50
+      Start-Sleep -Milliseconds 20
+      if (Test-Path -LiteralPath $nativeAltTabRequestPath -PathType Leaf) {
+        $nativeAltTabRequest = $null
+        try {
+          $nativeAltTabRequest = Get-Content -Raw -LiteralPath $nativeAltTabRequestPath |
+            ConvertFrom-Json
+        } catch {
+          # Electron may still be replacing the small request file. Retry on
+          # the next controller tick instead of accepting a partial payload.
+        }
+        if (
+          $nativeAltTabRequest -and
+          $nativeAltTabRequest.phase -eq "focus-unrelated"
+        ) {
+          $switchHandleValue = [long]0
+          if (
+            -not [long]::TryParse(
+              [string]$nativeAltTabRequest.hwnd,
+              [ref]$switchHandleValue
+            ) -or
+            $switchHandleValue -eq 0 -or
+            [long]$nativeAltTabRequest.pid -ne [long]$appProcess.Id
+          ) {
+            throw "Electron emitted an invalid native Alt-Tab window identity."
+          }
+          $qaSwitchWindow = [IntPtr]::new($switchHandleValue)
+          $switchOwnerProcessId = [uint32]0
+          [void][GloamCoreQaWindow]::GetWindowThreadProcessId(
+            $qaSwitchWindow,
+            [ref]$switchOwnerProcessId
+          )
+          if ($switchOwnerProcessId -ne [uint32]$appProcess.Id) {
+            throw "Electron's native Alt-Tab HWND did not belong to the current QA process."
+          }
+          if (
+            [GloamCoreQaWindow]::IsWindow($qaSwitchWindow) -and
+            [GloamCoreQaWindow]::IsWindowVisible($qaSwitchWindow)
+          ) {
+            if ([GloamCoreQaWindow]::GetForegroundWindow() -ne $qaSwitchWindow) {
+              [void][GloamCoreQaWindow]::ForceForegroundWindow($qaSwitchWindow)
+            }
+            if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaSwitchWindow) {
+              if (-not $qaSwitchForegroundVerified) {
+                $qaSwitchForegroundVerified = $true
+                $nativeAltTabAck = [ordered]@{
+                  phase = "unrelated-focused"
+                  hwnd = [string]$switchHandleValue
+                } | ConvertTo-Json -Compress
+                [System.IO.File]::WriteAllText(
+                  $nativeAltTabAckPath,
+                  $nativeAltTabAck,
+                  [Text.UTF8Encoding]::new($false)
+                )
+              }
+            }
+          }
+        } elseif (
+          $nativeAltTabRequest -and
+          $nativeAltTabRequest.phase -eq "focus-target" -and
+          $qaSwitchForegroundVerified
+        ) {
+          if ([GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow) {
+            [void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)
+          }
+          if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
+            if (-not $qaTargetReturnVerified) {
+              $qaTargetReturnVerified = $true
+              $nativeAltTabAck = [ordered]@{
+                phase = "target-focused"
+                hwnd = [string]$qaTargetWindow.ToInt64()
+              } | ConvertTo-Json -Compress
+              [System.IO.File]::WriteAllText(
+                $nativeAltTabAckPath,
+                $nativeAltTabAck,
+                [Text.UTF8Encoding]::new($false)
+              )
+            }
+          }
+        }
+      }
       if (-not $nativeCloseHandled -and (Test-Path -LiteralPath $nativeCloseSignalPath -PathType Leaf)) {
         $nativeClose = Get-Content -Raw -LiteralPath $nativeCloseSignalPath | ConvertFrom-Json
         if (
@@ -975,6 +1089,7 @@ try {
     throw "Global price-check shortcuts remained registered while the overlay owned focus."
   }
   if (
+    $result.lifecycle.altTab.targetActive -or
     $result.lifecycle.altTab.overlayVisible -or
     $result.lifecycle.altTab.overlayInteractive -or
     $result.lifecycle.altTab.overlayFocused -or
@@ -982,10 +1097,12 @@ try {
     $result.lifecycle.altTab.focusHandoffAttempted -or
     $result.lifecycle.altTab.focusRestoreScheduled -or
     $result.lifecycle.altTab.normalRegistered -or
-    $result.lifecycle.altTab.lockedRegistered -or
-    -not $result.lifecycle.altTab.unrelatedWindowFocused
+    $result.lifecycle.altTab.lockedRegistered
   ) {
     throw "Alt-Tab did not dismiss cleanly without restoring or stealing focus: $($result.lifecycle.altTab | ConvertTo-Json -Compress -Depth 6)"
+  }
+  if (-not $qaSwitchForegroundVerified -or -not $qaTargetReturnVerified) {
+    throw "Native Alt-Tab QA did not verify the unrelated window and signed synthetic Path of Exile target as consecutive foreground HWNDs."
   }
   if (
     -not $result.lifecycle.lockedReopen.generationAdvanced -or

@@ -28,6 +28,7 @@ export const COMPACT_ITEM_STATE_ONE_ROW_HEIGHT = 29;
 export const COMPACT_ITEM_STATE_TWO_ROW_HEIGHT = 51;
 export const COMPACT_MODIFIER_ROW_HEIGHT = 43;
 export const COMPACT_MODIFIER_RANGE_ROW_HEIGHT = 56;
+export const COMPACT_MODIFIER_SECTION_HEIGHT = 22;
 
 export function compactPriceCheckItemStateControlCount(
   item: ParsedPoeItem,
@@ -76,26 +77,171 @@ function itemModifiers(item: ParsedPoeItem) {
   ];
 }
 
+export type CompactModifierSectionKind =
+  | "properties"
+  | "enchant"
+  | "corrupted-implicit"
+  | "implicit"
+  | "prefix"
+  | "suffix"
+  | "fractured"
+  | "veiled"
+  | "crafted"
+  | "explicit"
+  | "special"
+  | "pseudo"
+  | "other";
+
+export interface CompactModifierPresentationEntry {
+  filter: PriceCheckModifierFilter;
+  modifier?: ParsedPoeModifier;
+}
+
+export interface CompactModifierPresentationGroup {
+  key: string;
+  sourceGroupId?: string;
+  linked: boolean;
+  entries: CompactModifierPresentationEntry[];
+}
+
+export interface CompactModifierPresentationSection {
+  kind: CompactModifierSectionKind;
+  label: string;
+  entries: CompactModifierPresentationEntry[];
+  groups: CompactModifierPresentationGroup[];
+}
+
+const COMPACT_MODIFIER_SECTIONS: ReadonlyArray<{
+  kind: CompactModifierSectionKind;
+  label: string;
+}> = [
+  { kind: "properties", label: "Calculated properties" },
+  { kind: "enchant", label: "Enchantments" },
+  { kind: "corrupted-implicit", label: "Corrupted implicits" },
+  { kind: "implicit", label: "Implicits" },
+  { kind: "prefix", label: "Prefixes" },
+  { kind: "suffix", label: "Suffixes" },
+  { kind: "fractured", label: "Fractured" },
+  { kind: "veiled", label: "Veiled" },
+  { kind: "crafted", label: "Crafted" },
+  { kind: "explicit", label: "Explicit modifiers" },
+  { kind: "special", label: "Special modifiers" },
+  { kind: "pseudo", label: "Pseudo" },
+  { kind: "other", label: "Other" },
+];
+
+function compactModifierSectionKind(
+  filter: PriceCheckModifierFilter,
+  modifier?: ParsedPoeModifier,
+): CompactModifierSectionKind {
+  if (filter.equipmentProperty || filter.tag === "property") return "properties";
+  if (
+    filter.tag === "foulborn" ||
+    filter.tag === "vestigial" ||
+    modifier?.generation === "foulborn" ||
+    modifier?.generation === "vestigial"
+  ) return "special";
+  const kind = modifier?.kind || filter.tag;
+  if (kind === "crafted") return "crafted";
+  if (kind === "fractured") return "fractured";
+  if (kind === "veiled") return "veiled";
+  if (kind === "enchant") return "enchant";
+  if (kind === "implicit" && modifier?.generation === "corrupted") {
+    return "corrupted-implicit";
+  }
+  if (kind === "implicit") return "implicit";
+  if (kind === "pseudo") return "pseudo";
+  if (
+    kind === "scourge" ||
+    kind === "crucible" ||
+    kind === "rune" ||
+    kind === "imbued"
+  ) return "special";
+  if (modifier?.generation === "prefix") return "prefix";
+  if (modifier?.generation === "suffix") return "suffix";
+  if (kind === "explicit") return "explicit";
+  return "other";
+}
+
+function safeCompactSourceGroupId(
+  filter: PriceCheckModifierFilter,
+  modifier?: ParsedPoeModifier,
+) {
+  if (
+    !modifier?.advanced ||
+    !modifier.sourceGroupId ||
+    filter.modifierId.includes("+")
+  ) return undefined;
+  return modifier.sourceGroupId;
+}
+
+export function compactModifierFilterSections(
+  item: ParsedPoeItem,
+  filters: readonly PriceCheckModifierFilter[],
+): CompactModifierPresentationSection[] {
+  const modifiers = new Map(
+    itemModifiers(item).map((modifier) => [modifier.id, modifier]),
+  );
+  const entriesByKind = new Map<
+    CompactModifierSectionKind,
+    CompactModifierPresentationEntry[]
+  >();
+
+  for (const filter of compactVisibleModifierFilters(filters)) {
+    const modifier = modifiers.get(filter.modifierId);
+    const kind = compactModifierSectionKind(filter, modifier);
+    const entries = entriesByKind.get(kind) || [];
+    entries.push({ filter, modifier });
+    entriesByKind.set(kind, entries);
+  }
+
+  return COMPACT_MODIFIER_SECTIONS.flatMap(({ kind, label }) => {
+    const entries = entriesByKind.get(kind);
+    if (!entries?.length) return [];
+
+    const groups: CompactModifierPresentationGroup[] = [];
+    for (const entry of entries) {
+      const sourceGroupId = safeCompactSourceGroupId(
+        entry.filter,
+        entry.modifier,
+      );
+      const previous = groups.at(-1);
+      if (sourceGroupId && previous?.sourceGroupId === sourceGroupId) {
+        previous.entries.push(entry);
+        previous.linked = previous.entries.length > 1;
+      } else {
+        groups.push({
+          key: `${kind}:${entry.filter.modifierId}:${groups.length}`,
+          sourceGroupId,
+          linked: false,
+          entries: [entry],
+        });
+      }
+    }
+
+    return [{ kind, label, entries, groups }];
+  });
+}
+
 export function compactPriceCheckModifierRowsHeight(
   item: ParsedPoeItem,
   filters: readonly PriceCheckModifierFilter[],
   showSliders = true,
 ) {
-  const modifiers = new Map(
-    itemModifiers(item).map((modifier) => [modifier.id, modifier]),
-  );
-  return compactVisibleModifierFilters(filters).reduce(
-    (height, filter) => height + (
-      showSliders &&
-      filter.mode === "range" &&
-      hasCanonicalSliderBounds(filter) &&
-      !isPresenceOnlyPriceCheckFilter(
-        filter,
-        modifiers.get(filter.modifierId),
-      )
-        ? COMPACT_MODIFIER_RANGE_ROW_HEIGHT
-        : COMPACT_MODIFIER_ROW_HEIGHT
-    ),
+  const sections = compactModifierFilterSections(item, filters);
+  return sections.reduce(
+    (height, section) => height + COMPACT_MODIFIER_SECTION_HEIGHT +
+      section.entries.reduce(
+        (sectionHeight, { filter, modifier }) => sectionHeight + (
+          showSliders &&
+          filter.mode === "range" &&
+          hasCanonicalSliderBounds(filter) &&
+          !isPresenceOnlyPriceCheckFilter(filter, modifier)
+            ? COMPACT_MODIFIER_RANGE_ROW_HEIGHT
+            : COMPACT_MODIFIER_ROW_HEIGHT
+        ),
+        0,
+      ),
     0,
   );
 }
@@ -731,11 +877,8 @@ export function CompactRareModifierEditor({
   className,
 }: CompactRareModifierEditorProps) {
   const frameModifierChange = useFrameModifierChange(onModifierChange);
-  const modifiers = new Map(
-    itemModifiers(item).map((modifier) => [modifier.id, modifier]),
-  );
   const visibleFilters = filters.filter((filter) => !filter.advancedOnly);
-  const displayedFilters = compactVisibleModifierFilters(filters);
+  const modifierSections = compactModifierFilterSections(item, filters);
   // Awakened's summary counts the complete stat plan (including upstream-
   // hidden rows) while its open editor renders only non-hidden rows.
   const appliedCount = filters.filter((filter) => filter.enabled).length;
@@ -760,7 +903,11 @@ export function CompactRareModifierEditor({
 
   return (
     <section
-      className={clsx("crme", !showSliders && "is-without-sliders", className)}
+      className={clsx(
+        "crme",
+        !showSliders && "is-without-sliders is-constrained",
+        className,
+      )}
       aria-label="Item modifier filters"
     >
       {visibleFilters.length ? <header className="crme-heading">
@@ -847,13 +994,37 @@ export function CompactRareModifierEditor({
         ))}
       </div>
 
-      {displayedFilters.length ? <div
+      {modifierSections.length ? <div
         className="crme-list"
-        role="list"
-        aria-label="Modifier filters"
+        role="group"
+        aria-label="Modifier groups"
       >
-        {displayedFilters.map((filter) => {
-          const modifier = modifiers.get(filter.modifierId);
+        {modifierSections.map((section) => (
+          <section
+            className="crme-section"
+            data-section={section.kind}
+            aria-label={`${section.label}, ${section.entries.length} ${section.entries.length === 1 ? "modifier" : "modifiers"}`}
+            key={section.kind}
+          >
+            <header className="crme-section-heading">
+              <strong>{section.label}</strong>
+              <span>{section.entries.length}</span>
+            </header>
+            <div className="crme-section-list">
+              {section.groups.map((group) => (
+                <div
+                  className={clsx(
+                    "crme-affix-group",
+                    group.linked && "is-linked",
+                  )}
+                  role={group.linked ? "group" : undefined}
+                  aria-label={group.linked
+                    ? `Linked ${section.label.toLowerCase()}, ${group.entries.length} lines`
+                    : undefined}
+                  data-source-group={group.linked ? group.sourceGroupId : undefined}
+                  key={group.key}
+                >
+                  {group.entries.map(({ filter, modifier }) => {
           const label = filter.label || modifier?.text || filter.modifierId;
           const mapped = hasOfficialTradeStat(filter);
           const presenceOnly = isPresenceOnlyPriceCheckFilter(filter, modifier);
@@ -912,7 +1083,8 @@ export function CompactRareModifierEditor({
                 : filter.equipmentProperty
                   ? mapped ? "" : "NEEDS VALUE"
                   : [
-                      (modifier?.kind || "").toUpperCase(),
+                      (modifier?.generation || modifier?.kind || filter.tag || "")
+                        .toUpperCase(),
                       modifier?.tier?.toUpperCase(),
                       !mapped ? "UNMAPPED" : "",
                     ].filter(Boolean).join(" / ");
@@ -926,7 +1098,6 @@ export function CompactRareModifierEditor({
                 invalidRange && "is-invalid",
                 !mapped && "is-unmapped",
               )}
-              role="listitem"
               key={filter.modifierId}
             >
               <label className="crme-check" title={`Include ${label}`}>
@@ -1024,7 +1195,12 @@ export function CompactRareModifierEditor({
               )}
             </div>
           );
-        })}
+                  })}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div> : null}
     </section>
   );

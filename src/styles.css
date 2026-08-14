@@ -38,14 +38,6 @@
 :root[data-text-scale="small"] { --ui-text-scale: 0.92; }
 :root[data-text-scale="large"] { --ui-text-scale: 1.1; }
 
-:root[data-color-vision="accessible"] {
-  --red: #ff8c42;
-  --red-soft: rgba(255, 140, 66, 0.13);
-  --teal: #62b6ff;
-  --teal-2: #3699ee;
-  --accent-rgb: 98, 182, 255;
-}
-
 :root[data-color-vision="accessible"] :where(.positive, .negative, [class*="gain"], [class*="loss"]) {
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
@@ -133,6 +125,15 @@
   --poe-surface-hover: #302416;
   --poe-line: #493722;
   --poe-line-strong: #674c2c;
+}
+
+/* Accessibility colors intentionally follow theme palettes so they win when combined. */
+:root[data-color-vision="accessible"] {
+  --red: #ff8c42;
+  --red-soft: rgba(255, 140, 66, 0.13);
+  --teal: #62b6ff;
+  --teal-2: #3699ee;
+  --accent-rgb: 98, 182, 255;
 }
 
 :root[data-theme="wraeclast"] body {
@@ -274,7 +275,7 @@
 }
 
 :root[data-theme="wraeclast"] .economy-table tbody tr:nth-child(even),
-:root[data-theme="wraeclast"] .crme-row:nth-child(even),
+:root[data-theme="wraeclast"] .crme-affix-group:nth-child(even) .crme-row,
 :root[data-theme="wraeclast"] .pco-row:nth-child(odd),
 :root[data-theme="wraeclast"] .planner-item-set-toolbar,
 :root[data-theme="wraeclast"] .planner-set-toolbar,

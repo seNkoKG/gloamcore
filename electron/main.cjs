@@ -3498,8 +3498,6 @@ const deadline = Date.now() + 150_000;
           const presets = document.querySelector('.pco-presets');
           const tradeOptions = document.querySelector('.pco-trade-options');
           const uniqueResolver = document.querySelector('.pco-unique-resolver');
-          const modifierRowsHeight = modifierRows
-            .reduce((height, row) => height + row.getBoundingClientRect().height, 0);
           const stateStripHeight = stateStrip?.getBoundingClientRect().height || 29;
           const presetHeight = presets?.getBoundingClientRect().height || 0;
           const tradeOptionsHeight = tradeOptions?.getBoundingClientRect().height || 0;
@@ -3508,7 +3506,7 @@ const deadline = Date.now() + 150_000;
           const desiredHeight = modifierEditor
             ? presetHeight + tradeOptionsHeight + uniqueResolverHeight + 115 + stateStripHeight +
               (modifierHeading?.getBoundingClientRect().height || 0) +
-              (modifierList ? modifierRowsHeight : 0) +
+              (modifierList?.scrollHeight || 0) +
               (results?.getBoundingClientRect().height || 0)
             : Math.min(520, presetHeight + tradeOptionsHeight + uniqueResolverHeight + 137 + Math.max(1, Math.min(8, marketRows)) * 28);
           const expectedHeight = Math.min(
@@ -3780,7 +3778,36 @@ const deadline = Date.now() + 150_000;
     }
     const resolvedResultPath = path.resolve(resultPath);
     const screenshotPath = path.join(path.dirname(resolvedResultPath), "price-check-smoke.png");
+    const nativeAltTabRequestPath = path.join(
+      path.dirname(resolvedResultPath),
+      "native-alt-tab-request.json",
+    );
+    const nativeAltTabAckPath = path.join(
+      path.dirname(resolvedResultPath),
+      "native-alt-tab-ack.json",
+    );
+    const writeNativeAltTabRequest = (phase, detail = {}) => {
+      fs.writeFileSync(
+        nativeAltTabRequestPath,
+        JSON.stringify({ phase, ...detail }),
+      );
+    };
+    const waitForNativeAltTabAck = async (phase, timeoutMs) => {
+      const ackDeadline = Date.now() + timeoutMs;
+      do {
+        try {
+          const ack = JSON.parse(fs.readFileSync(nativeAltTabAckPath, "utf8"));
+          if (ack?.phase === phase) return true;
+        } catch {
+          // The external Win32 driver may still be writing the next ack.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } while (Date.now() < ackDeadline);
+      return false;
+    };
     fs.mkdirSync(path.dirname(resolvedResultPath), { recursive: true });
+    fs.rmSync(nativeAltTabRequestPath, { force: true });
+    fs.rmSync(nativeAltTabAckPath, { force: true });
     let screenshotError = "";
     try {
       const screenshot = await Promise.race([
@@ -4222,6 +4249,20 @@ const deadline = Date.now() + 150_000;
       qaSwitchWindow.setAlwaysOnTop(true, "screen-saver", 1);
       qaSwitchWindow.show();
       qaSwitchWindow.focus();
+      const switchHandleBytes = qaSwitchWindow.getNativeWindowHandle();
+      let switchHandle = 0n;
+      for (let index = switchHandleBytes.length - 1; index >= 0; index -= 1) {
+        switchHandle = (switchHandle << 8n) + BigInt(switchHandleBytes[index]);
+      }
+      writeNativeAltTabRequest("focus-unrelated", {
+        hwnd: switchHandle.toString(),
+        pid: process.pid,
+      });
+      if (!await waitForNativeAltTabAck("unrelated-focused", 4_000)) {
+        throw new Error(
+          "The external QA controller did not verify the unrelated foreground HWND.",
+        );
+      }
       const altTabDeadline = Date.now() + 4_000;
       while (
         Date.now() < altTabDeadline &&
@@ -4259,6 +4300,18 @@ const deadline = Date.now() + 150_000;
       // window before the one explicit QA return to PoE. Keep the test window
       // alive and hidden so a later close cannot enqueue another activation.
       await new Promise((resolve) => setTimeout(resolve, 100));
+      writeNativeAltTabRequest("focus-target", {
+        targetTitle: priceCheckTargetTitle(),
+      });
+      if (!await waitForNativeAltTabAck("target-focused", 5_000)) {
+        throw new Error(
+          "The external QA controller did not verify the synthetic Path of Exile foreground HWND.",
+        );
+      }
+      // Reconcile the overlay library only after the external driver has
+      // proved the exact signed target HWND is foreground. Calling this before
+      // Windows accepts the handoff can leave targetHasFocus stale for the
+      // entire native polling window on automated desktops.
       OverlayController.focusTarget();
       // electron-overlay-window can emit one corrected blur immediately after
       // a synthetic foreground handoff, then reconcile on its native poll.
@@ -4274,6 +4327,7 @@ const deadline = Date.now() + 150_000;
       ) {
         await new Promise((resolve) => setTimeout(resolve, 35));
       }
+      fs.rmSync(nativeAltTabRequestPath, { force: true });
       payload.shortcut.registeredAfterAltTabReturn = registeredPriceCheckHotkey;
       payload.shortcut.registeredLockedAfterAltTabReturn = registeredLockedPriceCheckHotkey;
       const lockedReopenGeneration = priceCheckCaptureGeneration;

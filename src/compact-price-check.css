@@ -19,7 +19,7 @@
 }
 
 .pco button:focus-visible {
-  outline: 1px solid #69dfc2;
+  outline: 1px solid var(--teal);
   outline-offset: -2px;
 }
 
@@ -51,11 +51,11 @@
 }
 
 .pco-matched {
-  color: #5ec9b2;
+  color: var(--teal);
 }
 
 .pco-matched.is-stale {
-  color: #c69662;
+  color: var(--amber);
 }
 
 .pco-top nav {
@@ -78,7 +78,7 @@
 
 .pco-top button:hover,
 .pco-top button.is-active {
-  color: #69dfc2;
+  color: var(--teal);
   background: #253542;
 }
 
@@ -95,7 +95,7 @@
 
 .pco-empty.invalid,
 .pco-empty.error {
-  color: #d47d7d;
+  color: var(--red);
 }
 
 .pco-resolving {
@@ -145,7 +145,7 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: 14px;
-  background: #5ed8bb;
+  background: var(--teal);
   content: "";
   animation: pco-load 0.8s ease-in-out infinite alternate;
 }
@@ -166,6 +166,10 @@
   padding: 5px 8px;
   background: #0e161e;
   border-bottom: 1px solid #2c3a45;
+}
+
+.pco-item.is-corrupted {
+  box-shadow: inset 2px 0 var(--red);
 }
 
 .pco-presets {
@@ -191,9 +195,9 @@
 
 .pco-presets button:hover,
 .pco-presets button.is-active {
-  color: #69dfc2;
-  border-color: rgba(57, 190, 171, 0.76);
-  background: rgba(31, 74, 73, 0.72);
+  color: var(--teal);
+  border-color: var(--teal-line);
+  background: var(--teal-soft);
 }
 
 .pco-item.has-icon {
@@ -272,8 +276,8 @@
 }
 
 .pco-unique-resolver button:hover {
-  border-color: #2de1be;
-  background: #12302f;
+  border-color: var(--teal);
+  background: var(--teal-soft);
 }
 
 .pco-unique-resolver img {
@@ -337,6 +341,13 @@
   font-weight: 600;
 }
 
+.pco-facts b[data-fact="corrupted"] {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 58%, transparent);
+  background: var(--red-soft);
+  font-weight: 800;
+}
+
 @container price-check-card (max-width: 300px) {
   .pco-facts b:nth-child(n + 3) {
     display: none;
@@ -352,7 +363,7 @@
 .pco-item output {
   grid-area: price;
   min-width: 68px;
-  color: #69e1c1;
+  color: var(--teal);
   font-size: calc(14px * var(--ui-text-scale));
   font-weight: 750;
   text-align: right;
@@ -364,11 +375,11 @@
 }
 
 .pco-item output.is-stale {
-  color: #d1a16d;
+  color: var(--amber);
 }
 
 .pco-item output.pco-filter-count {
-  color: #83d7c2;
+  color: var(--teal);
   font-size: calc(11px * var(--ui-text-scale));
   letter-spacing: 0.04em;
 }
@@ -410,7 +421,7 @@
 .pco-online:hover,
 .pco-online[data-availability="available"],
 .pco-online[data-availability="securable"] {
-  color: #68d9bd;
+  color: var(--teal);
   background: #21323e;
 }
 
@@ -512,7 +523,7 @@
   display: grid;
   place-items: center;
   padding: 12px;
-  color: #8d6870;
+  color: var(--text-3);
   font-size: calc(9px * var(--ui-text-scale));
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -520,8 +531,12 @@
   text-transform: uppercase;
 }
 
+.pco-no-results.is-error {
+  color: var(--red);
+}
+
 .pco-no-results.is-stale {
-  color: #c69662;
+  color: var(--amber);
 }
 
 @media (prefers-reduced-motion: reduce) {
