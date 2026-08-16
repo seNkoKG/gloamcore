@@ -6,20 +6,38 @@ import { fileURLToPath } from "node:url";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lockPath = path.join(projectRoot, "scripts", "game-data-sources.json");
 const maximumBytes = 2 * 1024 * 1024;
+const currentText = fs.readFileSync(lockPath, "utf8");
+const currentLock = JSON.parse(currentText);
+if (
+  currentLock.schemaVersion !== 1 ||
+  !Number.isSafeInteger(currentLock.packRevision) ||
+  currentLock.packRevision < 1
+) {
+  throw new Error("The current game-data source lock has an unsupported schema.");
+}
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function requestHeaders(url, accept) {
+  const headers = {
+    Accept: accept,
+    "User-Agent": "GloamCore-game-data-updater",
+  };
+  if (new URL(url).origin === "https://api.github.com") {
+    headers["X-GitHub-Api-Version"] = "2022-11-28";
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
+  }
+  return headers;
+}
+
 async function request(url, accept = "application/vnd.github+json") {
   const response = await fetch(url, {
     redirect: "error",
-    headers: {
-      Accept: accept,
-      "User-Agent": "GloamCore-game-data-updater",
-      ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    headers: requestHeaders(url, accept),
   });
   if (!response.ok) throw new Error(`Source discovery failed: ${response.status} ${url}`);
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -101,7 +119,7 @@ const fileEntries = await Promise.all(files.map(async (file) => {
   return [file, sha256(bytes)];
 }));
 
-const next = {
+const discovered = {
   schemaVersion: 1,
   gameVersion,
   atlas: {
@@ -123,9 +141,20 @@ const next = {
     files: Object.fromEntries(fileEntries),
   },
 };
+const { packRevision: _currentPackRevision, ...currentSources } = currentLock;
+const sourcesChanged = JSON.stringify(discovered) !== JSON.stringify(currentSources);
+const packRevision = currentLock.gameVersion === gameVersion
+  ? currentLock.packRevision + (sourcesChanged ? 1 : 0)
+  : 1;
+const next = {
+  schemaVersion: discovered.schemaVersion,
+  gameVersion: discovered.gameVersion,
+  packRevision,
+  atlas: discovered.atlas,
+  navigator: discovered.navigator,
+};
 const serialized = `${JSON.stringify(next, null, 2)}\n`;
-const current = fs.readFileSync(lockPath, "utf8");
-if (serialized === current) {
+if (serialized === currentText) {
   console.log(`Game-data sources are current for PoE ${gameVersion}.`);
 } else {
   fs.writeFileSync(lockPath, serialized, "utf8");

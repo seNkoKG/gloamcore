@@ -27,6 +27,8 @@ import {
 const UPSTREAM_ROOT = "https://poe.ninja";
 const DEFAULT_PREVIOUS_ROOT = "https://senkokg.github.io/gloamcore/data/poe-ninja/v1";
 const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_ATTEMPTS = 3;
+const REQUEST_RETRY_DELAY_MS = 1_000;
 const CONCURRENCY = 4;
 const MAX_REUSED_SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000;
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -84,31 +86,45 @@ async function readLimitedText(response, maximumBytes, label, controller) {
 }
 
 async function request(url, { etag, maximumBytes, userAgent, allowMissing = false } = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(new Error(`Timed out fetching ${url}`)),
-    REQUEST_TIMEOUT_MS,
-  );
-  try {
-    const headers = { Accept: "application/json", "User-Agent": userAgent };
-    if (etag) headers["If-None-Match"] = etag;
-    const response = await fetch(url, {
-      headers,
-      redirect: "error",
-      signal: controller.signal,
-    });
-    if (response.url !== url) throw new Error(`Rejected a redirected response for ${url}`);
-    if (allowMissing && response.status === 404) return null;
-    if (response.status === 304) return { response, text: "", bytes: 0 };
-    if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    if (!contentType.includes("application/json")) {
-      throw new Error(`${url} returned ${contentType || "no content type"}, not JSON.`);
+  const headers = { Accept: "application/json", "User-Agent": userAgent };
+  if (etag) headers["If-None-Match"] = etag;
+  for (let attempt = 1; attempt <= REQUEST_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`Timed out fetching ${url}`)),
+      REQUEST_TIMEOUT_MS,
+    );
+    try {
+      const response = await fetch(url, {
+        headers,
+        redirect: "error",
+        signal: controller.signal,
+      });
+      if (response.url !== url) throw new Error(`Rejected a redirected response for ${url}`);
+      if (allowMissing && response.status === 404) return null;
+      if (response.status === 304) return { response, text: "", bytes: 0 };
+      const transient = response.status === 429 || (
+        response.status >= 500 && response.status <= 599
+      );
+      if (transient && attempt < REQUEST_ATTEMPTS) {
+        await response.body?.cancel().catch(() => {});
+        console.warn(
+          `Retrying ${url} after HTTP ${response.status} (${attempt}/${REQUEST_ATTEMPTS}).`,
+        );
+      } else {
+        if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
+        const contentType = (response.headers.get("content-type") || "").toLowerCase();
+        if (!contentType.includes("application/json")) {
+          throw new Error(`${url} returned ${contentType || "no content type"}, not JSON.`);
+        }
+        return { response, ...(await readLimitedText(response, maximumBytes, url, controller)) };
+      }
+    } finally {
+      clearTimeout(timeout);
     }
-    return { response, ...(await readLimitedText(response, maximumBytes, url, controller)) };
-  } finally {
-    clearTimeout(timeout);
+    await new Promise((resolve) => setTimeout(resolve, attempt * REQUEST_RETRY_DELAY_MS));
   }
+  throw new Error(`${url} exhausted its request attempts.`);
 }
 
 async function mapLimited(values, worker) {
