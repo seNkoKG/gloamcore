@@ -3607,10 +3607,14 @@ const deadline = Date.now() + 150_000;
             tradePriceLoading,
             tradeStatCatalog: document.documentElement.dataset.tradeStatCatalog || '',
             modifierEditor: Boolean(modifierEditor),
+            modifierEditorConstrained: Boolean(
+              modifierEditor?.classList.contains('is-constrained'),
+            ),
             modifierRows: modifierRows.length,
             modifierLabels: [...document.querySelectorAll('.crme-label')]
               .map((entry) => entry.textContent?.trim() || '')
               .filter(Boolean),
+            modifierNumberInputs: document.querySelectorAll('.crme-row .crme-number').length,
             rangeSliders: document.querySelectorAll('.crme-dual-range input[type="range"]').length,
             matchModeSelects: document.querySelectorAll('select[aria-label^="Match mode for"]').length,
             stateLabels: [...document.querySelectorAll('.crme-state b')]
@@ -3776,34 +3780,82 @@ const deadline = Date.now() + 150_000;
             slider = row?.querySelector('.crme-dual-range input[type="range"]:not(:disabled)');
             number = row?.querySelector('.crme-number');
           }
-          if (!slider || !row || !number) return { ready: true, skipped: true };
+          let control = slider ? 'slider' : '';
+          if (
+            !slider &&
+            document.querySelector('.crme.is-constrained') &&
+            document.querySelector('.pco-item-name strong')?.textContent?.trim() === 'Mageblood'
+          ) {
+            number = document.querySelector(
+              '.crme-row.is-enabled .crme-number[aria-label="Minimum value for 39% total Elemental Resistance"]:not(:disabled)',
+            );
+            row = number?.closest('.crme-row');
+            if (!row || !number) {
+              return { ready: false, error: 'Constrained Mageblood bounded control is unavailable.' };
+            }
+            control = 'number';
+          }
+          if (!row || !number || (!slider && control !== 'number')) {
+            return { ready: true, skipped: true };
+          }
           const start = performance.now();
           const before = number.value;
-          const minimum = Number(slider.min);
-          const maximum = Number(slider.max);
-          const step = Number(slider.step) || 1;
-          const current = Number(slider.value);
-          const target = current + step <= maximum
-            ? current + step
-            : Math.max(minimum, current - step);
+          const rowLabel = row.querySelector('.crme-label')?.textContent?.trim() || '';
           const valueSetter = Object.getOwnPropertyDescriptor(
             HTMLInputElement.prototype,
             'value',
           )?.set;
-          if (!valueSetter) return { ready: false, error: 'Native range value setter is unavailable.' };
-          valueSetter.call(slider, String(target));
-          slider.dispatchEvent(new Event('input', { bubbles: true }));
-          slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
-            resolve({
-              ready: true,
-              updated: number.value !== before,
-              before,
-              after: number.value,
-              elapsedMs: Math.round((performance.now() - start) * 100) / 100,
-              horizontalOverflow: Math.max(0, row.scrollWidth - row.clientWidth),
-            });
-          })));
+          if (!valueSetter) {
+            return { ready: false, error: 'Native input value setter is unavailable.' };
+          }
+          const waitForPaint = () => new Promise(
+            (resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          );
+          let updated = false;
+          if (slider) {
+            const minimum = Number(slider.min);
+            const maximum = Number(slider.max);
+            const step = Number(slider.step) || 1;
+            const current = Number(slider.value);
+            const target = current + step <= maximum
+              ? current + step
+              : Math.max(minimum, current - step);
+            valueSetter.call(slider, String(target));
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+            await waitForPaint();
+            updated = number.value !== before;
+          } else {
+            const current = Number(number.value);
+            if (current !== 37) {
+              return { ready: false, error: 'Constrained Mageblood bounded value is not 37.' };
+            }
+            valueSetter.call(number, '36');
+            number.dispatchEvent(new Event('input', { bubbles: true }));
+            const interactionDeadline = performance.now() + 225;
+            do {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+              const latestRow = [...document.querySelectorAll('.crme-row')].find(
+                (entry) => entry.querySelector('.crme-label')?.textContent?.trim() === rowLabel,
+              );
+              const latestNumber = latestRow?.querySelector('.crme-number:not(:disabled)');
+              if (latestNumber) number = latestNumber;
+              const statusText = document.querySelector(
+                '.pco-trade-price-results .pco-no-results',
+              )?.textContent?.trim() || '';
+              updated = number.value !== before &&
+                /^CHECKING\\s+\\d+\\s+SELECTED\\s+STATS?$/i.test(statusText);
+            } while (!updated && performance.now() < interactionDeadline);
+          }
+          return {
+            ready: true,
+            control,
+            updated,
+            before,
+            after: number.value,
+            elapsedMs: Math.round((performance.now() - start) * 100) / 100,
+            horizontalOverflow: Math.max(0, row.scrollWidth - row.clientWidth),
+          };
         })()`);
       } catch (error) {
         modifierInteraction = {

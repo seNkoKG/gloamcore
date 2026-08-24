@@ -587,7 +587,7 @@ try {
   $env:GLOAMCORE_QA_CAPTURE_TEST = "1"
   if ($LegacyUnique) {
     # Preserve the copied roll and settled seller rows in the visual proof.
-    # Other native scenarios continue exercising the generic slider gesture.
+    # Mageblood exercises whichever bounded range control fits its work area.
     $env:GLOAMCORE_QA_SKIP_MODIFIER_INTERACTION = "1"
   }
   $env:GLOAMCORE_QA_USER_DATA_PATH = $qaRootFull
@@ -915,10 +915,12 @@ try {
       throw "Rare overlay did not render every ordinary stat without an optional-stat fold."
     }
   } elseif ($LegacyUnique) {
+    $expectedLegacyRangeSliders = if ($result.result.modifierEditorConstrained) { 0 } else { 2 }
     if (
       -not $result.result.modifierEditor -or
       $result.result.modifierRows -ne 1 -or
-      $result.result.rangeSliders -ne 2 -or
+      $result.result.modifierNumberInputs -ne 2 -or
+      $result.result.rangeSliders -ne $expectedLegacyRangeSliders -or
       $result.result.marketRows -lt 1
     ) {
       throw "Legacy Kaom's Heart did not render its bounded Life filter with live Trade prices."
@@ -953,10 +955,13 @@ try {
       throw "Legacy Kaom's Heart did not remain settled at its copied Life roll before capture."
     }
   } else {
+    $expectedMagebloodRangeSliders = if ($result.result.modifierEditorConstrained) { 0 } else { 8 }
+    $expectedMagebloodControl = if ($result.result.modifierEditorConstrained) { "number" } else { "slider" }
     if (
       -not $result.result.modifierEditor -or
       $result.result.modifierRows -ne 4 -or
-      $result.result.rangeSliders -ne 8 -or
+      $result.result.modifierNumberInputs -ne 8 -or
+      $result.result.rangeSliders -ne $expectedMagebloodRangeSliders -or
       $result.result.marketRows -lt 1
     ) {
       throw "Canonical Mageblood did not render its four stats with live Trade prices."
@@ -985,10 +990,11 @@ try {
     if (
       -not $result.modifierInteraction.ready -or
       -not $result.modifierInteraction.updated -or
+      $result.modifierInteraction.control -ne $expectedMagebloodControl -or
       $result.modifierInteraction.elapsedMs -gt 250 -or
       $result.modifierInteraction.horizontalOverflow -ne 0
     ) {
-      throw "Canonical Mageblood range input was not immediately usable: $($result.modifierInteraction | ConvertTo-Json -Compress)"
+      throw "Canonical Mageblood bounded control was not immediately usable: $($result.modifierInteraction | ConvertTo-Json -Compress)"
     }
     if ($result.result.sourceLabel -ne "TRADE FILTERS") {
       throw "Compact official Trade source labeling is missing."
@@ -1277,8 +1283,10 @@ try {
         Error = $failedResult.result.error
         ItemName = $failedResult.result.itemName
         ModifierEditor = $failedResult.result.modifierEditor
+        ModifierEditorConstrained = $failedResult.result.modifierEditorConstrained
         ModifierRows = $failedResult.result.modifierRows
         ModifierLabels = @($failedResult.result.modifierLabels)
+        ModifierNumberInputs = $failedResult.result.modifierNumberInputs
         RangeSliders = $failedResult.result.rangeSliders
         MarketRows = $failedResult.result.marketRows
         TradePriceLoading = $failedResult.result.tradePriceLoading

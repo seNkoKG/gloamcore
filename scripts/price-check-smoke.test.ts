@@ -145,7 +145,31 @@ describe("native price-check smoke harness", () => {
     }
     expect(smoke).toContain('$result.result.editorHeading -ne "1/7 STATS"');
     expect(smoke).toContain("$result.result.modifierRows -ne 4");
-    expect(smoke).toContain("$result.result.rangeSliders -ne 8");
+    expect(smoke).toContain("$result.result.modifierNumberInputs -ne 8");
+    expect(smoke).toContain(
+      "$expectedMagebloodRangeSliders = if ($result.result.modifierEditorConstrained) { 0 } else { 8 }",
+    );
+    expect(smoke).toContain(
+      "$result.result.rangeSliders -ne $expectedMagebloodRangeSliders",
+    );
+    expect(smoke).toContain(
+      '$expectedMagebloodControl = if ($result.result.modifierEditorConstrained) { "number" } else { "slider" }',
+    );
+    expect(smoke).toContain(
+      "$result.modifierInteraction.control -ne $expectedMagebloodControl",
+    );
+    expect(electronMain).toContain("document.querySelector('.crme.is-constrained')");
+    expect(electronMain).toContain(
+      'Minimum value for 39% total Elemental Resistance',
+    );
+    expect(electronMain).toContain("if (current !== 37)");
+    expect(electronMain).toContain("valueSetter.call(number, '36')");
+    expect(electronMain).toContain("control = 'number'");
+    expect(electronMain).toContain("control,");
+    expect(electronMain).toContain("const interactionDeadline = performance.now() + 225");
+    expect(electronMain).toContain(
+      "^CHECKING\\\\s+\\\\d+\\\\s+SELECTED\\\\s+STATS?$",
+    );
     for (const visibleLabel of [
       "39% total Elemental Resistance",
       "31 total to Strength",
