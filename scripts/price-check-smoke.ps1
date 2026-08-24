@@ -218,8 +218,23 @@ Magic Utility Flask Effects cannot be removed
 "@
 }
 $fixtureBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($fixture))
-$qaRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("poe-widget-qa-" + [guid]::NewGuid().ToString("N"))
-$tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+# Match Node/Electron's Windows temp precedence. Hosted runners can expose
+# distinct TEMP and TMP roots, so .NET's GetTempPath is not authoritative here.
+$nodeTempPath = if ($env:TEMP) {
+  $env:TEMP
+} elseif ($env:TMP) {
+  $env:TMP
+} elseif ($env:SystemRoot) {
+  Join-Path $env:SystemRoot "temp"
+} else {
+  Join-Path $env:windir "temp"
+}
+$tempRoot = [System.IO.Path]::GetFullPath($nodeTempPath)
+# Keep Node/Electron and .NET children on the same canonical spelling even
+# when the inherited temp values use different roots or Windows 8.3 aliases.
+$env:TEMP = $tempRoot
+$env:TMP = $tempRoot
+$qaRoot = Join-Path $tempRoot ("poe-widget-qa-" + [guid]::NewGuid().ToString("N"))
 $qaRootFull = [System.IO.Path]::GetFullPath($qaRoot)
 $resultPath = Join-Path $qaRootFull "price-check-smoke.json"
 $nativeCloseSignalPath = Join-Path $qaRootFull "native-close.json"

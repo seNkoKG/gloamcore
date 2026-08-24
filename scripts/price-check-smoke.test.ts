@@ -218,6 +218,16 @@ describe("native price-check smoke harness", () => {
   });
 
   it("restores the prior foreground and cleans only its isolated processes and temp root", () => {
+    expectOrdered(
+      "$nodeTempPath = if ($env:TEMP)",
+      "} elseif ($env:TMP)",
+      "} elseif ($env:SystemRoot)",
+      "Join-Path $env:windir \"temp\"",
+      "$tempRoot = [System.IO.Path]::GetFullPath($nodeTempPath)",
+      "$env:TEMP = $tempRoot",
+      "$env:TMP = $tempRoot",
+      "$qaRoot = Join-Path $tempRoot",
+    );
     expect(smoke).toContain(
       "$originalForegroundWindow = [GloamCoreQaWindow]::GetForegroundWindow()",
     );
