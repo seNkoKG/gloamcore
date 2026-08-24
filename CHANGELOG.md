@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 3.4.8
+
+- Hardened settings, Toolkit workspace, and economy-cache persistence with
+  bounded payloads, serialized writes, safe migration, and explicit recovery
+  that preserves invalid source data.
+- Reworked global item search around an incremental revisioned index, with
+  delta publishing, stale-response protection, exact deduplication, and
+  Faustus market support.
+- Improved phone and compact-window navigation, keyboard focus, empty states,
+  touch sizing, landscape behavior, and durable mobile Toolkit preferences.
+- Reduced startup work by lazy-loading large workspaces and game data, while
+  adding retryable startup failures and runtime recovery boundaries.
+- Strengthened market-pulse evidence, shortcut rollback reporting, dependency
+  auditing, Android validation, and Windows release smoke coverage.
+
 ## 3.4.7
 
 - Reorganized the in-game Ctrl+D modifier editor into clear provenance lanes

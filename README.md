@@ -61,7 +61,16 @@ source revisions, rebuilds the packs, runs graph/branch/integrity tests, and
 opens a guarded review PR; partial or unreviewed upstream changes are never
 published directly to installed clients.
 
-## New in 3.4.7: readable in-game modifier lanes
+## New in 3.4.8: reliable search and adaptive workflows
+
+Global item search now uses a bounded incremental index that stays consistent
+through rapid market updates and opens Faustus-backed rows correctly. Settings,
+Toolkit workspaces, and economy caches preserve recoverable data instead of
+silently overwriting invalid files. Major workspaces load on demand, startup
+failures are retryable, and phone or compact-window navigation has stronger
+focus handling, touch targets, and durable preferences.
+
+## Shipped in 3.4.7: readable in-game modifier lanes
 
 The Ctrl+D price-check overlay now separates calculated properties,
 enchantments, implicits, prefixes, suffixes, crafted modifiers, and pseudo

@@ -50,12 +50,24 @@ explicitly supersedes any retired transport or data-source behavior.
 12. **3.4.7 - In-game modifier readability.** Group Ctrl+D modifiers by their
     actual provenance, preserve linked Advanced Description affixes and live
     seller prices, and follow the selected app theme in the compact overlay.
+13. **3.4.8 - Reliability and adaptive workflows.** Bound and recover persisted
+    state, index global search incrementally, defer expensive startup work, and
+    strengthen compact navigation plus release verification.
 
 Each version is feature-audited against its pinned PoE source and then passes
 the existing baseline suites only as regression guards. Craft of Exile remains
 intact and the retired full official-trade-listings subsystem remains prohibited.
 
-## Current in 3.4.7
+## Current in 3.4.8
+
+- Preserve invalid settings and Toolkit workspaces for explicit recovery, and
+  keep economy-cache migrations, memory, disk, and record sizes bounded.
+- Keep global search synchronized through revisioned deltas and latest-request
+  rendering while supporting Faustus-backed market identities.
+- Lazy-load major workspaces and game data, expose retryable failures, and make
+  phone or compact-window navigation accessible and durable.
+
+## Shipped in 3.4.7
 
 - Separate calculated properties, enchantments, implicits, prefixes, suffixes,
   crafted modifiers, and pseudo totals in the in-game Ctrl+D overlay.

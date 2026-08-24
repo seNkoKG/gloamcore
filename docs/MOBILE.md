@@ -11,8 +11,8 @@ platform boundary and do not fabricate mobile observations.
 
 The newest packaged mobile preview in `deliverables/mobile` is 3.4.2. The
 checked-in Android and iOS metadata remains at 3.4.6 and is explicitly recorded
-as unbuilt against package source 3.4.7 in `android/release-version-policy.json`.
-No 3.4.7 Android or iOS package has been built or published.
+as unbuilt against package source 3.4.8 in `android/release-version-policy.json`.
+No 3.4.8 Android or iOS package has been built or published.
 
 ## Android: build, install, or share
 

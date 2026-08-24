@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "releaseState": "unbuilt",
-  "packageSourceVersion": "3.4.7",
+  "packageSourceVersion": "3.4.8",
   "applicationId": "io.github.senkokg.gloamcore",
   "versionName": "3.4.6",
   "versionCode": 54,

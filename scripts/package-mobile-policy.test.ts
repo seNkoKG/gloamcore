@@ -16,32 +16,32 @@ describe("mobile release content boundary", () => {
   it("records the intentionally unbuilt native version against current package source", () => {
     expect(verifyMobilePolicy(root)).toMatchObject({
       releaseState: "unbuilt",
-      packageSourceVersion: "3.4.7",
+      packageSourceVersion: "3.4.8",
       versionName: "3.4.6",
       versionCode: 54,
     });
   });
 
   it("does not accept unbuilt metadata as an artifact release policy", () => {
-    expect(() => androidReleasePolicy(root, "3.4.7")).toThrow(/release-ready/);
+    expect(() => androidReleasePolicy(root, "3.4.8")).toThrow(/release-ready/);
     expect(script).toContain("Requested version $Version does not match package.json");
   });
 
   it("allows version drift only while the native package is explicitly unbuilt", () => {
     expect(mobilePolicyReleaseStateIsConsistent({
       releaseState: "unbuilt",
-      packageSourceVersion: "3.4.7",
+      packageSourceVersion: "3.4.8",
       versionName: "3.4.6",
     })).toBe(true);
     expect(mobilePolicyReleaseStateIsConsistent({
       releaseState: "release-ready",
-      packageSourceVersion: "3.4.7",
+      packageSourceVersion: "3.4.8",
       versionName: "3.4.6",
     })).toBe(false);
     expect(mobilePolicyReleaseStateIsConsistent({
       releaseState: "release-ready",
-      packageSourceVersion: "3.4.7",
-      versionName: "3.4.7",
+      packageSourceVersion: "3.4.8",
+      versionName: "3.4.8",
     })).toBe(true);
   });
 
