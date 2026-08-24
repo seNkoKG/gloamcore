@@ -1060,18 +1060,39 @@ try {
   if ([math]::Abs($result.result.surfaceBounds.height - $result.result.expectedHeight) -gt 1) {
     throw "Price-check overlay did not match its content-driven result height."
   }
+  $modifierListClient = [int]$result.result.layoutHeights.modifierListClient
+  $modifierListScroll = [int]$result.result.layoutHeights.modifierListScroll
+  $modifierListOverflow = [int]$result.result.modifierListOverflow
+  $expectedModifierListOverflow = [math]::Max(
+    0,
+    $modifierListScroll - $modifierListClient
+  )
+  $expectedModifierListOverflowY = if ($result.result.modifierEditorConstrained) {
+    "auto"
+  } else {
+    "visible"
+  }
+  $modifierListOverflowY = [string]$result.result.modifierListOverflowY
   if (
-    $result.result.modifierListOverflow -ne 0 -or
-    $result.result.layoutHeights.modifierListScroll -ne $result.result.layoutHeights.modifierListClient
+    $modifierListClient -le 0 -or
+    $modifierListScroll -lt $modifierListClient -or
+    $modifierListOverflow -ne $expectedModifierListOverflow -or
+    $modifierListOverflowY -ne $expectedModifierListOverflowY -or
+    (
+      -not $result.result.modifierEditorConstrained -and
+      $expectedModifierListOverflow -ne 0
+    )
   ) {
     $overflowState = [pscustomobject]@{
       DesiredHeight = $result.result.desiredHeight
       ExpectedHeight = $result.result.expectedHeight
       SurfaceHeight = $result.result.surfaceBounds.height
-      ModifierListOverflow = $result.result.modifierListOverflow
+      ModifierEditorConstrained = $result.result.modifierEditorConstrained
+      ModifierListOverflow = $modifierListOverflow
+      ModifierListOverflowY = $modifierListOverflowY
       LayoutHeights = $result.result.layoutHeights
     } | ConvertTo-Json -Compress
-    throw "The complete modifier list retained an internal scrollbar: $overflowState"
+    throw "Modifier-list overflow escaped its constrained scroll surface: $overflowState"
   }
   if (-not $result.window.alwaysOnTop) {
     throw "Price-check overlay was not always-on-top during the smoke test."

@@ -3672,6 +3672,9 @@ const deadline = Date.now() + 150_000;
                   (modifierList?.scrollHeight || 0) - (modifierList?.clientHeight || 0),
                 )
               : 0,
+            modifierListOverflowY: modifierList
+              ? getComputedStyle(modifierList).overflowY
+              : '',
             layoutHeights: modifierEditor
               ? {
                   top: document.querySelector('.pco-top')?.getBoundingClientRect().height || 0,

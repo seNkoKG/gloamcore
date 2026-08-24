@@ -242,9 +242,9 @@ export function compactPriceCheckPanelHeight(
     const hasVisibleStats = session.query.filters.some(
       (filter) => !filter.advancedOnly,
     );
-    // 115px covers the title, item identity, actions, and borders. Awakened
-    // opens every non-hidden stat, so the native card always reserves every
-    // rendered editor row and never creates an inner modifier scrollbar.
+    // 115px covers the title, item identity, actions, and borders. The desired
+    // card height reserves every non-hidden stat; if the native work area must
+    // clamp it, the constrained editor keeps every row in a scroll surface.
     return presetHeight + tradeOptionsHeight + resolverHeight + 115 +
       stateStripHeight +
       (hasVisibleStats ? 24 + rowHeight : 0) +

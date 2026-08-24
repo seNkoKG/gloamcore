@@ -213,12 +213,21 @@ describe("native price-check smoke harness", () => {
       '$result.result.text -match "\\b(?:SHOW|HIDE)\\s+\\d+\\b"',
     );
     expect(smoke).toContain("$result.result.modifierRows -ne 8");
-    expect(smoke).toContain("$result.result.modifierListOverflow -ne 0");
+    expect(electronMain).toContain("modifierListOverflowY: modifierList");
+    expect(smoke).toContain("$expectedModifierListOverflow = [math]::Max(");
     expect(compact).toContain(
-      "$result.result.layoutHeights.modifierListScroll -ne $result.result.layoutHeights.modifierListClient",
+      "$modifierListOverflow -ne $expectedModifierListOverflow",
     );
+    expect(smoke).toContain("$modifierListScroll -lt $modifierListClient");
+    expect(compact).toContain(
+      "$expectedModifierListOverflowY = if ($result.result.modifierEditorConstrained)",
+    );
+    expect(compact).toContain(
+      "-not $result.result.modifierEditorConstrained -and $expectedModifierListOverflow -ne 0",
+    );
+    expect(smoke).not.toContain("$result.result.modifierListOverflow -ne 0 -or");
     expect(smoke).toContain(
-      "The complete modifier list retained an internal scrollbar:",
+      "Modifier-list overflow escaped its constrained scroll surface:",
     );
   });
 
