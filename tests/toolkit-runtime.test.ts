@@ -13,6 +13,7 @@ const {
   sanitizeOverlayBounds,
   sanitizePluginStorage,
   sanitizeWorkspace,
+  workspaceWithCurrentOverlayBounds,
 } = require("../electron/toolkit-runtime.cjs");
 
 describe("toolkit runtime settings", () => {
@@ -39,6 +40,24 @@ describe("toolkit runtime settings", () => {
     });
     expect(sanitizeOverlayBounds({ x: "no", y: 0, width: 600, height: 400 })).toBeUndefined();
     expect(sanitizeWorkspace({ overlayBounds: { cheats: { x: 10, y: 20, width: 620, height: 580 } } }).overlayBounds.cheats).toEqual({ x: 10, y: 20, width: 620, height: 580 });
+  });
+
+  it("keeps main-owned overlay bounds across ordinary renderer saves", () => {
+    const current = sanitizeWorkspace({
+      overlayBounds: { cheats: { x: 10, y: 20, width: 620, height: 580 } },
+      macros: [{ id: "old", hotkey: "F5", text: "/hideout" }],
+    });
+    const ordinarySave = sanitizeWorkspace(workspaceWithCurrentOverlayBounds(current, {
+      overlayBounds: { cheats: { x: 1, y: 2, width: 400, height: 300 } },
+      macros: [{ id: "new", hotkey: "F6", text: "/remaining" }],
+    }));
+    expect(ordinarySave.overlayBounds).toEqual(current.overlayBounds);
+    expect(ordinarySave.macros[0].id).toBe("new");
+
+    const intentionalImport = sanitizeWorkspace({
+      overlayBounds: { cheats: { x: 30, y: 40, width: 700, height: 600 } },
+    });
+    expect(intentionalImport.overlayBounds).not.toEqual(current.overlayBounds);
   });
 
   it("validates artboard elements, snapshots, images, and opt-in stash scrolling", () => {

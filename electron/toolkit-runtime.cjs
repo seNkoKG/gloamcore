@@ -214,6 +214,16 @@ function sanitizeWorkspace(value) {
   };
 }
 
+function workspaceWithCurrentOverlayBounds(current, incoming) {
+  const source = incoming && typeof incoming === "object" && !Array.isArray(incoming)
+    ? incoming
+    : {};
+  return {
+    ...source,
+    overlayBounds: current?.overlayBounds || {},
+  };
+}
+
 function standardHttpsUrl(value) {
   try {
     const url = new URL(value);
@@ -333,4 +343,5 @@ module.exports = {
   sanitizeOverlayBounds,
   sanitizePluginStorage,
   sanitizeWorkspace,
+  workspaceWithCurrentOverlayBounds,
 };

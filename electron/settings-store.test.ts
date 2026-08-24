@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import path from "node:path";
 import store from "./settings-store.cjs";
 
 describe("settings persistence", () => {
+  const regularFile = (size: number) => ({
+    size,
+    isFile: () => true,
+    isSymbolicLink: () => false,
+  });
+
   it("rejects coercible scalar settings and invalid window geometry", () => {
     expect(store.sanitizeScalarSettings({
       alwaysOnTop: "false",
@@ -62,5 +69,89 @@ describe("settings persistence", () => {
     queued.shift()?.();
     expect(failed).toHaveBeenCalledTimes(2);
     expect(recovered).toHaveBeenCalledOnce();
+  });
+
+  it("distinguishes a missing settings file from a valid loaded object", () => {
+    const target = path.join("state", "settings.json");
+    const missing = Object.assign(new Error("missing"), { code: "ENOENT" });
+    expect(store.loadSettingsFile(target, {
+      fsImpl: { lstatSync: vi.fn(() => { throw missing; }) },
+    })).toEqual({ status: "missing" });
+
+    expect(store.loadSettingsFile(target, {
+      fsImpl: {
+        lstatSync: vi.fn(() => regularFile(20)),
+        readFileSync: vi.fn(() => Buffer.from('{"compact":true}', "utf8")),
+      },
+    })).toEqual({ status: "loaded", value: { compact: true } });
+  });
+
+  it("quarantines invalid and oversized regular settings before defaults can be saved", () => {
+    const target = path.join("state", "settings.json");
+    const renamed: Array<[string, string]> = [];
+    const invalid = store.loadSettingsFile(target, {
+      fsImpl: {
+        lstatSync: vi.fn(() => regularFile(7)),
+        readFileSync: vi.fn(() => Buffer.from("{broken", "utf8")),
+        renameSync: vi.fn((from: string, to: string) => renamed.push([from, to])),
+      },
+      now: () => new Date("2026-08-23T10:00:00.000Z"),
+      randomId: () => "test-id",
+    });
+    expect(invalid).toMatchObject({
+      status: "quarantined",
+      backupName: "settings.json.invalid-2026-08-23T10-00-00-000Z-test-id.bak",
+    });
+    expect(renamed[0]).toEqual([
+      target,
+      `${target}.invalid-2026-08-23T10-00-00-000Z-test-id.bak`,
+    ]);
+
+    const readFileSync = vi.fn();
+    const renameSync = vi.fn();
+    expect(store.loadSettingsFile(target, {
+      fsImpl: {
+        lstatSync: vi.fn(() => regularFile(store.MAX_SETTINGS_BYTES + 1)),
+        readFileSync,
+        renameSync,
+      },
+      randomId: () => "oversized",
+    })).toMatchObject({ status: "quarantined" });
+    expect(readFileSync).not.toHaveBeenCalled();
+    expect(renameSync).toHaveBeenCalledOnce();
+  });
+
+  it("blocks persistence when the path is unsafe or invalid settings cannot be quarantined", () => {
+    const target = path.join("state", "settings.json");
+    const denied = Object.assign(new Error("denied"), { code: "EACCES" });
+    expect(store.loadSettingsFile(target, {
+      fsImpl: { lstatSync: vi.fn(() => { throw denied; }) },
+    })).toMatchObject({ status: "blocked" });
+
+    const renameSync = vi.fn();
+    const unsafe = store.loadSettingsFile(target, {
+      fsImpl: {
+        lstatSync: vi.fn(() => ({
+          size: 10,
+          isFile: () => false,
+          isSymbolicLink: () => true,
+        })),
+        renameSync,
+      },
+    });
+    expect(unsafe).toMatchObject({ status: "blocked" });
+    expect(unsafe.warning).toMatch(/not a regular file/i);
+    expect(renameSync).not.toHaveBeenCalled();
+
+    const locked = store.loadSettingsFile(target, {
+      fsImpl: {
+        lstatSync: vi.fn(() => regularFile(7)),
+        readFileSync: vi.fn(() => Buffer.from("{broken", "utf8")),
+        renameSync: vi.fn(() => { throw new Error("locked"); }),
+      },
+      randomId: () => "blocked",
+    });
+    expect(locked).toMatchObject({ status: "blocked" });
+    expect(locked.warning).toMatch(/could not be archived safely/i);
   });
 });

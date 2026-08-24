@@ -2,6 +2,92 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
+
+const MAX_SETTINGS_BYTES = 1024 * 1024;
+
+function errorDetail(error) {
+  return String(error?.message || error || "unknown error").replace(/[\0\r\n]/g, " ").slice(0, 180);
+}
+
+function settingsQuarantinePath(target, { now = () => new Date(), randomId = () => crypto.randomUUID() } = {}) {
+  const timestamp = now().toISOString().replace(/[:.]/g, "-");
+  return `${target}.invalid-${timestamp}-${randomId()}.bak`;
+}
+
+function blockedSettingsResult(reason) {
+  return {
+    status: "blocked",
+    warning: `Settings storage is locked: ${reason} The existing file was not changed.`,
+  };
+}
+
+function loadSettingsFile(target, {
+  fsImpl = fs,
+  maxBytes = MAX_SETTINGS_BYTES,
+  now,
+  randomId,
+} = {}) {
+  let stat;
+  try {
+    stat = fsImpl.lstatSync(target);
+  } catch (error) {
+    if (error?.code === "ENOENT") return { status: "missing" };
+    return blockedSettingsResult(`the file could not be inspected (${errorDetail(error)}).`);
+  }
+
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    return blockedSettingsResult("the settings path is not a regular file.");
+  }
+
+  let invalidReason = "";
+  if (!Number.isFinite(stat.size) || stat.size < 0 || stat.size > maxBytes) {
+    invalidReason = `the file exceeds the ${Math.floor(maxBytes / 1024)} KB safety limit`;
+  } else {
+    let bytes;
+    try {
+      bytes = fsImpl.readFileSync(target);
+    } catch (error) {
+      if (error?.code === "ENOENT") return { status: "missing" };
+      return blockedSettingsResult(`the file could not be read (${errorDetail(error)}).`);
+    }
+    const size = typeof bytes === "string"
+      ? Buffer.byteLength(bytes, "utf8")
+      : Number(bytes?.byteLength ?? bytes?.length);
+    if (!Number.isFinite(size) || size > maxBytes) {
+      invalidReason = `the file exceeds the ${Math.floor(maxBytes / 1024)} KB safety limit`;
+    } else {
+      try {
+        const parsed = JSON.parse(typeof bytes === "string" ? bytes : Buffer.from(bytes).toString("utf8"));
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          invalidReason = "the JSON root is not an object";
+        } else {
+          return { status: "loaded", value: parsed };
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) {
+          return blockedSettingsResult(`the file could not be decoded (${errorDetail(error)}).`);
+        }
+        invalidReason = "the JSON is invalid";
+      }
+    }
+  }
+
+  const backupPath = settingsQuarantinePath(target, { now, randomId });
+  try {
+    fsImpl.renameSync(target, backupPath);
+  } catch (error) {
+    return blockedSettingsResult(
+      `${invalidReason}, and it could not be archived safely (${errorDetail(error)}).`,
+    );
+  }
+  return {
+    status: "quarantined",
+    backupName: path.basename(backupPath),
+    backupPath,
+    warning: `Settings were invalid and archived as ${path.basename(backupPath)}. Safe defaults are active.`,
+  };
+}
 
 function sanitizeScalarSettings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -83,8 +169,11 @@ function createPersistenceRetry({
 }
 
 module.exports = {
+  MAX_SETTINGS_BYTES,
   createPersistenceRetry,
+  loadSettingsFile,
   sanitizeScalarSettings,
   sanitizeWindowBounds,
+  settingsQuarantinePath,
   writeJsonAtomically,
 };
