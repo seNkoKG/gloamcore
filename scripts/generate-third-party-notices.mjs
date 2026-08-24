@@ -7,6 +7,21 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 const JAVASCRIPT_ENTRYPOINT_EXTENSIONS = new Set([".cjs", ".js", ".mjs"]);
 
+export function resolvePackageManagerPath({
+  npmExecPath,
+  explicitPath,
+  pnpmHome,
+  platform = process.platform,
+  fileSystem = fs,
+} = {}) {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  const pnpmHomeExecutable = pnpmHome
+    ? pathApi.join(pnpmHome, platform === "win32" ? "pnpm.exe" : "pnpm")
+    : undefined;
+  return [npmExecPath, explicitPath, pnpmHomeExecutable]
+    .find((candidate) => candidate && fileSystem.existsSync(candidate));
+}
+
 export function resolvePackageManagerInvocation(
   packageManager,
   nodeExecutable = process.execPath,
@@ -32,9 +47,13 @@ export function writeTextIfChanged(filePath, content, fileSystem = fs) {
 }
 
 export function generateThirdPartyNotices() {
-const packageManager = process.env.npm_execpath || process.argv[2];
+const packageManager = resolvePackageManagerPath({
+  npmExecPath: process.env.npm_execpath,
+  explicitPath: process.argv[2],
+  pnpmHome: process.env.PNPM_HOME,
+});
 
-if (!packageManager || !fs.existsSync(packageManager)) {
+if (!packageManager) {
   throw new Error("Run this generator through pnpm or pass the pnpm executable path.");
 }
 
