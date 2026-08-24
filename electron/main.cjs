@@ -3599,7 +3599,7 @@ const deadline = Date.now() + 150_000;
               detailButton &&
               surfaceRect &&
               Math.abs(surfaceRect.height - expectedHeight) <= 1 &&
-              (${QA_SELECT_WAND_STATS ? "marketRows > 0 && !tradePriceLoading" : "true"})
+              (!modifierEditor || (marketRows > 0 && !tradePriceLoading))
             ),
             buttons,
             marketRows,

@@ -203,6 +203,15 @@ describe("native price-check smoke harness", () => {
     expect(electronMain).not.toContain("modifierRowsHeight");
   });
 
+  it("waits for Trade rows in every modifier-editor scenario", () => {
+    expect(electronMain).toContain(
+      "(!modifierEditor || (marketRows > 0 && !tradePriceLoading))",
+    );
+    expect(electronMain).not.toContain(
+      'QA_SELECT_WAND_STATS ? "marketRows > 0 && !tradePriceLoading"',
+    );
+  });
+
   it("locks the legacy Unique renderer scenario to its copied Life roll", () => {
     expect(smoke).toContain("[switch]$LegacyUnique");
     expect(smoke).toContain("+1170(1000) to maximum Life");
