@@ -254,6 +254,7 @@ $nativeCloseHandled = $false
 $qaSwitchWindow = [IntPtr]::Zero
 $qaSwitchForegroundVerified = $false
 $qaTargetReturnVerified = $false
+$qaCloseTargetReturnVerified = $false
 $smokeMutex = New-Object System.Threading.Mutex(
   $false,
   "Local\GloamCorePriceCheckSmoke"
@@ -492,7 +493,9 @@ try {
     -RedirectStandardOutput $targetStdoutPath `
     -RedirectStandardError $targetStderrPath `
     -PassThru
-  $targetDeadline = [DateTime]::UtcNow.AddSeconds(5)
+  # A freshly copied, signed Windows host can pay an antivirus inspection cost
+  # before WinForms creates its first HWND on a cold hosted runner.
+  $targetDeadline = [DateTime]::UtcNow.AddSeconds(15)
   $qaTargetWindow = [IntPtr]::Zero
   do {
     Start-Sleep -Milliseconds 100
@@ -705,42 +708,149 @@ try {
               }
             }
           }
+        } elseif (
+          $nativeAltTabRequest -and
+          $nativeAltTabRequest.phase -eq "focus-target-after-close" -and
+          $nativeCloseHandled -and
+          -not $qaCloseTargetReturnVerified
+        ) {
+          if ([string]$nativeAltTabRequest.targetTitle -ne $qaTargetTitle) {
+            throw "Electron emitted an invalid native close target identity."
+          }
+          $closeTargetNonce = [string]$nativeAltTabRequest.nonce
+          if ($closeTargetNonce -notmatch "^[0-9a-f]{32}$") {
+            throw "Electron emitted an invalid native close focus nonce."
+          }
+          $closeTargetStableSince = $null
+          $closeTargetAssisted = $false
+          $closeTargetDeadline = [DateTime]::UtcNow.AddSeconds(3)
+          do {
+            $qaTargetProcess.Refresh()
+            $closeTargetOwnerProcessId = [uint32]0
+            if (
+              $qaTargetProcess.HasExited -or
+              -not [GloamCoreQaWindow]::IsWindow($qaTargetWindow) -or
+              -not [GloamCoreQaWindow]::IsWindowVisible($qaTargetWindow)
+            ) {
+              throw "The signed synthetic target disappeared before native close focus restoration."
+            }
+            [void][GloamCoreQaWindow]::GetWindowThreadProcessId(
+              $qaTargetWindow,
+              [ref]$closeTargetOwnerProcessId
+            )
+            if ($closeTargetOwnerProcessId -ne [uint32]$qaTargetProcess.Id) {
+              throw "The native close target HWND no longer belongs to the signed synthetic target process."
+            }
+            if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
+              if (-not $closeTargetStableSince) {
+                $closeTargetStableSince = [DateTime]::UtcNow
+              }
+            } else {
+              $closeTargetStableSince = $null
+              $closeTargetAssisted = $true
+              [void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)
+            }
+            if (
+              $closeTargetStableSince -and
+              ([DateTime]::UtcNow - $closeTargetStableSince).TotalMilliseconds -ge 150
+            ) {
+              break
+            }
+            Start-Sleep -Milliseconds 35
+          } while ([DateTime]::UtcNow -lt $closeTargetDeadline)
+          if (
+            -not $closeTargetStableSince -or
+            ([DateTime]::UtcNow - $closeTargetStableSince).TotalMilliseconds -lt 150 -or
+            [GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow
+          ) {
+            throw "Native close QA could not accept the app's target-focus handoff."
+          }
+          $closeTargetStableMs = [int]([DateTime]::UtcNow - $closeTargetStableSince).TotalMilliseconds
+          $nativeAltTabAck = [ordered]@{
+            phase = "target-focused-after-close"
+            nonce = $closeTargetNonce
+            hwnd = [string]$qaTargetWindow.ToInt64()
+            assisted = $closeTargetAssisted
+            stableMs = $closeTargetStableMs
+          } | ConvertTo-Json -Compress
+          [System.IO.File]::WriteAllText(
+            $nativeAltTabAckPath,
+            $nativeAltTabAck,
+            [Text.UTF8Encoding]::new($false)
+          )
+          $closeAckDeadline = [DateTime]::UtcNow.AddSeconds(2)
+          while (
+            (Test-Path -LiteralPath $nativeAltTabRequestPath -PathType Leaf) -and
+            [DateTime]::UtcNow -lt $closeAckDeadline
+          ) {
+            Start-Sleep -Milliseconds 20
+            $qaTargetProcess.Refresh()
+            $closeTargetOwnerProcessId = [uint32]0
+            if (
+              $qaTargetProcess.HasExited -or
+              -not [GloamCoreQaWindow]::IsWindow($qaTargetWindow) -or
+              -not [GloamCoreQaWindow]::IsWindowVisible($qaTargetWindow)
+            ) {
+              throw "The signed synthetic target disappeared before the native close acknowledgement was accepted."
+            }
+            [void][GloamCoreQaWindow]::GetWindowThreadProcessId(
+              $qaTargetWindow,
+              [ref]$closeTargetOwnerProcessId
+            )
+            if (
+              $closeTargetOwnerProcessId -ne [uint32]$qaTargetProcess.Id -or
+              [GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow
+            ) {
+              throw "Native close target focus changed before Electron accepted the correlated acknowledgement."
+            }
+          }
+          if (Test-Path -LiteralPath $nativeAltTabRequestPath -PathType Leaf) {
+            throw "Electron did not accept the correlated native close acknowledgement."
+          }
+          $qaTargetProcess.Refresh()
+          $closeTargetOwnerProcessId = [uint32]0
+          [void][GloamCoreQaWindow]::GetWindowThreadProcessId(
+            $qaTargetWindow,
+            [ref]$closeTargetOwnerProcessId
+          )
+          if (
+            $qaTargetProcess.HasExited -or
+            -not [GloamCoreQaWindow]::IsWindow($qaTargetWindow) -or
+            -not [GloamCoreQaWindow]::IsWindowVisible($qaTargetWindow) -or
+            $closeTargetOwnerProcessId -ne [uint32]$qaTargetProcess.Id -or
+            [GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow
+          ) {
+            throw "Native close target identity or focus changed after acknowledgement."
+          }
+          $qaCloseTargetReturnVerified = $true
         }
       }
       if (-not $nativeCloseHandled -and (Test-Path -LiteralPath $nativeCloseSignalPath -PathType Leaf)) {
-        $nativeClose = Get-Content -Raw -LiteralPath $nativeCloseSignalPath | ConvertFrom-Json
-        if (
-          $nativeClose.x -isnot [int] -or
-          $nativeClose.y -isnot [int]
-        ) {
-          throw "Electron emitted an invalid native close-button coordinate."
+        $nativeClose = $null
+        try {
+          $nativeClose = Get-Content -Raw -LiteralPath $nativeCloseSignalPath |
+            ConvertFrom-Json
+        } catch {
+          # Electron may still be writing the close request. Retry next tick.
         }
-        [void][GloamCoreQaWindow]::SetCursorPos($nativeClose.x, $nativeClose.y)
-        Start-Sleep -Milliseconds 50
-        [GloamCoreQaWindow]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
-        [GloamCoreQaWindow]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
-        $nativeCloseHandled = $true
-        # SendInput originates in the external QA controller, so Windows does
-        # not grant Electron the same foreground privilege as a person's click.
-        # Confirm the app has handled the click, then let the controller accept
-        # its requested handoff to the exact signed synthetic target HWND.
-        Start-Sleep -Milliseconds 100
-        for ($focusAttempt = 0; $focusAttempt -lt 10; $focusAttempt++) {
-          if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
-            break
+        if ($nativeClose) {
+          if (
+            $nativeClose.x -isnot [int] -or
+            $nativeClose.y -isnot [int]
+          ) {
+            throw "Electron emitted an invalid native close-button coordinate."
           }
-          [void][GloamCoreQaWindow]::ShowWindowAsync($qaTargetWindow, 5)
-          [void][GloamCoreQaWindow]::SetForegroundWindow($qaTargetWindow)
-          Start-Sleep -Milliseconds 35
-        }
-        if ([GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow) {
-          throw "Native close QA could not accept the app's target-focus handoff."
-        }
-        if ($originalCursorPosition) {
-          [void][GloamCoreQaWindow]::SetCursorPos(
-            $originalCursorPosition.X,
-            $originalCursorPosition.Y
-          )
+          [void][GloamCoreQaWindow]::SetCursorPos($nativeClose.x, $nativeClose.y)
+          Start-Sleep -Milliseconds 50
+          [GloamCoreQaWindow]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+          [GloamCoreQaWindow]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+          $nativeCloseHandled = $true
+          if ($originalCursorPosition) {
+            [void][GloamCoreQaWindow]::SetCursorPos(
+              $originalCursorPosition.X,
+              $originalCursorPosition.Y
+            )
+          }
         }
       }
       $appProcess.Refresh()
@@ -1242,6 +1352,9 @@ try {
   if (-not $qaSwitchForegroundVerified -or -not $qaTargetReturnVerified) {
     throw "Native Alt-Tab QA did not verify the unrelated window and signed synthetic Path of Exile target as consecutive foreground HWNDs."
   }
+  if (-not $qaCloseTargetReturnVerified) {
+    throw "Native close QA did not verify a stable return to the signed synthetic Path of Exile target."
+  }
   if (
     -not $result.lifecycle.targetReturn -or
     -not $result.lifecycle.targetReturn.ready -or
@@ -1284,6 +1397,15 @@ try {
     $result.dismissal.capturePending -or
     -not $result.dismissal.windowVisible -or
     -not $result.dismissal.focusRestoreAudit.success -or
+    -not $result.dismissal.focusRestoreAudit.handoffCompleted -or
+    [int]$result.dismissal.focusRestoreAudit.elapsedMs -gt 750 -or
+    $result.dismissal.focusRestoreAudit.exhausted -or
+    $result.dismissal.focusRestoreAudit.aborted -or
+    $result.dismissal.focusRestoreAudit.lastError -or
+    -not $result.dismissal.nativeFocusAck.acknowledged -or
+    -not ($result.dismissal.nativeFocusAck.PSObject.Properties.Name -contains "assisted") -or
+    [string]$result.dismissal.nativeFocusAck.hwnd -ne [string]$qaTargetWindow.ToInt64() -or
+    [int]$result.dismissal.nativeFocusAck.stableMs -lt 150 -or
     (
       -not $result.dismissal.focusRestoreAudit.restoreScheduled -and
       -not $result.dismissal.targetActive

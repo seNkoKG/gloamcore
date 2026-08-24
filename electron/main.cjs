@@ -20,6 +20,7 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { fileURLToPath } = require("node:url");
 const { protectLogStream } = require("./log-stream.cjs");
+const { nativeQaAckMatches } = require("./native-qa-protocol.cjs");
 const { loadTrayIcon } = require("./tray-icon.cjs");
 const {
   readConfiguredFeedUrl,
@@ -40,6 +41,7 @@ const {
   priceCheckPointerExitDisposition,
   priceCheckOverlayOwnsCaptureContext: shouldTreatPriceCheckOverlayAsCaptureOwner,
   priceCheckTargetCanCapture: canPriceCheckTargetCapture,
+  priceCheckTargetFocusRestoreConfirmed,
   shouldAcceptPriceCheckOverlayFocus,
   shouldArmPriceCheckPassiveWatch,
   shouldRecoverRejectedPassiveFocus,
@@ -279,6 +281,8 @@ const PRICE_CHECK_MAX_REQUESTED_HEIGHT = 4096;
 const PRICE_CHECK_EMPTY_HEIGHT = 72;
 const PRICE_CHECK_PANEL_GAP = 8;
 const PRICE_CHECK_FOCUS_TIMEOUT_MS = 750;
+const PRICE_CHECK_FOCUS_CONFIRM_MS = 150;
+const PRICE_CHECK_QA_FOCUS_TIMEOUT_MS = 5_000;
 const POE_WINDOW_TITLE = "Path of Exile";
 const MAX_CLIPBOARD_ITEM_BYTES = 65_536;
 const MAX_TRADE_STAT_CATALOG_BYTES = 8 * 1024 * 1024;
@@ -438,6 +442,7 @@ let bundledTradeStatCatalogText = null;
 let bundledRegexDataText = null;
 let priceCheckQaCaptureScheduled = false;
 let priceCheckFocusRestoreAudit = null;
+let priceCheckOverlayBlurRevision = 0;
 let settingsNeedPersist = false;
 let settingsRevision = 0;
 let settingsPersistenceWarning = "";
@@ -2803,14 +2808,26 @@ function notifyPriceCheckUnavailable(message) {
 }
 
 function restorePriceCheckTargetFocus(generation) {
-  const deadline = Date.now() + PRICE_CHECK_FOCUS_TIMEOUT_MS;
+  const startedAt = Date.now();
+  const focusTimeoutMs = QA_NATIVE_CAPTURE
+    ? PRICE_CHECK_QA_FOCUS_TIMEOUT_MS
+    : PRICE_CHECK_FOCUS_TIMEOUT_MS;
+  const deadline = startedAt + focusTimeoutMs;
+  const previousOverlayBlurRevision = priceCheckOverlayBlurRevision;
+  let confirmationStableSince = null;
   const audit = {
     generation,
+    startedAt,
+    elapsedMs: 0,
     attempts: 1,
     success: false,
     exhausted: false,
     aborted: "",
     lastError: "",
+    handoffCompleted: false,
+    previousOverlayBlurRevision,
+    currentOverlayBlurRevision: previousOverlayBlurRevision,
+    confirmationStableMs: 0,
   };
   if (QA_RESULT_PATH) priceCheckFocusRestoreAudit = audit;
   // The caller invokes this synchronously while the focused locked overlay
@@ -2828,16 +2845,21 @@ function restorePriceCheckTargetFocus(generation) {
       try {
         audit.attempts += 1;
         OverlayController.focusTarget();
+        audit.handoffCompleted = true;
+        return true;
       } catch (error) {
         audit.lastError = error instanceof Error ? error.message : String(error);
         audit.exhausted = true;
         console.warn(`Could not return focus to Path of Exile: ${audit.lastError}`);
-        return;
+        return false;
       }
     }
+    return false;
   };
-  handoff();
+  if (!handoff()) return;
   const verify = () => {
+    audit.elapsedMs = Date.now() - startedAt;
+    audit.currentOverlayBlurRevision = priceCheckOverlayBlurRevision;
     if (
       generation !== priceCheckActivationGeneration ||
       !priceCheckOverlayAttached
@@ -2847,13 +2869,24 @@ function restorePriceCheckTargetFocus(generation) {
         : "overlay-detached";
       return;
     }
-    if (
-      OverlayController.targetHasFocus &&
-      (!priceCheckWindow?.isFocused() || !priceCheckOverlayVisible)
-    ) {
-      syncPriceCheckShortcutRegistration();
-      audit.success = true;
-      return;
+    if (audit.exhausted || audit.lastError || !audit.handoffCompleted) return;
+    const focusRestoreConfirmed = priceCheckTargetFocusRestoreConfirmed({
+      previousOverlayBlurRevision,
+      currentOverlayBlurRevision: priceCheckOverlayBlurRevision,
+      targetFocused: Boolean(OverlayController.targetHasFocus),
+      overlayFocused: Boolean(priceCheckWindow?.isFocused()),
+    });
+    if (focusRestoreConfirmed) {
+      if (confirmationStableSince == null) confirmationStableSince = Date.now();
+      audit.confirmationStableMs = Date.now() - confirmationStableSince;
+      if (audit.confirmationStableMs >= PRICE_CHECK_FOCUS_CONFIRM_MS) {
+        syncPriceCheckShortcutRegistration();
+        audit.success = true;
+        return;
+      }
+    } else {
+      confirmationStableSince = null;
+      audit.confirmationStableMs = 0;
     }
     if (
       priceCheckWindow?.isFocused() &&
@@ -2861,6 +2894,7 @@ function restorePriceCheckTargetFocus(generation) {
       Date.now() < deadline
     ) {
       handoff();
+      if (audit.exhausted || audit.lastError) return;
       setTimeout(verify, 25);
       return;
     }
@@ -3978,23 +4012,24 @@ const deadline = Date.now() + 150_000;
         JSON.stringify({ phase, ...detail }),
       );
     };
-    const waitForNativeAltTabAck = async (phase, timeoutMs) => {
+    const waitForNativeAltTabAck = async (phase, timeoutMs, expected = {}) => {
       const ackDeadline = Date.now() + timeoutMs;
       do {
         try {
           const ack = JSON.parse(fs.readFileSync(nativeAltTabAckPath, "utf8"));
-          if (ack?.phase === phase) return true;
+          if (nativeQaAckMatches(ack, phase, expected)) return ack;
         } catch {
           // The external Win32 driver may still be writing the next ack.
         }
         await new Promise((resolve) => setTimeout(resolve, 20));
       } while (Date.now() < ackDeadline);
-      return false;
+      return null;
     };
     fs.mkdirSync(path.dirname(resolvedResultPath), { recursive: true });
     fs.rmSync(nativeAltTabRequestPath, { force: true });
     fs.rmSync(nativeAltTabAckPath, { force: true });
     let screenshotError = "";
+    let nativeCloseFocusAck = null;
     try {
       const screenshot = await Promise.race([
         priceCheckWindow.webContents.capturePage(),
@@ -4577,6 +4612,8 @@ const deadline = Date.now() + 150_000;
           y: bounds.y + bounds.height / 2,
         };
       })()`);
+      const focusRestoreGenerationBeforeClose =
+        priceCheckFocusRestoreAudit?.generation ?? null;
       let closeButtonClicked = false;
       const resolvedCloseSignalPath = QA_NATIVE_CLOSE_SIGNAL_PATH
         ? path.resolve(QA_NATIVE_CLOSE_SIGNAL_PATH)
@@ -4602,6 +4639,55 @@ const deadline = Date.now() + 150_000;
         closeButtonClicked = await priceCheckWindow.webContents.executeJavaScript(
           "Boolean(window.__gloamcoreQaNativeCloseClicked)",
         );
+        if (closeButtonClicked) {
+          const restoreRequestDeadline = Date.now() + 1_000;
+          while (
+            Date.now() < restoreRequestDeadline &&
+            !priceCheckFocusRestoreAudit?.handoffCompleted &&
+            !priceCheckFocusRestoreAudit?.lastError
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 20));
+          }
+          if (
+            !priceCheckFocusRestoreAudit?.handoffCompleted ||
+            priceCheckFocusRestoreAudit.generation ===
+              focusRestoreGenerationBeforeClose ||
+            priceCheckFocusRestoreAudit.generation !==
+              priceCheckActivationGeneration ||
+            priceCheckFocusRestoreAudit.exhausted ||
+            priceCheckFocusRestoreAudit.lastError
+          ) {
+            throw new Error(
+              "The app did not issue a valid target-focus handoff after the native close click.",
+            );
+          }
+          // Give the production handoff a complete native focus-poll interval
+          // before the external controller supplies automation-only foreground
+          // authority for a synthetic click.
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          const closeFocusNonce = crypto.randomBytes(16).toString("hex");
+          writeNativeAltTabRequest("focus-target-after-close", {
+            targetTitle: priceCheckTargetTitle(),
+            nonce: closeFocusNonce,
+          });
+          const closeFocusAck = await waitForNativeAltTabAck(
+            "target-focused-after-close",
+            PRICE_CHECK_QA_FOCUS_TIMEOUT_MS,
+            { nonce: closeFocusNonce },
+          );
+          if (!closeFocusAck) {
+            throw new Error(
+              "The external QA controller did not verify target focus after the native close click.",
+            );
+          }
+          fs.rmSync(nativeAltTabRequestPath, { force: true });
+          nativeCloseFocusAck = {
+            acknowledged: true,
+            assisted: Boolean(closeFocusAck.assisted),
+            hwnd: String(closeFocusAck.hwnd || ""),
+            stableMs: Number(closeFocusAck.stableMs) || 0,
+          };
+        }
       } else {
         closeButtonClicked = await priceCheckWindow.webContents.executeJavaScript(`(() => {
           const closeButton = document.querySelector('button[aria-label="Close price check"]');
@@ -4629,6 +4715,9 @@ const deadline = Date.now() + 150_000;
           priceCheckActivationPending ||
           !OverlayController.targetHasFocus ||
           !priceCheckFocusRestoreAudit?.success ||
+          priceCheckFocusRestoreAudit?.exhausted ||
+          priceCheckFocusRestoreAudit?.aborted ||
+          priceCheckFocusRestoreAudit?.lastError ||
           priceCheckWindow.isFocused()
         )
       );
@@ -4649,6 +4738,7 @@ const deadline = Date.now() + 150_000;
         targetActive: Boolean(OverlayController.targetHasFocus),
         overlayFocused: priceCheckWindow.isFocused(),
         focusRestoreAudit: priceCheckFocusRestoreAudit,
+        nativeFocusAck: nativeCloseFocusAck,
       };
       payload.shortcut.registeredAfterTargetFocus = registeredPriceCheckHotkey;
       payload.shortcut.registeredLockedAfterTargetFocus = registeredLockedPriceCheckHotkey;
@@ -5024,6 +5114,7 @@ function createPriceCheckWindow() {
     schedulePriceCheckQaAudit();
   });
   window.on("blur", () => {
+    priceCheckOverlayBlurRevision += 1;
     auditPriceCheckLifecycle("overlay-blur");
     stopPriceCheckPanelTracker();
     const blurGeneration = priceCheckActivationGeneration;

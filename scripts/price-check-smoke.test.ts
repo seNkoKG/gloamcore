@@ -46,6 +46,7 @@ describe("native price-check smoke harness", () => {
     expect(smoke).toContain("Import-Module Microsoft.PowerShell.Security -ErrorAction Stop");
     expect(smoke).toContain('$qaHostSignatureStatus -ne "Valid"');
     expect(smoke).toContain("$signatureExitCode -ne 0");
+    expect(smoke).toContain("$targetDeadline = [DateTime]::UtcNow.AddSeconds(15)");
     expect(compact).toContain(
       "([DateTime]::UtcNow - $focusStableSince).TotalMilliseconds -ge 750",
     );
@@ -65,6 +66,78 @@ describe("native price-check smoke harness", () => {
     expect(smoke).toContain(
       "Native close QA could not accept the app's target-focus handoff.",
     );
+    const nativeCloseAt = smoke.indexOf(
+      '$nativeAltTabRequest.phase -eq "focus-target-after-close"',
+    );
+    const nativeCloseFailureAt = smoke.indexOf(
+      "Native close QA could not accept the app's target-focus handoff.",
+      nativeCloseAt,
+    );
+    const nativeCloseVerifiedAt = smoke.indexOf(
+      "$qaCloseTargetReturnVerified = $true",
+      nativeCloseFailureAt,
+    );
+    const nativeCloseBlock = smoke.slice(nativeCloseAt, nativeCloseVerifiedAt);
+    expect(nativeCloseAt).toBeGreaterThan(-1);
+    expect(nativeCloseFailureAt).toBeGreaterThan(nativeCloseAt);
+    expect(nativeCloseVerifiedAt).toBeGreaterThan(nativeCloseFailureAt);
+    expect(nativeCloseBlock).toContain(
+      "[void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)",
+    );
+    expect(nativeCloseBlock).not.toContain(
+      "[void][GloamCoreQaWindow]::ShowWindowAsync($qaTargetWindow, 5)",
+    );
+    expect(nativeCloseBlock).not.toContain(
+      "[void][GloamCoreQaWindow]::SetForegroundWindow($qaTargetWindow)",
+    );
+    expect(nativeCloseBlock).toContain(
+      "([DateTime]::UtcNow - $closeTargetStableSince).TotalMilliseconds -ge 150",
+    );
+    expect(nativeCloseBlock).toContain(
+      "$closeTargetOwnerProcessId -ne [uint32]$qaTargetProcess.Id",
+    );
+    expect(nativeCloseBlock).toContain(
+      '$closeTargetNonce -notmatch "^[0-9a-f]{32}$"',
+    );
+    expect(nativeCloseBlock).toContain("nonce = $closeTargetNonce");
+    expect(nativeCloseBlock).toContain("assisted = $closeTargetAssisted");
+    expect(nativeCloseBlock).toContain("stableMs = $closeTargetStableMs");
+    expect(nativeCloseBlock).toContain("$closeAckDeadline");
+    expect(nativeCloseBlock).toContain(
+      "Native close target focus changed before Electron accepted the correlated acknowledgement.",
+    );
+    expect(smoke).toContain("$qaCloseTargetReturnVerified = $true");
+    expect(smoke).toContain('phase = "target-focused-after-close"');
+    expect(compact).toContain(
+      "$nativeClose = $null try { $nativeClose = Get-Content -Raw -LiteralPath $nativeCloseSignalPath | ConvertFrom-Json } catch",
+    );
+    expect(electronMain).toContain(
+      'writeNativeAltTabRequest("focus-target-after-close"',
+    );
+    const closeAckWaitAt = electronMain.indexOf(
+      "const closeFocusAck = await waitForNativeAltTabAck(",
+    );
+    expect(closeAckWaitAt).toBeGreaterThan(-1);
+    expect(electronMain.indexOf(
+      '"target-focused-after-close"',
+      closeAckWaitAt,
+    )).toBeGreaterThan(closeAckWaitAt);
+    expect(electronMain).toContain("priceCheckOverlayBlurRevision += 1;");
+    expect(electronMain).toContain("PRICE_CHECK_FOCUS_CONFIRM_MS = 150");
+    expect(electronMain).toContain("PRICE_CHECK_QA_FOCUS_TIMEOUT_MS = 5_000");
+    expect(electronMain).toContain("priceCheckFocusRestoreAudit?.handoffCompleted");
+    expect(electronMain).toContain("focusRestoreGenerationBeforeClose");
+    expect(electronMain).toContain(
+      "priceCheckFocusRestoreAudit.generation !==",
+    );
+    expect(electronMain).toContain("nativeQaAckMatches(ack, phase, expected)");
+    expect(smoke).toContain("-not $result.dismissal.focusRestoreAudit.handoffCompleted");
+    expect(smoke).toContain("$result.dismissal.focusRestoreAudit.exhausted");
+    expect(smoke).toContain("$result.dismissal.focusRestoreAudit.lastError");
+    expect(smoke).toContain(
+      "[int]$result.dismissal.focusRestoreAudit.elapsedMs -gt 750",
+    );
+    expect(smoke).toContain("-not $result.dismissal.nativeFocusAck.acknowledged");
 
     expectOrdered(
       "$smokeMutex.WaitOne(45000)",

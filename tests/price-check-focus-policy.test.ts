@@ -9,6 +9,7 @@ const {
   priceCheckPointerExitDisposition,
   priceCheckOverlayOwnsCaptureContext,
   priceCheckTargetCanCapture,
+  priceCheckTargetFocusRestoreConfirmed,
   shouldAcceptPriceCheckOverlayFocus,
   shouldArmPriceCheckPassiveWatch,
   shouldRecoverRejectedPassiveFocus,
@@ -64,6 +65,12 @@ const {
     targetFocused: boolean;
     visible: boolean;
     mode: string;
+    overlayFocused: boolean;
+  }): boolean;
+  priceCheckTargetFocusRestoreConfirmed(input: {
+    previousOverlayBlurRevision: number;
+    currentOverlayBlurRevision: number;
+    targetFocused: boolean;
     overlayFocused: boolean;
   }): boolean;
   shouldArmPriceCheckPassiveWatch(input: {
@@ -313,6 +320,28 @@ describe("price-check overlay focus policy", () => {
 });
 
 describe("price-check focus restoration policy", () => {
+  it("requires a fresh overlay blur before accepting the target focus state", () => {
+    const restored = {
+      previousOverlayBlurRevision: 4,
+      currentOverlayBlurRevision: 5,
+      targetFocused: true,
+      overlayFocused: false,
+    };
+    expect(priceCheckTargetFocusRestoreConfirmed(restored)).toBe(true);
+    expect(priceCheckTargetFocusRestoreConfirmed({
+      ...restored,
+      currentOverlayBlurRevision: 4,
+    })).toBe(false);
+    expect(priceCheckTargetFocusRestoreConfirmed({
+      ...restored,
+      targetFocused: false,
+    })).toBe(false);
+    expect(priceCheckTargetFocusRestoreConfirmed({
+      ...restored,
+      overlayFocused: true,
+    })).toBe(false);
+  });
+
   it("does not focus PoE when a passive preview closes", () => {
     expect(shouldRestorePriceCheckTargetFocus({
       requested: true,

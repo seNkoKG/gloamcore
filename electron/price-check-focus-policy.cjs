@@ -20,6 +20,21 @@ function shouldRestorePriceCheckTargetFocus({
   );
 }
 
+function priceCheckTargetFocusRestoreConfirmed({
+  previousOverlayBlurRevision,
+  currentOverlayBlurRevision,
+  targetFocused,
+  overlayFocused,
+} = {}) {
+  return Boolean(
+    Number.isFinite(previousOverlayBlurRevision) &&
+    Number.isFinite(currentOverlayBlurRevision) &&
+    currentOverlayBlurRevision > previousOverlayBlurRevision &&
+    targetFocused &&
+    !overlayFocused
+  );
+}
+
 function shouldAcceptPriceCheckOverlayFocus({
   visible,
   mode,
@@ -182,6 +197,7 @@ module.exports = {
   priceCheckPointerExitDisposition,
   priceCheckOverlayOwnsCaptureContext,
   priceCheckTargetCanCapture,
+  priceCheckTargetFocusRestoreConfirmed,
   shouldAcceptPriceCheckOverlayFocus,
   shouldArmPriceCheckPassiveWatch,
   shouldRecoverRejectedPassiveFocus,
