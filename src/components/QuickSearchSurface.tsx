@@ -11,8 +11,12 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bridge } from "../lib/bridge";
 import { formatCompact, formatPrice } from "../lib/format";
-import { rankQuickRows } from "../lib/quick-search";
-import type { QuickCommand, QuickSearchRow, SurfaceState } from "../types";
+import type {
+  QuickCommand,
+  QuickSearchRow,
+  SurfaceSearchResult,
+  SurfaceState,
+} from "../types";
 import { CurrencyMark } from "./CurrencyMark";
 
 function adaptivePrice(row: QuickSearchRow) {
@@ -64,10 +68,19 @@ type QuickResult =
   | { kind: "command"; command: QuickCommand }
   | { kind: "market"; row: QuickSearchRow };
 
+interface KeyedMarketSearch {
+  requestKey: string;
+  result: SurfaceSearchResult | null;
+}
+
 export function QuickSearchSurface() {
   const [state, setState] = useState<SurfaceState | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const [keyedMarketSearch, setMarketSearch] = useState<KeyedMarketSearch | null>(null);
+  const [searching, setSearching] = useState(true);
+  const [focusRevision, setFocusRevision] = useState(0);
+  const searchRequest = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -75,6 +88,7 @@ export function QuickSearchSurface() {
     bridge.getSurfaceState().then((next) => active && setState(next));
     const unsubscribe = bridge.onSurfaceState(setState);
     const focus = () => {
+      setFocusRevision((current) => current + 1);
       window.setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
@@ -89,17 +103,54 @@ export function QuickSearchSurface() {
     };
   }, []);
 
-  const results = useMemo<QuickResult[]>(() => {
-    const commands = rankedCommands(state?.commands || [], query)
-      .map((command): QuickResult => ({ kind: "command", command }));
-    const rows = rankQuickRows(state?.searchRows || [], query, 50 - commands.length)
-      .map((row): QuickResult => ({ kind: "market", row }));
-    return [...commands, ...rows];
-  }, [query, state?.commands, state?.searchRows]);
-  const marketCount = useMemo(
-    () => new Set((state?.searchRows || []).map((row) => row.categoryId)).size,
-    [state?.searchRows],
+  const commands = useMemo(
+    () => rankedCommands(state?.commands || [], query),
+    [query, state?.commands],
   );
+  const searchKey = JSON.stringify([
+    query,
+    commands.length,
+    focusRevision,
+    state?.league || "",
+    state?.searchRevision || 0,
+  ]);
+  const marketSearch = keyedMarketSearch?.requestKey === searchKey
+    ? keyedMarketSearch.result
+    : null;
+  const currentSearchSettled = keyedMarketSearch?.requestKey === searchKey;
+  const currentSearching = searching || !currentSearchSettled;
+
+  useEffect(() => {
+    const request = ++searchRequest.current;
+    setSearching(true);
+    setMarketSearch(null);
+    const timer = window.setTimeout(() => {
+      void bridge
+        .searchSurfaceRows(query, Math.max(0, 50 - commands.length))
+        .then((result) => {
+          if (searchRequest.current === request) {
+            setMarketSearch({ requestKey: searchKey, result });
+          }
+        })
+        .catch(() => {
+          if (searchRequest.current === request) {
+            setMarketSearch({ requestKey: searchKey, result: null });
+          }
+        })
+        .finally(() => {
+          if (searchRequest.current === request) setSearching(false);
+        });
+    }, query.trim() ? 50 : 0);
+    return () => window.clearTimeout(timer);
+  }, [commands.length, focusRevision, query, state?.league, state?.searchRevision]);
+
+  const results = useMemo<QuickResult[]>(() => {
+    const commandResults = commands
+      .map((command): QuickResult => ({ kind: "command", command }));
+    const rows = (marketSearch?.rows || [])
+      .map((row): QuickResult => ({ kind: "market", row }));
+    return [...commandResults, ...rows];
+  }, [commands, marketSearch?.rows]);
 
   useEffect(() => setSelected(0), [query]);
   useEffect(() => {
@@ -164,6 +215,10 @@ export function QuickSearchSurface() {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search tools, PoE data, saved builds and markets…"
           aria-label="Search GloamCore commands and market items"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="quick-search-results"
+          aria-expanded={results.length > 0}
           aria-activedescendant={
             results[selected] ? `quick-result-${selected}` : undefined
           }
@@ -178,10 +233,17 @@ export function QuickSearchSurface() {
       </label>
 
       <div className="quick-search-meta">
-        <span>
+        <span aria-live="polite">
           {state?.commands.length.toLocaleString() || "0"} commands
           <i>•</i>
-          {state?.searchRows.length.toLocaleString() || "0"} items across {marketCount} market{marketCount === 1 ? "" : "s"}
+          {(marketSearch?.indexedTotal || 0).toLocaleString()} items across {marketSearch?.marketCount || 0} market{marketSearch?.marketCount === 1 ? "" : "s"}
+          {query.trim() && marketSearch ? (
+            <>
+              <i>•</i>
+              {marketSearch.total.toLocaleString()} matches
+            </>
+          ) : null}
+          {marketSearch?.indexTruncated ? " • index safety limit reached" : ""}
         </span>
         <button
           type="button"
@@ -192,7 +254,12 @@ export function QuickSearchSurface() {
         </button>
       </div>
 
-      <div className="quick-results" role="listbox">
+      <div
+        id="quick-search-results"
+        className="quick-results"
+        role="listbox"
+        aria-busy={currentSearching}
+      >
         {results.length ? (
           results.map((result, index) => {
             if (result.kind === "command") {
@@ -283,6 +350,11 @@ export function QuickSearchSurface() {
               </button>
             );
           })
+        ) : currentSearching ? (
+          <div className="quick-empty" role="status">
+            <Search size={25} />
+            <strong>Searching indexed markets…</strong>
+          </div>
         ) : (
           <div className="quick-empty">
             <Search size={25} />

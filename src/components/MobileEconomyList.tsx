@@ -5,6 +5,7 @@ import {
   ExternalLink,
   Gauge,
   ListChecks,
+  SearchX,
   Star,
 } from "lucide-react";
 import type {
@@ -54,6 +55,7 @@ export function MobileEconomyList({
   onSelect,
   onWatch,
   onTrade,
+  onClearFilters,
   onShowMore,
 }: {
   source: DataSource;
@@ -67,6 +69,7 @@ export function MobileEconomyList({
   onSelect: (row: EconomyRow) => void;
   onWatch: (row: EconomyRow) => void;
   onTrade: (row: EconomyRow) => void;
+  onClearFilters: () => void;
   onShowMore: () => void;
 }) {
   return (
@@ -82,6 +85,7 @@ export function MobileEconomyList({
               type="button"
               key={option.key}
               className={sort.key === option.key ? "is-active" : undefined}
+              aria-pressed={sort.key === option.key}
               onClick={() => {
                 void tactileTap();
                 onSort(option.key);
@@ -100,6 +104,16 @@ export function MobileEconomyList({
         <em>{rows.length.toLocaleString()}</em>
       </div>
 
+      {rows.length === 0 ? (
+        <div className="mobile-market-empty" role="status">
+          <SearchX size={27} />
+          <strong>No matching prices</strong>
+          <p>Clear the current search and filters to see this market again.</p>
+          <button type="button" onClick={onClearFilters}>
+            Clear filters
+          </button>
+        </div>
+      ) : (
       <div className="mobile-price-cards">
         {visibleRows.map((row, index) => {
           const price = displayPrice(row, display);
@@ -115,6 +129,7 @@ export function MobileEconomyList({
               tabIndex={0}
               onClick={() => onSelect(row)}
               onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   onSelect(row);
@@ -220,6 +235,7 @@ export function MobileEconomyList({
           );
         })}
       </div>
+      )}
 
       {visibleRows.length < rows.length && (
         <button className="mobile-show-more" type="button" onClick={onShowMore}>

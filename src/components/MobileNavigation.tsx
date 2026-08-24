@@ -3,26 +3,83 @@ import {
   ChevronDown,
   Compass,
   Database,
+  Menu,
+  Network,
   RefreshCw,
   Search,
   ScanSearch,
+  Scissors,
   Settings,
   Star,
   Store,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import gloamCoreLogoUrl from "../assets/gloamcore-logo.png";
 import type { AppMode, CategoryDefinition } from "../types";
 import { categories } from "../config/categories";
 import { tactileTap } from "../lib/platform";
+import { useDialogFocus } from "../lib/dialog-focus";
 import { CategoryIcon } from "./CategoryIcon";
+
+const mobileModeLabels: Partial<
+  Record<AppMode, { kicker: string; title: string; meta: string }>
+> = {
+  "price-check": {
+    kicker: "ITEM PRICE CHECK",
+    title: "Price Check",
+    meta: "Paste item text",
+  },
+  knowledge: {
+    kicker: "POE KNOWLEDGE",
+    title: "Item Intel",
+    meta: "PoE Wiki Cargo",
+  },
+  watchlist: {
+    kicker: "PRICE TRACKING",
+    title: "Watchlist",
+    meta: "Saved market targets",
+  },
+  command: {
+    kicker: "POE 1 CAMPAIGN",
+    title: "League Command Center",
+    meta: "Verified league data",
+  },
+  planner: {
+    kicker: "BUILD SNAPSHOTS",
+    title: "Build Upgrade",
+    meta: "Snapshot comparison",
+  },
+  toolkit: {
+    kicker: "POE UTILITIES",
+    title: "Player Toolkit",
+    meta: "Portable tools",
+  },
+  craft: {
+    kicker: "CRAFTING",
+    title: "Craft of Exile",
+    meta: "Crafting reference",
+  },
+  stash: {
+    kicker: "STASH VALUE",
+    title: "Stash Wealth",
+    meta: "Wealth overview",
+  },
+};
 
 export function MobileTopbar({
   category,
   league,
   loading,
   mode,
+  categoryOpen,
+  categoryButtonRef,
   onCategories,
   onRefresh,
 }: {
@@ -30,32 +87,54 @@ export function MobileTopbar({
   league: string;
   loading: boolean;
   mode: AppMode;
+  categoryOpen: boolean;
+  categoryButtonRef?: RefObject<HTMLButtonElement>;
   onCategories: () => void;
   onRefresh: () => void;
 }) {
+  const modeLabel = mobileModeLabels[mode];
+  const kicker = mode === "market" ? "GLOAMCORE" : modeLabel?.kicker || "GLOAMCORE";
+  const title = mode === "market" ? category.label : modeLabel?.title || category.label;
+  const meta =
+    mode === "market"
+      ? league || "Current league"
+      : modeLabel?.meta || league || "Current league";
+  const brandContent = (
+    <>
+      <span className="mobile-brand-mark" aria-hidden>
+        <img src={gloamCoreLogoUrl} alt="" />
+      </span>
+      <span>
+        <small>{kicker}</small>
+        <strong>{title}</strong>
+      </span>
+      {mode === "market" && <ChevronDown size={15} />}
+    </>
+  );
+
   return (
     <header className="mobile-topbar">
-      <button
-        className={`mobile-brand ${mode !== "market" ? "mobile-brand--static" : ""}`}
-        type="button"
-        onClick={() => {
-          if (mode !== "market") return;
-          void tactileTap();
-          onCategories();
-        }}
-        aria-label={mode === "market" ? "Choose economy category" : undefined}
-      >
-        <span className="mobile-brand-mark" aria-hidden>
-          <img src={gloamCoreLogoUrl} alt="" />
-        </span>
-        <span>
-          <small>{mode === "price-check" ? "ITEM PRICE CHECK" : mode === "knowledge" ? "POE KNOWLEDGE" : mode === "watchlist" ? "PRICE TRACKING" : mode === "command" ? "POE 1 CAMPAIGN" : "GLOAMCORE"}</small>
-          <strong>{mode === "price-check" ? "Price Check" : mode === "knowledge" ? "Item Intel" : mode === "watchlist" ? "Watchlist" : mode === "command" ? "League Command Center" : category.label}</strong>
-        </span>
-        {mode === "market" && <ChevronDown size={15} />}
-      </button>
+      {mode === "market" ? (
+        <button
+          ref={categoryButtonRef}
+          className="mobile-brand"
+          type="button"
+          onClick={() => {
+            void tactileTap();
+            onCategories();
+          }}
+          aria-label="Choose economy category"
+          aria-haspopup="dialog"
+          aria-expanded={categoryOpen}
+          aria-controls="mobile-category-dialog"
+        >
+          {brandContent}
+        </button>
+      ) : (
+        <div className="mobile-brand mobile-brand--static">{brandContent}</div>
+      )}
       <div className="mobile-topbar-meta">
-        <span>{mode === "knowledge" ? "PoE Wiki Cargo" : mode === "price-check" ? "Paste item text" : mode === "command" ? "Verified league data" : league || "Current league"}</span>
+        <span>{meta}</span>
         {mode === "market" && (
           <button
             type="button"
@@ -78,24 +157,28 @@ export function MobileBottomNav({
   mode,
   watchCount,
   alertCount,
+  moreOpen,
   settingsOpen,
+  moreButtonRef,
   onMarket,
   onPriceCheck,
   onKnowledge,
   onCommand,
   onWatchlist,
-  onSettings,
+  onMore,
 }: {
   mode: AppMode;
   watchCount: number;
   alertCount: number;
+  moreOpen: boolean;
   settingsOpen: boolean;
+  moreButtonRef?: RefObject<HTMLButtonElement>;
   onMarket: () => void;
   onPriceCheck: () => void;
   onKnowledge: () => void;
   onCommand: () => void;
   onWatchlist: () => void;
-  onSettings: () => void;
+  onMore: () => void;
 }) {
   const invoke = (action: () => void) => {
     void tactileTap();
@@ -105,52 +188,68 @@ export function MobileBottomNav({
     <nav className="mobile-bottom-nav" aria-label="Primary navigation">
       <button
         type="button"
-        className={mode === "command" && !settingsOpen ? "is-active" : undefined}
+        className={mode === "command" && !settingsOpen && !moreOpen ? "is-active" : undefined}
         onClick={() => invoke(onCommand)}
+        aria-current={mode === "command" ? "page" : undefined}
       >
         <Compass size={21} />
         <span>Guide</span>
       </button>
       <button
         type="button"
-        className={mode === "price-check" && !settingsOpen ? "is-active" : undefined}
+        className={mode === "price-check" && !settingsOpen && !moreOpen ? "is-active" : undefined}
         onClick={() => invoke(onPriceCheck)}
+        aria-current={mode === "price-check" ? "page" : undefined}
       >
         <ScanSearch size={21} />
         <span>Check</span>
       </button>
       <button
         type="button"
-        className={mode === "market" && !settingsOpen ? "is-active" : undefined}
+        className={mode === "market" && !settingsOpen && !moreOpen ? "is-active" : undefined}
         onClick={() => invoke(onMarket)}
+        aria-current={mode === "market" ? "page" : undefined}
       >
         <Store size={21} />
         <span>Market</span>
       </button>
       <button
         type="button"
-        className={mode === "knowledge" && !settingsOpen ? "is-active" : undefined}
+        className={mode === "knowledge" && !settingsOpen && !moreOpen ? "is-active" : undefined}
         onClick={() => invoke(onKnowledge)}
+        aria-current={mode === "knowledge" ? "page" : undefined}
       >
         <Database size={21} />
         <span>Intel</span>
       </button>
       <button
         type="button"
-        className={mode === "watchlist" && !settingsOpen ? "is-active" : undefined}
+        className={mode === "watchlist" && !settingsOpen && !moreOpen ? "is-active" : undefined}
         onClick={() => invoke(onWatchlist)}
+        aria-current={mode === "watchlist" ? "page" : undefined}
       >
         {alertCount ? <BellRing size={21} /> : <Star size={21} />}
         <span>Watch</span>
         {watchCount > 0 && <em>{alertCount || watchCount}</em>}
       </button>
       <button
+        ref={moreButtonRef}
         type="button"
-        className={settingsOpen ? "is-active" : undefined}
-        onClick={() => invoke(onSettings)}
+        className={
+          moreOpen || settingsOpen || mode === "planner" || mode === "toolkit"
+            ? "is-active"
+            : undefined
+        }
+        onClick={() => invoke(onMore)}
+        aria-current={
+          mode === "planner" || mode === "toolkit" ? "page" : undefined
+        }
+        aria-haspopup="dialog"
+        aria-expanded={moreOpen}
+        aria-controls="mobile-more-dialog"
       >
-        <Settings size={21} />
-        <span>Settings</span>
+        <Menu size={21} />
+        <span>More</span>
       </button>
     </nav>
   );
@@ -160,16 +259,26 @@ export function MobileCategorySheet({
   open,
   selectedId,
   recentIds,
+  restoreFocusRef,
   onClose,
   onSelect,
 }: {
   open: boolean;
   selectedId: string;
   recentIds: string[];
+  restoreFocusRef?: RefObject<HTMLElement>;
   onClose: () => void;
   onSelect: (category: CategoryDefinition) => void;
 }) {
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useDialogFocus<HTMLElement>({
+    active: open,
+    modal: true,
+    onDismiss: onClose,
+    initialFocusRef: searchRef,
+    restoreFocusRef,
+  });
   useEffect(() => {
     if (!open) setQuery("");
   }, [open]);
@@ -207,12 +316,20 @@ export function MobileCategorySheet({
         onClick={onClose}
         aria-label="Close categories"
       />
-      <section className="mobile-category-sheet" aria-label="Economy categories">
+      <section
+        ref={dialogRef}
+        id="mobile-category-dialog"
+        className="mobile-category-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mobile-category-dialog-title"
+        tabIndex={-1}
+      >
         <div className="mobile-sheet-handle" />
         <div className="mobile-sheet-heading">
           <div>
             <small>POE 1 ECONOMY</small>
-            <h2>Choose a market</h2>
+            <h2 id="mobile-category-dialog-title">Choose a market</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">
             <X size={19} />
@@ -221,7 +338,9 @@ export function MobileCategorySheet({
         <label className="mobile-category-search">
           <Search size={17} />
           <input
+            ref={searchRef}
             autoFocus
+            aria-label="Search economy categories"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search every category"
@@ -263,6 +382,7 @@ export function MobileCategorySheet({
                     className={category.id === selectedId ? "is-active" : undefined}
                     type="button"
                     key={category.id}
+                    aria-current={category.id === selectedId ? "true" : undefined}
                     onClick={() => onSelect(category)}
                   >
                     <span>
@@ -283,6 +403,110 @@ export function MobileCategorySheet({
               No economy category matches “{query}”.
             </div>
           )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function MobileMoreSheet({
+  open,
+  mode,
+  restoreFocusRef,
+  onClose,
+  onMode,
+  onSettings,
+}: {
+  open: boolean;
+  mode: AppMode;
+  restoreFocusRef?: RefObject<HTMLElement>;
+  onClose: () => void;
+  onMode: (mode: "planner" | "toolkit") => void;
+  onSettings: () => void;
+}) {
+  const firstActionRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useDialogFocus<HTMLElement>({
+    active: open,
+    modal: true,
+    onDismiss: onClose,
+    initialFocusRef: firstActionRef,
+    restoreFocusRef,
+  });
+  if (!open) return null;
+
+  const openMode = (nextMode: "planner" | "toolkit") => {
+    void tactileTap();
+    onClose();
+    onMode(nextMode);
+  };
+
+  return (
+    <div className="mobile-sheet-layer" role="presentation">
+      <button
+        className="mobile-sheet-scrim"
+        type="button"
+        onClick={onClose}
+        aria-label="Close more menu"
+      />
+      <section
+        ref={dialogRef}
+        id="mobile-more-dialog"
+        className="mobile-category-sheet mobile-more-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mobile-more-dialog-title"
+        tabIndex={-1}
+      >
+        <div className="mobile-sheet-handle" />
+        <div className="mobile-sheet-heading">
+          <div>
+            <small>GLOAMCORE WORKSPACES</small>
+            <h2 id="mobile-more-dialog-title">More</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close">
+            <X size={19} />
+          </button>
+        </div>
+        <div className="mobile-more-actions">
+          <button
+            ref={firstActionRef}
+            type="button"
+            className={mode === "planner" ? "is-active" : undefined}
+            aria-current={mode === "planner" ? "page" : undefined}
+            onClick={() => openMode("planner")}
+          >
+            <span><Network size={20} /></span>
+            <div>
+              <strong>Build Upgrade</strong>
+              <small>Compare imported GloamCore build snapshots.</small>
+            </div>
+          </button>
+          <button
+            type="button"
+            className={mode === "toolkit" ? "is-active" : undefined}
+            aria-current={mode === "toolkit" ? "page" : undefined}
+            onClick={() => openMode("toolkit")}
+          >
+            <span><Scissors size={20} /></span>
+            <div>
+              <strong>Player Toolkit</strong>
+              <small>Portable tools with clear desktop boundaries.</small>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void tactileTap();
+              onClose();
+              onSettings();
+            }}
+          >
+            <span><Settings size={20} /></span>
+            <div>
+              <strong>Settings</strong>
+              <small>Appearance, accessibility, backup and support.</small>
+            </div>
+          </button>
         </div>
       </section>
     </div>

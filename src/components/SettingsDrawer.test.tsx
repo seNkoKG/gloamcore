@@ -29,6 +29,7 @@ describe("SettingsDrawer shortcuts", () => {
           startMinimized: false,
           autoCheckUpdates: false,
           updateChannel: "stable",
+          storageWarning: "Settings were archived safely.",
           shortcuts: defaultDesktopShortcuts,
           priceCheck: defaultPriceCheckSettings,
         }}
@@ -38,6 +39,7 @@ describe("SettingsDrawer shortcuts", () => {
         reducedMotion={false}
         colorVision="standard"
         refreshMinutes={10}
+        modal
         onClose={() => undefined}
         onSettings={async () => undefined}
         onDensity={() => undefined}
@@ -60,5 +62,10 @@ describe("SettingsDrawer shortcuts", () => {
     expect(markup).toContain("Azurite Blue");
     expect(markup).toContain("Path of Exile");
     expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-modal="true"');
+    expect(markup).toContain('aria-labelledby="settings-dialog-title"');
+    expect(markup).toContain("data-dialog-initial-focus");
+    expect(markup).toContain("Settings were archived safely.");
   });
 });

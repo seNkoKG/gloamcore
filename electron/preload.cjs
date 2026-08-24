@@ -85,6 +85,10 @@ contextBridge.exposeInMainWorld("poeWidget", {
   saveSettings: (patch) => ipcRenderer.invoke("settings:save", patch),
   windowAction: (action, payload) => ipcRenderer.invoke("window:action", action, payload),
   publishSurfaceState: (state) => ipcRenderer.invoke("surface:publish-state", state),
+  updateSurfaceSearchIndex: (update) =>
+    ipcRenderer.invoke("surface:update-search-index", update),
+  searchSurfaceRows: (query, limit) =>
+    ipcRenderer.invoke("surface:search", query, limit),
   getSurfaceState: () => ipcRenderer.invoke("surface:get-state"),
   surfaceAction: (action) => ipcRenderer.invoke("surface:action", action),
   getUpdateState: () => ipcRenderer.invoke("update:get-state"),

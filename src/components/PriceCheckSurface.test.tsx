@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resetPriceCheckSurfaceScroll } from "./PriceCheckSurface";
+import { resetPriceCheckSurfaceScroll } from "../lib/price-check/scroll";
 
 function fakeElement(
   scrollTop: number,

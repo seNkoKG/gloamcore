@@ -2,7 +2,8 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { sanitizeSurfaceAlert, sanitizeSurfaceAlerts } = require("../electron/surface-state.cjs") as {
+const { isAllowedSurfaceSource, sanitizeSurfaceAlert, sanitizeSurfaceAlerts } = require("../electron/surface-state.cjs") as {
+  isAllowedSurfaceSource: (value: unknown) => boolean;
   sanitizeSurfaceAlert: (
     value: unknown,
     fallbackLeague?: string,
@@ -35,6 +36,13 @@ describe("desktop surface-state validation", () => {
       validAlert,
       { ...validAlert, key: "corrupt", current: 0 },
     ])).toEqual([validAlert]);
+  });
+
+  it("preserves Faustus identities across dashboard, tray, and row navigation policy", () => {
+    expect(sanitizeSurfaceAlert({ ...validAlert, source: "faustus" }))
+      .toMatchObject({ key: validAlert.key, source: "faustus" });
+    expect(isAllowedSurfaceSource("faustus")).toBe(true);
+    expect(isAllowedSurfaceSource("unknown")).toBe(false);
   });
 
   it.each([

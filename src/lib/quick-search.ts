@@ -1,4 +1,4 @@
-import type { QuickSearchRow } from "../types";
+import type { QuickSearchRow, SurfaceSearchResult } from "../types";
 import {
   isMarketSnapshotActionable,
   MAX_ACTIONABLE_MARKET_AGE_MS,
@@ -114,4 +114,26 @@ export function rankQuickRows(
     )
     .slice(0, Math.max(0, limit))
     .map((entry) => entry.row);
+}
+
+export function searchQuickRows(
+  rows: QuickSearchRow[],
+  query: string,
+  limit: number,
+  league: string,
+  revision: number,
+): SurfaceSearchResult {
+  const indexed = dedupeQuickRows(rows.filter((row) => row.league === league));
+  const matches = rankQuickRows(indexed, query, indexed.length);
+  const boundedLimit = Math.min(60, Math.max(0, Math.floor(limit)));
+  return {
+    rows: matches.slice(0, boundedLimit),
+    total: matches.length,
+    truncated: matches.length > boundedLimit,
+    indexedTotal: indexed.length,
+    indexTruncated: false,
+    marketCount: new Set(indexed.map((row) => row.categoryId)).size,
+    league,
+    revision,
+  };
 }

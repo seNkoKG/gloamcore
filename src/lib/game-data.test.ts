@@ -7,6 +7,7 @@ import {
   isAtlasDataPack,
   isGameDataManifest,
   isNavigatorDataPack,
+  retryableSingleton,
 } from "./game-data";
 
 const dataRoot = resolve(process.cwd(), "public", "data", "game", "v1");
@@ -85,5 +86,20 @@ describe("patch-safe game data", () => {
       { gameVersion: "3.29.1", packRevision: 2 },
       { gameVersion: "3.29.1", packRevision: 2 },
     )).toBe(0);
+  });
+
+  it("shares an in-flight load but permits a fresh attempt after rejection", async () => {
+    let attempts = 0;
+    const load = retryableSingleton(async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("temporary failure");
+      return "ready";
+    });
+
+    const first = load();
+    expect(load()).toBe(first);
+    await expect(first).rejects.toThrow("temporary failure");
+    await expect(load()).resolves.toBe("ready");
+    expect(attempts).toBe(2);
   });
 });

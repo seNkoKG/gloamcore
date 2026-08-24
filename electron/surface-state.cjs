@@ -1,8 +1,13 @@
 const ALLOWED_SURFACE_SOURCES = new Set([
   "exchange",
+  "faustus",
   "stash-item",
   "stash-currency",
 ]);
+
+function isAllowedSurfaceSource(value) {
+  return ALLOWED_SURFACE_SOURCES.has(value);
+}
 
 function limitedString(value, maxLength = 160) {
   return typeof value === "string" ? value.slice(0, maxLength) : "";
@@ -13,7 +18,7 @@ function sanitizeSurfaceIdentity(value, fallbackLeague = "") {
   const key = limitedString(value.key);
   const name = limitedString(value.name);
   const categoryId = limitedString(value.categoryId, 100);
-  const source = ALLOWED_SURFACE_SOURCES.has(value.source) ? value.source : "";
+  const source = isAllowedSurfaceSource(value.source) ? value.source : "";
   if (!key || !name || !categoryId || !source) return null;
   return {
     key,
@@ -59,6 +64,7 @@ function sanitizeSurfaceAlerts(value, fallbackLeague = "") {
 }
 
 module.exports = {
+  isAllowedSurfaceSource,
   sanitizeSurfaceAlert,
   sanitizeSurfaceAlerts,
   sanitizeSurfaceIdentity,

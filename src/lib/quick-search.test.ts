@@ -8,6 +8,7 @@ import {
   type QuickSearchIndexGroup,
   quickRowIdentity,
   rankQuickRows,
+  searchQuickRows,
 } from "./quick-search";
 
 const row = (
@@ -120,5 +121,26 @@ describe("quick search", () => {
         now,
       ),
     ).toBe(false);
+  });
+
+  it("reports bounded fallback search metadata without duplicate rows", () => {
+    const duplicate = row("Divine Orb");
+    const result = searchQuickRows(
+      [duplicate, duplicate, row("Divine Vessel")],
+      "divine",
+      1,
+      "Current",
+      7,
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result).toMatchObject({
+      total: 2,
+      truncated: true,
+      indexedTotal: 2,
+      indexTruncated: false,
+      marketCount: 1,
+      revision: 7,
+    });
   });
 });

@@ -505,8 +505,6 @@ export async function fetchGameDataBundle(
   return { manifest: manifestValue, atlas, navigator, activatedAt: Date.now(), origin } satisfies GameDataBundle;
 }
 
-let activePromise: Promise<GameDataStatus> | null = null;
-
 async function loadFresh(): Promise<GameDataStatus> {
   const stored = await readMobileCache<unknown>(GAME_DATA_CACHE_KEY);
   if (isStored(stored)) return { bundle: stored.active, recoveredFromPrevious: false };
@@ -518,9 +516,31 @@ async function loadFresh(): Promise<GameDataStatus> {
   return { bundle: await fetchGameDataBundle(bundledRoot(), "bundled"), recoveredFromPrevious: false };
 }
 
+export function retryableSingleton<T>(load: () => Promise<T>) {
+  let activePromise: Promise<T> | null = null;
+  const invoke = () => {
+    if (!activePromise) {
+      activePromise = load().catch((error) => {
+        activePromise = null;
+        throw error;
+      });
+    }
+    return activePromise;
+  };
+  return Object.assign(invoke, {
+    reset: () => {
+      activePromise = null;
+    },
+    set: (value: T) => {
+      activePromise = Promise.resolve(value);
+    },
+  });
+}
+
+const loadActiveGameData = retryableSingleton(loadFresh);
+
 export function loadGameData() {
-  activePromise ||= loadFresh();
-  return activePromise;
+  return loadActiveGameData();
 }
 
 export function compareGameDataVersions(
@@ -553,7 +573,7 @@ export async function checkForGameDataUpdate(fetchImpl: typeof fetch = fetch) {
   const stored = { schemaVersion: 1, active: candidate, previous: current.bundle } satisfies StoredGameData;
   await writeMobileCache(GAME_DATA_CACHE_KEY, stored);
   const data = { bundle: candidate, recoveredFromPrevious: false };
-  activePromise = Promise.resolve(data);
+  loadActiveGameData.set(data);
   return { status: "updated" as const, data };
 }
 
@@ -563,10 +583,10 @@ export async function rollbackGameData() {
   const next = { schemaVersion: 1, active: stored.previous, previous: stored.active } satisfies StoredGameData;
   await writeMobileCache(GAME_DATA_CACHE_KEY, next);
   const data = { bundle: next.active, recoveredFromPrevious: false };
-  activePromise = Promise.resolve(data);
+  loadActiveGameData.set(data);
   return data;
 }
 
 export function resetGameDataForTests() {
-  activePromise = null;
+  loadActiveGameData.reset();
 }

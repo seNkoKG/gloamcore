@@ -11,7 +11,15 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   categories,
   categoryById,
@@ -29,17 +37,14 @@ import { SettingsDrawer } from "./components/SettingsDrawer";
 import { Sidebar } from "./components/Sidebar";
 import { Titlebar } from "./components/Titlebar";
 import { WatchlistPanel } from "./components/WatchlistPanel";
-import { ToolkitPanel } from "./components/ToolkitPanel";
-import { BuildPlannerPanel } from "./components/BuildPlannerPanel";
 import { CraftOfExilePanel } from "./components/CraftOfExilePanel";
 import { StashWealthPanel } from "./components/StashWealthPanel";
-import { CommandCenterPanel } from "./components/CommandCenterPanel";
-import PriceCheckApp from "./PriceCheckApp";
-import { resetPriceCheckSurfaceScroll } from "./components/PriceCheckSurface";
 import { MobileEconomyList } from "./components/MobileEconomyList";
+import { RuntimeErrorBoundary } from "./components/RuntimeErrorBoundary";
 import {
   MobileBottomNav,
   MobileCategorySheet,
+  MobileMoreSheet,
   MobileTopbar,
 } from "./components/MobileNavigation";
 import { bridge } from "./lib/bridge";
@@ -47,7 +52,9 @@ import {
   defaultFiltersForSource,
   emptyFilters,
   filterRows,
+  MARKET_PULSE_MIN_SAMPLE,
   marketStats,
+  marketPulseSampleSize,
   normalizeOverview,
   sortRows,
 } from "./lib/economy";
@@ -94,6 +101,10 @@ import {
   type QuickSearchIndexGroup,
 } from "./lib/quick-search";
 import {
+  createSurfaceSearchPublisher,
+  type PublishableSurfaceSearchGroup,
+} from "./lib/surface-search-publisher";
+import {
   isMobileApp,
   isNativeMobile,
   notifyPriceTarget,
@@ -129,11 +140,29 @@ import type {
   WatchEntry,
 } from "./types";
 import { defaultPriceCheckSettings } from "./lib/price-check/types";
-import { loadGameData, type GameDataBundle } from "./lib/game-data";
+import type { GameDataBundle } from "./lib/game-data";
+import { resetPriceCheckSurfaceScroll } from "./lib/price-check/scroll";
 import {
   parseSavedPlannerBuilds,
   SAVED_PLANNER_BUILDS_KEY,
 } from "./lib/planner/planner-workspace";
+
+const PriceCheckApp = lazy(() => import("./PriceCheckApp"));
+const ToolkitPanel = lazy(() =>
+  import("./components/ToolkitPanel").then((module) => ({
+    default: module.ToolkitPanel,
+  })),
+);
+const CommandCenterPanel = lazy(() =>
+  import("./components/CommandCenterPanel").then((module) => ({
+    default: module.CommandCenterPanel,
+  })),
+);
+const BuildPlannerPanel = lazy(() =>
+  import("./components/BuildPlannerPanel").then((module) => ({
+    default: module.BuildPlannerPanel,
+  })),
+);
 
 const defaultDesktopSettings: DesktopSettings = {
   alwaysOnTop: true,
@@ -155,6 +184,13 @@ type OverviewEnvelope = CacheEnvelope<
 >;
 
 const normalizedMarketCache = new Map<string, NormalizedOverview>();
+const expandedOnlyModes = new Set<AppMode>([
+  "command",
+  "toolkit",
+  "planner",
+  "craft",
+  "stash",
+]);
 
 function memoizedMarket(key: string, create: () => NormalizedOverview) {
   const cached = normalizedMarketCache.get(key);
@@ -350,6 +386,24 @@ function MarketPulse({
   onSelect: (row: EconomyRow) => void;
 }) {
   const stats = marketStats(rows);
+  const contextFor = (row: EconomyRow | undefined) => {
+    if (!row) return "No qualified market sample";
+    const identity = [
+      row.variant,
+      row.baseType && row.baseType !== row.name ? row.baseType : undefined,
+    ].filter(Boolean);
+    const samples = row.volume != null
+      ? [`${formatCompact(row.volume)} ${row.source === "faustus" ? "traded / hour" : "volume / hour"}`]
+      : [
+          row.listingCount != null
+            ? `${formatCompact(row.listingCount)} listings`
+            : undefined,
+          row.observationCount != null
+            ? `${formatCompact(row.observationCount)} observations`
+            : undefined,
+        ].filter(Boolean);
+    return [...identity, ...samples].join(" · ") || `${formatCompact(marketPulseSampleSize(row))} samples`;
+  };
   const cards = [
     {
       label: "Top gainer",
@@ -360,6 +414,7 @@ function MarketPulse({
         stats.gainer?.change == null
           ? "—"
           : `+${Math.round(stats.gainer.change)}%`,
+      context: contextFor(stats.gainer),
     },
     {
       label: "Top mover down",
@@ -368,6 +423,7 @@ function MarketPulse({
       tone: "loss",
       value:
         stats.loser?.change == null ? "—" : `${Math.round(stats.loser.change)}%`,
+      context: contextFor(stats.loser),
     },
     {
       label: "Most liquid",
@@ -375,6 +431,7 @@ function MarketPulse({
       icon: <Gauge size={15} />,
       tone: "liquid",
       value: formatCompact(stats.liquid?.volume ?? stats.liquid?.listingCount),
+      context: contextFor(stats.liquid),
     },
   ];
   return (
@@ -390,11 +447,13 @@ function MarketPulse({
           key={card.label}
           disabled={!card.row}
           onClick={() => card.row && onSelect(card.row)}
+          aria-label={card.row ? `${card.label}: ${card.row.name}. ${card.context}. ${card.value}` : `${card.label}: no qualified market data`}
         >
           <span>{card.icon}</span>
           <div>
             <small>{card.label}</small>
             <strong>{card.row?.name || "No trend data"}</strong>
+            <span className="pulse-card-context">{card.context}</span>
           </div>
           <em>{card.value}</em>
         </button>
@@ -425,11 +484,14 @@ export default function App() {
     useState<KnowledgeEntry | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(80);
   const [watchRefreshing, setWatchRefreshing] = useState(false);
   const [watchInitialRefreshComplete, setWatchInitialRefreshComplete] =
     useState(false);
   const [surfaceRevision, setSurfaceRevision] = useState(0);
+  const [publishedSearchRevision, setPublishedSearchRevision] = useState(0);
+  const [searchPublishRetry, setSearchPublishRetry] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [marketRetryRevision, setMarketRetryRevision] = useState(0);
   const [leagueRetryRevision, setLeagueRetryRevision] = useState(0);
@@ -443,8 +505,11 @@ export default function App() {
   }>({ nonce: 0 });
   const searchRef = useRef<HTMLInputElement>(null);
   const knowledgeSearchRef = useRef<HTMLInputElement>(null);
+  const mobileCategoryButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileMoreButtonRef = useRef<HTMLButtonElement>(null);
   const mainContentRef = useRef<HTMLElement>(null);
   const mobileScrollResetFrame = useRef<number | null>(null);
+  const modeNavigationRequest = useRef(0);
   const announcedTargets = useRef<Set<string>>(new Set());
   const overviewRequestId = useRef(0);
   const overviewEnvelopeRef = useRef<OverviewEnvelope | null>(null);
@@ -456,6 +521,16 @@ export default function App() {
     source: DataSource;
   } | null>(null);
   const quickSearchIndex = useRef<Map<string, QuickSearchIndexGroup>>(new Map());
+  const searchIndexPublisher = useRef<
+    ReturnType<typeof createSurfaceSearchPublisher> | null
+  >(null);
+  const searchPublishRetryTimer = useRef<number | null>(null);
+  if (!searchIndexPublisher.current) {
+    searchIndexPublisher.current = createSurfaceSearchPublisher(
+      crypto.randomUUID(),
+      (update) => bridge.updateSurfaceSearchIndex(update),
+    );
+  }
   const pendingSelection = useRef<{
     league: string;
     categoryId: string;
@@ -463,6 +538,7 @@ export default function App() {
     rowKey: string;
   } | null>(null);
   const desktopSettingsRef = useRef(desktopSettings);
+  const desktopSettingsReadyRef = useRef(false);
   const savedDesktopSettingsRef = useRef(defaultDesktopSettings);
   const desktopSettingsRevisionRef = useRef(-1);
 
@@ -500,30 +576,47 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    let active = true;
-    void loadGameData()
-      .then((loaded) => {
-        if (active) setCommandData(loaded.bundle);
-      })
-      .catch(() => undefined);
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
     const refreshCommands = () => setSurfaceRevision((value) => value + 1);
     window.addEventListener("gloamcore:commands-changed", refreshCommands);
     return () => window.removeEventListener("gloamcore:commands-changed", refreshCommands);
   }, []);
 
   useEffect(() => {
+    let active = true;
+    let started = false;
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
+    const loadCommandData = () => {
+      if (started) return;
+      started = true;
+      void import("./lib/game-data")
+        .then((module) => module.loadGameData())
+        .then((loaded) => {
+          if (active) setCommandData(loaded.bundle);
+        })
+        .catch(() => {
+          started = false;
+        });
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "p") {
         event.preventDefault();
+        loadCommandData();
         void bridge.surfaceAction({ type: "open-quick-search" });
       }
     };
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(loadCommandData, { timeout: 1_500 });
+    } else {
+      timeoutId = window.setTimeout(loadCommandData, 1_500);
+    }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      active = false;
+      if (idleId != null) window.cancelIdleCallback(idleId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, []);
 
   const applyDesktopSettingsSnapshot = useCallback((incoming: DesktopSettings) => {
@@ -551,9 +644,38 @@ export default function App() {
     savedDesktopSettingsRef.current = reconciliation.authoritative;
     desktopSettingsRevisionRef.current = reconciliation.authoritativeRevision;
     desktopSettingsRef.current = reconciliation.visible;
+    desktopSettingsReadyRef.current = true;
     setDesktopSettings(reconciliation.visible);
     return true;
   }, []);
+
+  const ensureExpandedForMode = useCallback(
+    async (nextMode: AppMode) => {
+      if (
+        isMobileApp ||
+        !expandedOnlyModes.has(nextMode)
+      ) {
+        return true;
+      }
+      try {
+        if (!desktopSettingsReadyRef.current) {
+          const authoritative = await bridge.getSettings();
+          if (
+            !applyDesktopSettingsSnapshot(authoritative) &&
+            !desktopSettingsReadyRef.current
+          ) return false;
+        }
+        if (!desktopSettingsRef.current.compact) return true;
+        const saved = await bridge.windowAction("compact", false);
+        if (!saved || saved.compact) return false;
+        applyDesktopSettingsSnapshot(saved);
+        return !desktopSettingsRef.current.compact;
+      } catch {
+        return false;
+      }
+    },
+    [applyDesktopSettingsSnapshot],
+  );
 
   const updatePreferences = useCallback(
     (
@@ -645,12 +767,14 @@ export default function App() {
         setRefreshSignal((value) => value + 1);
       }
       if (event.type === "open-watchlist") {
+        modeNavigationRequest.current += 1;
         setMode("watchlist");
         setSelectedRow(null);
         setSelectedKnowledge(null);
         setSettingsOpen(false);
       }
       if (event.type === "open-price-check-dashboard") {
+        modeNavigationRequest.current += 1;
         resetMobileWorkspaceScroll();
         setMode("price-check");
         setSelectedRow(null);
@@ -658,29 +782,38 @@ export default function App() {
         setSettingsOpen(false);
       }
       if (event.type === "open-mode") {
-        setSelectedRow(null);
-        setSelectedKnowledge(null);
         if (event.mode === "settings") {
+          modeNavigationRequest.current += 1;
+          setSelectedRow(null);
+          setSelectedKnowledge(null);
           setSettingsOpen(true);
           return;
         }
-        setSettingsOpen(false);
-        setCommandNavigation((current) => ({
-          section: event.section,
-          query: event.query,
-          resourceId: event.resourceId,
-          nonce: current.nonce + 1,
-        }));
-        if (event.mode === "market" && event.categoryId && categoryById[event.categoryId]) {
-          setPreferences((current) => {
-            const next = { ...current, categoryId: event.categoryId! };
-            savePreferences(next);
-            return next;
-          });
-        }
-        setMode(event.mode);
+        const nextMode = event.mode;
+        const navigationRequest = ++modeNavigationRequest.current;
+        void ensureExpandedForMode(nextMode).then((ready) => {
+          if (!ready || navigationRequest !== modeNavigationRequest.current) return;
+          setSelectedRow(null);
+          setSelectedKnowledge(null);
+          setSettingsOpen(false);
+          setCommandNavigation((current) => ({
+            section: event.section,
+            query: event.query,
+            resourceId: event.resourceId,
+            nonce: current.nonce + 1,
+          }));
+          if (event.mode === "market" && event.categoryId && categoryById[event.categoryId]) {
+            setPreferences((current) => {
+              const next = { ...current, categoryId: event.categoryId! };
+              savePreferences(next);
+              return next;
+            });
+          }
+          setMode(nextMode);
+        });
       }
       if (event.type === "open-row" && categoryById[event.categoryId]) {
+        modeNavigationRequest.current += 1;
         const selection = {
           ...event,
           source: normalizedSourceForCategory(event.categoryId, event.source),
@@ -712,7 +845,7 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [applyDesktopSettingsSnapshot, resetMobileWorkspaceScroll]);
+  }, [applyDesktopSettingsSnapshot, ensureExpandedForMode, resetMobileWorkspaceScroll]);
 
   const loadOverview = useCallback(
     async (force = false) => {
@@ -963,18 +1096,76 @@ export default function App() {
   }, [overview, pendingSelectionVersion]);
 
   useEffect(() => {
+    currentQuickSearchIndexRows(quickSearchIndex.current);
+    const watched = actionableWatchesForLeague(
+      preferences.watchlist,
+      league,
+    );
+    const watchedRows = dedupeQuickRows(
+      watched.map((entry) => toQuickRow(entry.row, entry.league)),
+    );
+    const desired = new Map<string, PublishableSurfaceSearchGroup>();
+    for (const [id, group] of quickSearchIndex.current) {
+      const groupLeague = group.rows[0]?.league;
+      if (!groupLeague || !group.rows.length) continue;
+      desired.set(id, {
+        id,
+        signature: `${group.fetchedAt}:${group.rows.length}:${group.rows[0].key}:${group.rows.at(-1)?.key || ""}`,
+        league: groupLeague,
+        fetchedAt: group.fetchedAt,
+        rows: group.rows,
+      });
+    }
+    if (watchedRows.length) {
+      const fetchedAt = Math.min(
+        ...watched.map((entry) => entry.marketFetchedAt!),
+      );
+      desired.set(`watchlist:${league}`, {
+        id: `watchlist:${league}`,
+        signature: JSON.stringify(watchedRows),
+        league,
+        fetchedAt,
+        rows: watchedRows,
+      });
+    }
+    void searchIndexPublisher.current
+      ?.publish(desired)
+      .then((revision) => {
+        if (searchPublishRetryTimer.current != null) {
+          window.clearTimeout(searchPublishRetryTimer.current);
+          searchPublishRetryTimer.current = null;
+        }
+        setPublishedSearchRevision((current) => Math.max(current, revision));
+      })
+      .catch(() => {
+        if (searchPublishRetryTimer.current != null) return;
+        searchPublishRetryTimer.current = window.setTimeout(() => {
+          searchPublishRetryTimer.current = null;
+          setSearchPublishRetry((current) => current + 1);
+        }, 1_000);
+      });
+  }, [league, preferences.watchlist, searchPublishRetry, surfaceRevision]);
+
+  useEffect(() => () => {
+    if (searchPublishRetryTimer.current != null) {
+      window.clearTimeout(searchPublishRetryTimer.current);
+    }
+  }, []);
+
+  useEffect(() => {
     const indexedRows = currentQuickSearchIndexRows(quickSearchIndex.current);
     const watchedRows = actionableWatchesForLeague(
       preferences.watchlist,
       league,
     )
       .map((entry) => toQuickRow(entry.row, entry.league));
-    const searchRows = dedupeQuickRows([...watchedRows, ...indexedRows]).filter(
-      (row) => row.league === league,
-    );
-    const divineChaos = searchRows.find(
-      (row) => row.categoryId === "currency" && row.name === "Divine Orb",
-    )?.chaosValue;
+    const isCurrentDivine = (row: QuickSearchRow) =>
+      row.league === league &&
+      row.categoryId === "currency" &&
+      row.name === "Divine Orb";
+    const divineChaos =
+      indexedRows.find(isCurrentDivine)?.chaosValue ??
+      watchedRows.find(isCurrentDivine)?.chaosValue;
     const currentContext = overviewContext.current;
     const overviewIsCurrent =
       currentContext?.league === league &&
@@ -988,7 +1179,9 @@ export default function App() {
         (row) =>
           row.change != null &&
           Number.isFinite(row.change) &&
-          !row.lowConfidence,
+          !row.lowConfidence &&
+          (marketPulseSampleSize(row) ?? 0) >= MARKET_PULSE_MIN_SAMPLE &&
+          row.sparkline.filter((point) => point != null).length >= 3,
       )
       .sort(
         (a, b) =>
@@ -1022,6 +1215,7 @@ export default function App() {
       .publishSurfaceState({
         league,
         categoryLabel: category.label,
+        searchRevision: publishedSearchRevision,
         fetchedAt: overviewEnvelope?.fetchedAt,
         stale: Boolean(overviewEnvelope?.stale),
         loading,
@@ -1029,7 +1223,6 @@ export default function App() {
         alertCount: alerts.length,
         alerts,
         topMovers,
-        searchRows,
         commands: quickCommands(commandData),
       })
       .catch(() => {
@@ -1044,6 +1237,7 @@ export default function App() {
     overview,
     overviewEnvelope?.fetchedAt,
     overviewEnvelope?.stale,
+    publishedSearchRevision,
     preferences.watchlist,
     source,
     surfaceRevision,
@@ -1074,6 +1268,7 @@ export default function App() {
         !(event.target instanceof HTMLTextAreaElement)
       ) {
         event.preventDefault();
+        modeNavigationRequest.current += 1;
         setMode("knowledge");
         setSelectedRow(null);
         setSelectedKnowledge(null);
@@ -1090,18 +1285,21 @@ export default function App() {
         !(event.target instanceof HTMLSelectElement)
       ) {
         event.preventDefault();
+        modeNavigationRequest.current += 1;
         setMode("market");
         window.setTimeout(() => searchRef.current?.focus(), 0);
       }
       if (event.key === "Escape") {
-        if (settingsOpen) setSettingsOpen(false);
+        if (categorySheetOpen) setCategorySheetOpen(false);
+        else if (moreSheetOpen) setMoreSheetOpen(false);
+        else if (settingsOpen) setSettingsOpen(false);
         else if (selectedKnowledge) setSelectedKnowledge(null);
         else if (selectedRow) setSelectedRow(null);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedKnowledge, selectedRow, settingsOpen]);
+  }, [categorySheetOpen, moreSheetOpen, selectedKnowledge, selectedRow, settingsOpen]);
 
   const filteredRows = useMemo(
     () =>
@@ -1142,6 +1340,7 @@ export default function App() {
       categoryId: nextCategory.id,
       lastViewed: recent,
     });
+    modeNavigationRequest.current += 1;
     setMode("market");
     setCommandNavigation((current) => ({ nonce: current.nonce + 1 }));
     setSelectedKnowledge(null);
@@ -1149,11 +1348,17 @@ export default function App() {
 
   const switchMode = (nextMode: AppMode) => {
     resetMobileWorkspaceScroll();
-    setMode(nextMode);
-    setCommandNavigation((current) => ({ nonce: current.nonce + 1 }));
-    setSelectedRow(null);
-    setSelectedKnowledge(null);
-    setSettingsOpen(false);
+    const navigationRequest = ++modeNavigationRequest.current;
+    void ensureExpandedForMode(nextMode).then((ready) => {
+      if (!ready || navigationRequest !== modeNavigationRequest.current) return;
+      setMode(nextMode);
+      setCommandNavigation((current) => ({ nonce: current.nonce + 1 }));
+      setSelectedRow(null);
+      setSelectedKnowledge(null);
+      setSettingsOpen(false);
+      setCategorySheetOpen(false);
+      setMoreSheetOpen(false);
+    });
   };
 
   useEffect(() => {
@@ -1415,10 +1620,14 @@ export default function App() {
     let handle: PluginListenerHandle | null = null;
     void NativeApp.addListener("backButton", () => {
       if (categorySheetOpen) setCategorySheetOpen(false);
+      else if (moreSheetOpen) setMoreSheetOpen(false);
       else if (settingsOpen) setSettingsOpen(false);
       else if (selectedKnowledge) setSelectedKnowledge(null);
       else if (selectedRow) setSelectedRow(null);
-      else if (mode !== "market") setMode("market");
+      else if (mode !== "market") {
+        modeNavigationRequest.current += 1;
+        setMode("market");
+      }
       else void NativeApp.minimizeApp();
     }).then((listener) => {
       handle = listener;
@@ -1428,7 +1637,7 @@ export default function App() {
       disposed = true;
       void handle?.remove();
     };
-  }, [categorySheetOpen, mode, selectedKnowledge, selectedRow, settingsOpen]);
+  }, [categorySheetOpen, mode, moreSheetOpen, selectedKnowledge, selectedRow, settingsOpen]);
 
   const updateDesktop = async (patch: Partial<DesktopSettings>) => {
     const { settingsRevision: _ignoredRevision, ...rawPatch } = patch;
@@ -1497,7 +1706,14 @@ export default function App() {
       )}
 
       {overview && !loading && (
-        <MarketPulse rows={overview.rows} onSelect={setSelectedRow} />
+        <MarketPulse
+          rows={overview.rows}
+          onSelect={(row) => {
+            setSelectedRow(row);
+            setSelectedKnowledge(null);
+            setSettingsOpen(false);
+          }}
+        />
       )}
 
       {overview && (
@@ -1554,6 +1770,8 @@ export default function App() {
             onSelect={(row) => {
               void tactileTap();
               setSelectedRow(row);
+              setSelectedKnowledge(null);
+              setSettingsOpen(false);
             }}
             onWatch={toggleWatch}
             onTrade={(row) => {
@@ -1563,6 +1781,10 @@ export default function App() {
                 return;
               }
               void bridge.openExternal(url);
+            }}
+            onClearFilters={() => {
+              setFilters(defaultFiltersForSource(source));
+              setVisibleCount(80);
             }}
             onShowMore={() => setVisibleCount((count) => count + 80)}
           />
@@ -1578,7 +1800,11 @@ export default function App() {
             selectedKey={selectedRow?.key}
             watchKeys={watchKeys}
             onSort={onSort}
-            onSelect={setSelectedRow}
+            onSelect={(row) => {
+              setSelectedRow(row);
+              setSelectedKnowledge(null);
+              setSettingsOpen(false);
+            }}
             onWatch={toggleWatch}
             onTrade={(row) => {
               const url = tradeUrl(row, league);
@@ -1603,6 +1829,9 @@ export default function App() {
         desktopSettings.compact && "app-shell--compact",
         preferences.sidebarCollapsed && "app-shell--sidebar-collapsed",
         (selectedRow || selectedKnowledge) && "app-shell--details-open",
+        (isMobileApp || desktopSettings.compact) &&
+          (selectedRow || selectedKnowledge || settingsOpen) &&
+          "app-shell--modal-open",
       )}
     >
       {isMobileApp ? (
@@ -1611,7 +1840,12 @@ export default function App() {
           league={league}
           loading={loading}
           mode={mode}
-          onCategories={() => setCategorySheetOpen(true)}
+          categoryOpen={categorySheetOpen}
+          categoryButtonRef={mobileCategoryButtonRef}
+          onCategories={() => {
+            setMoreSheetOpen(false);
+            setCategorySheetOpen(true);
+          }}
           onRefresh={() => loadOverview(true)}
         />
       ) : (
@@ -1624,6 +1858,7 @@ export default function App() {
           onOpenSettings={() => {
             setSettingsOpen(true);
             setSelectedRow(null);
+            setSelectedKnowledge(null);
           }}
         />
       )}
@@ -1655,7 +1890,10 @@ export default function App() {
           <button
             type="button"
             className={mode === "watchlist" ? "is-active" : undefined}
-            onClick={() => setMode(mode === "watchlist" ? "market" : "watchlist")}
+            onClick={() => {
+              modeNavigationRequest.current += 1;
+              setMode(mode === "watchlist" ? "market" : "watchlist");
+            }}
           >
             <Star size={14} fill={mode === "watchlist" ? "currentColor" : "none"} />
             {preferences.watchlist.length}
@@ -1693,39 +1931,44 @@ export default function App() {
           )}
           ref={mainContentRef}
         >
-          {mode === "market" ? (
-            renderMarket()
-          ) : mode === "price-check" ? (
-            <PriceCheckApp
-              embedded
-              leagueOverride={league}
-              onClose={() => switchMode("market")}
-            />
-          ) : mode === "knowledge" ? (
-            <KnowledgePanel
-              ref={knowledgeSearchRef}
-              onSelect={(entry) => {
-                setSelectedKnowledge(entry);
-                setSelectedRow(null);
-                setSettingsOpen(false);
-              }}
-            />
-          ) : mode === "toolkit" ? (
-            <ToolkitPanel league={league} />
-          ) : mode === "command" ? (
-            <CommandCenterPanel navigation={commandNavigation} />
-          ) : mode === "planner" ? (
-            <BuildPlannerPanel
-              league={league}
-              savedBuildId={commandNavigation.resourceId}
-              navigationNonce={commandNavigation.nonce}
-            />
-          ) : mode === "craft" ? (
-            <CraftOfExilePanel />
-          ) : mode === "stash" ? (
-            <StashWealthPanel league={league} />
-          ) : (
-            <WatchlistPanel
+          <RuntimeErrorBoundary
+            resetKey={mode}
+            title="This workspace could not load"
+          >
+          <Suspense fallback={<LoadingState label="Loading workspace" />}>
+            {mode === "market" ? (
+              renderMarket()
+            ) : mode === "price-check" ? (
+              <PriceCheckApp
+                embedded
+                leagueOverride={league}
+                onClose={() => switchMode("market")}
+              />
+            ) : mode === "knowledge" ? (
+              <KnowledgePanel
+                ref={knowledgeSearchRef}
+                onSelect={(entry) => {
+                  setSelectedKnowledge(entry);
+                  setSelectedRow(null);
+                  setSettingsOpen(false);
+                }}
+              />
+            ) : mode === "toolkit" ? (
+              <ToolkitPanel league={league} />
+            ) : mode === "command" ? (
+              <CommandCenterPanel navigation={commandNavigation} />
+            ) : mode === "planner" ? (
+              <BuildPlannerPanel
+                league={league}
+                savedBuildId={commandNavigation.resourceId}
+                navigationNonce={commandNavigation.nonce}
+              />
+            ) : mode === "craft" ? (
+              <CraftOfExilePanel />
+            ) : mode === "stash" ? (
+              <StashWealthPanel league={league} />
+            ) : (
+              <WatchlistPanel
               entries={preferences.watchlist}
               display={preferences.valueDisplay}
               refreshing={watchRefreshing}
@@ -1744,6 +1987,7 @@ export default function App() {
                 pendingSelection.current = selection;
                 setPendingSelectionVersion((value) => value + 1);
                 setLeague(selection.league);
+                modeNavigationRequest.current += 1;
                 setMode("market");
                 setSelectedRow(null);
                 setSelectedKnowledge(null);
@@ -1774,13 +2018,19 @@ export default function App() {
               onRefresh={() => {
                 void refreshWatchlist(true);
               }}
-            />
-          )}
+              />
+            )}
+          </Suspense>
+          </RuntimeErrorBoundary>
         </main>
 
-        {isMobileApp && (selectedRow || selectedKnowledge || settingsOpen) && (
+        {(isMobileApp || desktopSettings.compact) &&
+          (selectedRow || selectedKnowledge || settingsOpen) && (
           <button
-            className="mobile-drawer-scrim"
+            className={clsx(
+              "mobile-drawer-scrim",
+              !isMobileApp && "compact-drawer-scrim",
+            )}
             type="button"
             aria-label="Close open panel"
             onClick={() => {
@@ -1795,6 +2045,7 @@ export default function App() {
             row={selectedRow}
             league={league}
             watch={selectedWatch}
+            modal={isMobileApp || desktopSettings.compact}
             onClose={() => setSelectedRow(null)}
             onToggleWatch={toggleWatch}
             onSaveWatch={saveWatch}
@@ -1803,6 +2054,7 @@ export default function App() {
         {selectedKnowledge && (
           <KnowledgeDrawer
             entry={selectedKnowledge}
+            modal={isMobileApp || desktopSettings.compact}
             onClose={() => setSelectedKnowledge(null)}
           />
         )}
@@ -1815,6 +2067,8 @@ export default function App() {
             reducedMotion={preferences.reducedMotion}
             colorVision={preferences.colorVision}
             refreshMinutes={preferences.refreshMinutes}
+            modal={isMobileApp || desktopSettings.compact}
+            restoreFocusRef={isMobileApp ? mobileMoreButtonRef : undefined}
             onClose={() => setSettingsOpen(false)}
             onSettings={updateDesktop}
             onDensity={(density) => updatePreferences({ density })}
@@ -1835,7 +2089,9 @@ export default function App() {
             mode={mode}
             watchCount={preferences.watchlist.length}
             alertCount={alertCount}
+            moreOpen={moreSheetOpen}
             settingsOpen={settingsOpen}
+            moreButtonRef={mobileMoreButtonRef}
             onMarket={() => {
               switchMode("market");
             }}
@@ -1852,20 +2108,32 @@ export default function App() {
             onWatchlist={() => {
               switchMode("watchlist");
             }}
-            onSettings={() => {
-              setSettingsOpen((current) => !current);
-              setSelectedRow(null);
-              setSelectedKnowledge(null);
+            onMore={() => {
+              setCategorySheetOpen(false);
+              setMoreSheetOpen((current) => !current);
             }}
           />
           <MobileCategorySheet
             open={categorySheetOpen}
             selectedId={category.id}
             recentIds={preferences.lastViewed || []}
+            restoreFocusRef={mobileCategoryButtonRef}
             onClose={() => setCategorySheetOpen(false)}
             onSelect={(nextCategory) => {
               onCategory(nextCategory);
               setCategorySheetOpen(false);
+            }}
+          />
+          <MobileMoreSheet
+            open={moreSheetOpen}
+            mode={mode}
+            restoreFocusRef={mobileMoreButtonRef}
+            onClose={() => setMoreSheetOpen(false)}
+            onMode={switchMode}
+            onSettings={() => {
+              setSettingsOpen(true);
+              setSelectedRow(null);
+              setSelectedKnowledge(null);
             }}
           />
         </>

@@ -8,7 +8,9 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import type { RefObject } from "react";
 import { bridge } from "../lib/bridge";
+import { useDialogFocus } from "../lib/dialog-focus";
 import {
   craftOfExileUrl,
   isCraftableKnowledgeEntry,
@@ -30,11 +32,20 @@ function DetailLine({ label, value }: { label: string; value?: React.ReactNode }
 
 export function KnowledgeDrawer({
   entry,
+  modal = false,
+  restoreFocusRef,
   onClose,
 }: {
   entry: KnowledgeEntry;
+  modal?: boolean;
+  restoreFocusRef?: RefObject<HTMLElement>;
   onClose: () => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLElement>({
+    modal,
+    onDismiss: onClose,
+    restoreFocusRef,
+  });
   const acquisition = [
     entry.dropText,
     entry.dropAreas.length
@@ -48,8 +59,12 @@ export function KnowledgeDrawer({
 
   return (
     <aside
+      ref={dialogRef}
       className={`details-drawer knowledge-drawer knowledge-drawer--${entry.frameType || entry.kind}`}
-      aria-label={`${entry.name} knowledge details`}
+      role="dialog"
+      aria-modal={modal || undefined}
+      aria-labelledby="knowledge-details-dialog-title"
+      tabIndex={-1}
     >
       <div className="details-topline">
         <div>
@@ -57,7 +72,7 @@ export function KnowledgeDrawer({
           <i>•</i>
           <span>{entry.kind === "item" ? "Item database" : "Modifier database"}</span>
         </div>
-        <button type="button" onClick={onClose} title="Close knowledge details" aria-label="Close knowledge details">
+        <button type="button" onClick={onClose} title="Close knowledge details" aria-label="Close knowledge details" data-dialog-initial-focus>
           <X size={17} />
         </button>
       </div>
@@ -68,7 +83,7 @@ export function KnowledgeDrawer({
         </div>
         <div>
           <span>{entry.kind === "item" ? entry.itemClass || "Item" : `${entry.generationType} modifier`}</span>
-          <h2>{entry.name}</h2>
+          <h2 id="knowledge-details-dialog-title">{entry.name}</h2>
           {(entry.baseType || entry.modifierName) && <p>{entry.baseType || entry.modifierName}</p>}
         </div>
       </div>

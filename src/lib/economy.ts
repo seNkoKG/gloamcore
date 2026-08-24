@@ -483,12 +483,31 @@ export function deriveFilterOptions(rows: EconomyRow[]) {
   };
 }
 
+export const MARKET_PULSE_MIN_SAMPLE = 20;
+
+export function marketPulseSampleSize(row: EconomyRow) {
+  if (row.source === "exchange" || row.source === "faustus") {
+    return row.volume != null && Number.isFinite(row.volume) ? row.volume : null;
+  }
+  const counts = [row.listingCount, row.observationCount].filter(
+    (value): value is number => value != null && Number.isFinite(value),
+  );
+  return counts.length ? Math.min(...counts) : null;
+}
+
 export function marketStats(rows: EconomyRow[]) {
-  const reliable = rows.filter((row) => !row.lowConfidence);
-  const gainers = reliable
+  const reliable = rows.filter(
+    (row) =>
+      !row.lowConfidence &&
+      (marketPulseSampleSize(row) ?? 0) >= MARKET_PULSE_MIN_SAMPLE,
+  );
+  const movers = reliable.filter(
+    (row) => row.sparkline.filter((point) => point != null).length >= 3,
+  );
+  const gainers = movers
     .filter((row) => row.change != null && row.change > 0)
     .sort((a, b) => (b.change || 0) - (a.change || 0));
-  const losers = reliable
+  const losers = movers
     .filter((row) => row.change != null && row.change < 0)
     .sort((a, b) => (a.change || 0) - (b.change || 0));
   const liquid = reliable

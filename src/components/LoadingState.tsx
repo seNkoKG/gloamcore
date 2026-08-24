@@ -1,6 +1,10 @@
-export function LoadingState() {
+export function LoadingState({
+  label = "Loading live economy prices",
+}: {
+  label?: string;
+}) {
   return (
-    <div className="loading-table" aria-label="Loading live economy prices">
+    <div className="loading-table" role="status" aria-label={label}>
       <div className="loading-line loading-line--hero" />
       <div className="loading-filters">
         <div />

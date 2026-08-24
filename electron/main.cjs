@@ -59,19 +59,23 @@ const {
 const { canAccessSettings } = require("./settings-access.cjs");
 const {
   createPersistenceRetry,
+  loadSettingsFile,
   sanitizeScalarSettings,
   sanitizeWindowBounds,
   writeJsonAtomically,
 } = require("./settings-store.cjs");
 const {
+  isAllowedSurfaceSource,
   sanitizeSurfaceAlerts,
   sanitizeSurfaceIdentity,
 } = require("./surface-state.cjs");
+const { createQuickSearchIndex } = require("./quick-search-index.cjs");
 const {
   POE1_PROCESS_NAMES,
   toolkitMacroTargets,
 } = require("./game-window-policy.cjs");
 const { fetchTrustedLimited } = require("./bounded-remote-fetch.cjs");
+const { createEconomyCache } = require("./economy-cache.cjs");
 const {
   createTradePriceSnapshotService,
 } = require("./trade-price-snapshot.cjs");
@@ -90,6 +94,7 @@ const { createPobPlannerDispatcher } = require("./pob-planner-dispatch.cjs");
 const {
   createToolkitRuntimeStore,
   sanitizeWorkspace,
+  workspaceWithCurrentOverlayBounds,
 } = require("./toolkit-runtime.cjs");
 const {
   createMapModCheckService,
@@ -254,6 +259,7 @@ const WIKI_TOOLTIP_TTL_MS = 24 * 60 * 60 * 1000;
 const WIKI_KNOWLEDGE_TTL_MS = 60 * 60 * 1000;
 const WIKI_ICON_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const FAUSTUS_HOUR_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const ECONOMY_CACHE_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const FAUSTUS_HISTORY_HOURS = 8;
 const CHAOS_METADATA_ID = "Metadata/Items/Currency/CurrencyRerollRare";
 const DIVINE_METADATA_ID = "Metadata/Items/Currency/CurrencyModValues";
@@ -263,6 +269,9 @@ const TRAY_PANEL_WIDTH = 372;
 const TRAY_PANEL_HEIGHT = 500;
 const QUICK_SEARCH_WIDTH = 720;
 const QUICK_SEARCH_HEIGHT = 570;
+const MAIN_WINDOW_COMPACT_MIN_WIDTH = 460;
+const MAIN_WINDOW_EXPANDED_MIN_WIDTH = 900;
+const MAIN_WINDOW_MIN_HEIGHT = 560;
 // Match Awakened's 28.75rem desktop card at Chromium's 16px root size. The
 // native panel still clamps this width to the target game's usable work area.
 const PRICE_CHECK_WIDTH = 460;
@@ -367,8 +376,8 @@ const ALLOWED_EXTERNAL_HOSTS = new Set([
   "poedb.tw",
   "www.poedb.tw",
 ]);
-const memoryCache = new Map();
 const remoteJsonInflight = new Map();
+let economyCacheStore;
 
 let mainWindow;
 let trayWindow;
@@ -381,6 +390,7 @@ let craftOfExileView;
 let craftOfExileVisibleRequested = false;
 const toolkitOverlayWindows = new Map();
 const toolkitOverlayGeometryTimers = new Map();
+let toolkitPersistenceWarning = "";
 let tray;
 let trayClickTimer;
 let updateService;
@@ -431,6 +441,8 @@ let priceCheckFocusRestoreAudit = null;
 let settingsNeedPersist = false;
 let settingsRevision = 0;
 let settingsPersistenceWarning = "";
+let settingsStorageWarning = "";
+let settingsPersistenceBlocked = "";
 let settings = {
   alwaysOnTop: true,
   opacity: 1,
@@ -463,12 +475,12 @@ let settings = {
 let surfaceState = {
   league: "",
   categoryLabel: "Currency",
+  searchRevision: 0,
   stale: false,
   loading: true,
   alertCount: 0,
   alerts: [],
   topMovers: [],
-  searchRows: [],
   commands: [],
   update: {
     status: "unconfigured",
@@ -477,6 +489,7 @@ let surfaceState = {
     feedConfigured: false,
   },
 };
+const quickSearchIndex = createQuickSearchIndex({ sanitizeRow: sanitizeQuickRow });
 
 function settingsPath() {
   return path.join(app.getPath("userData"), "settings.json");
@@ -486,86 +499,90 @@ function cacheDirectory() {
   return path.join(app.getPath("userData"), "economy-cache");
 }
 
-function safeCacheName(key) {
-  return `${key.replace(/[^a-z0-9_-]+/gi, "_").toLowerCase()}.json`;
-}
-
-function cachePath(key) {
-  return path.join(cacheDirectory(), safeCacheName(key));
-}
-
 const RETIRED_CACHE_PATTERNS = Object.freeze([
-  /^(?!v2-)[a-z0-9_-]+-(?:exchange|stash)-(?:currency|item)-.*\.json$/i,
   /^poe1-leagues\.json$/i,
 ]);
 
-async function cleanupRetiredCacheFiles() {
+function getEconomyCacheStore() {
+  economyCacheStore ||= createEconomyCache({
+    directory: cacheDirectory(),
+    obsoletePatterns: RETIRED_CACHE_PATTERNS,
+  });
+  return economyCacheStore;
+}
+
+async function sweepEconomyCacheBestEffort() {
   try {
-    const directory = cacheDirectory();
-    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
-    await Promise.all(
-      entries
-        .filter(
-          (entry) =>
-            entry.isFile() &&
-            RETIRED_CACHE_PATTERNS.some((pattern) => pattern.test(entry.name)),
-        )
-        .map((entry) =>
-          fs.promises.unlink(path.join(directory, entry.name)).catch(() => undefined),
-        ),
+    await getEconomyCacheStore().sweep();
+  } catch (error) {
+    console.warn(
+      `Could not sweep the economy cache: ${error instanceof Error ? error.message : String(error)}`,
     );
-  } catch {
-    // A missing or locked cache never blocks startup; current keys remain valid.
   }
 }
 
 function loadSettings() {
-  try {
-    const saved = JSON.parse(fs.readFileSync(settingsPath(), "utf8"));
-    const sanitized = sanitizeSettingsPatch(saved);
-    settings = {
-      ...settings,
-      ...sanitized,
-      shortcuts: sanitized.shortcuts || settings.shortcuts,
-      priceCheck: sanitized.priceCheck || settings.priceCheck,
-      priceCheckPanelPosition: sanitizePriceCheckPanelPosition(
-        saved?.priceCheckPanelPosition,
-      ),
-      bounds: sanitizeWindowBounds(saved?.bounds),
-      expandedBounds: sanitizeWindowBounds(saved?.expandedBounds),
-    };
-    if (settings.priceCheck.openNearCursor) {
-      settings.priceCheckPanelPosition = null;
-    }
-    delete settings.settingsRevision;
-    if (priceCheckHotkeyError(settings.priceCheck.hotkey)) {
-      settings.priceCheck.hotkey = DEFAULT_PRICE_CHECK_HOTKEY;
-      settingsNeedPersist = true;
-    } else if (settings.priceCheck.hotkey === "CommandOrControl+Shift+D") {
-      // v2.1 replaces the old two-step clipboard shortcut with one-key capture.
-      settings.priceCheck.hotkey = DEFAULT_PRICE_CHECK_HOTKEY;
-      settingsNeedPersist = true;
-    }
-    let planError = validateShortcutPlan(settings);
-    if (planError) {
-      settings.shortcuts = { ...DEFAULT_DESKTOP_SHORTCUTS };
-      planError = validateShortcutPlan(settings);
-      if (planError) settings.priceCheck.hotkey = DEFAULT_PRICE_CHECK_HOTKEY;
-      settingsNeedPersist = true;
-    }
-    if (settings.priceCheck.captureMode !== "auto-copy") {
-      settings.priceCheck.captureMode = "auto-copy";
-      settingsNeedPersist = true;
-    }
-  } catch {
-    // First launch or an invalid settings file: defaults are intentional.
+  const result = loadSettingsFile(settingsPath());
+  if (result.status === "missing") return result;
+  if (result.status === "blocked") {
+    settingsPersistenceBlocked = result.warning;
+    settingsStorageWarning = result.warning;
+    console.warn(result.warning);
+    return result;
   }
+  if (result.status === "quarantined") {
+    settingsStorageWarning = result.warning;
+    settingsNeedPersist = true;
+    console.warn(result.warning);
+    return result;
+  }
+
+  const saved = result.value;
+  const sanitized = sanitizeSettingsPatch(saved);
+  settings = {
+    ...settings,
+    ...sanitized,
+    shortcuts: sanitized.shortcuts || settings.shortcuts,
+    priceCheck: sanitized.priceCheck || settings.priceCheck,
+    priceCheckPanelPosition: sanitizePriceCheckPanelPosition(
+      saved?.priceCheckPanelPosition,
+    ),
+    bounds: sanitizeWindowBounds(saved?.bounds),
+    expandedBounds: sanitizeWindowBounds(saved?.expandedBounds),
+  };
+  if (settings.priceCheck.openNearCursor) {
+    settings.priceCheckPanelPosition = null;
+  }
+  delete settings.settingsRevision;
+  delete settings.storageWarning;
+  if (priceCheckHotkeyError(settings.priceCheck.hotkey)) {
+    settings.priceCheck.hotkey = DEFAULT_PRICE_CHECK_HOTKEY;
+    settingsNeedPersist = true;
+  } else if (settings.priceCheck.hotkey === "CommandOrControl+Shift+D") {
+    // v2.1 replaces the old two-step clipboard shortcut with one-key capture.
+    settings.priceCheck.hotkey = DEFAULT_PRICE_CHECK_HOTKEY;
+    settingsNeedPersist = true;
+  }
+  let planError = validateShortcutPlan(settings);
+  if (planError) {
+    settings.shortcuts = { ...DEFAULT_DESKTOP_SHORTCUTS };
+    planError = validateShortcutPlan(settings);
+    if (planError) settings.priceCheck.hotkey = DEFAULT_PRICE_CHECK_HOTKEY;
+    settingsNeedPersist = true;
+  }
+  if (settings.priceCheck.captureMode !== "auto-copy") {
+    settings.priceCheck.captureMode = "auto-copy";
+    settingsNeedPersist = true;
+  }
+  return result;
 }
 
 function persistSettings(snapshot = settings) {
+  if (settingsPersistenceBlocked) throw new Error(settingsPersistenceBlocked);
   const persistedSettings = { ...snapshot };
   delete persistedSettings.settingsRevision;
   delete persistedSettings.shortcutWarning;
+  delete persistedSettings.storageWarning;
   writeJsonAtomically(settingsPath(), persistedSettings);
   settingsRevision += 1;
 }
@@ -584,6 +601,11 @@ const settingsPersistenceRetry = createPersistenceRetry({
 });
 
 function recordSettingsPersistenceFailure(error) {
+  if (settingsPersistenceBlocked) {
+    settingsPersistenceRetry.dispose();
+    broadcastSettings();
+    return;
+  }
   settingsPersistenceWarning = `Settings could not be saved: ${String(error?.message || error).slice(0, 180)}`;
   console.warn(settingsPersistenceWarning);
   settingsPersistenceRetry.schedule();
@@ -591,6 +613,10 @@ function recordSettingsPersistenceFailure(error) {
 }
 
 function tryPersistSettings(snapshot = settings) {
+  if (settingsPersistenceBlocked) {
+    settingsPersistenceRetry.dispose();
+    return false;
+  }
   try {
     persistSettings(snapshot);
     settingsPersistenceRetry.dispose();
@@ -606,7 +632,8 @@ function settingsForRenderer() {
   return {
     ...settings,
     settingsRevision,
-    shortcutWarning: [desktopShortcutWarning, settingsPersistenceWarning].filter(Boolean).join(" ") || undefined,
+    shortcutWarning: desktopShortcutWarning || undefined,
+    storageWarning: [settingsStorageWarning, settingsPersistenceWarning].filter(Boolean).join(" ") || undefined,
     priceCheck: {
       ...settings.priceCheck,
       shortcutWarning: priceCheckShortcutWarning || undefined,
@@ -618,6 +645,7 @@ function durableSettingsSnapshot() {
   const snapshot = { ...settings };
   delete snapshot.settingsRevision;
   delete snapshot.shortcutWarning;
+  delete snapshot.storageWarning;
   return snapshot;
 }
 
@@ -671,6 +699,7 @@ function applyNativeWorkspace(rawValue) {
     const toolkitStore = getToolkitRuntimeStore();
     if (toolkitStore.error()) toolkitStore.recover();
     toolkitStore.save(next.toolkit);
+    clearToolkitPersistenceWarning();
     getMapModCheckService().saveSettings(next.mapModCheck);
     getMappingJournalService().replaceState(next.mappingJournal);
     getPoeEventLogService().saveSettings(next.eventLog);
@@ -686,7 +715,12 @@ function applyNativeWorkspace(rawValue) {
     updateTrayMenu();
     broadcastSettings();
   } catch (error) {
-    applyShortcutRegistrationPlan(previous, next.settings);
+    const rollback = applyShortcutRegistrationPlan(previous, next.settings);
+    if (!rollback.ok) {
+      publishDesktopShortcutWarning(
+        `Workspace restore could not reactivate every previous shortcut. ${rollback.error}`,
+      );
+    }
     throw error;
   }
 }
@@ -770,27 +804,30 @@ function assertTrustedSender(event) {
   }
 }
 
-async function readDiskCache(key) {
+function cacheStaleUntil(value, maxStaleMs) {
+  return Number.isFinite(maxStaleMs)
+    ? value.fetchedAt + Math.max(0, maxStaleMs)
+    : null;
+}
+
+async function readDiskCache(key, options) {
   try {
-    const cached = JSON.parse(await fs.promises.readFile(cachePath(key), "utf8"));
-    memoryCache.set(key, cached);
-    return cached;
+    return await getEconomyCacheStore().get(key, options);
   } catch {
     return null;
   }
 }
 
-async function writeDiskCache(key, value) {
-  await fs.promises.mkdir(cacheDirectory(), { recursive: true });
-  const target = cachePath(key);
-  const temporary = `${target}.tmp`;
-  await fs.promises.writeFile(temporary, JSON.stringify(value), "utf8");
-  await fs.promises.rename(temporary, target);
+async function writeDiskCache(key, value, maxStaleMs, sizeHint) {
+  await getEconomyCacheStore().set(key, value, {
+    staleUntil: cacheStaleUntil(value, maxStaleMs),
+    sizeHint,
+  });
 }
 
-async function writeDiskCacheBestEffort(key, value) {
+async function writeDiskCacheBestEffort(key, value, maxStaleMs, sizeHint) {
   try {
-    await writeDiskCache(key, value);
+    await writeDiskCache(key, value, maxStaleMs, sizeHint);
   } catch (error) {
     console.warn(
       `Could not persist the ${key} cache: ${error instanceof Error ? error.message : String(error)}`,
@@ -815,22 +852,17 @@ async function getCachedRemoteJsonUncoalesced(
   } = {},
 ) {
   const now = Date.now();
-  let cached = memoryCache.get(key) || (await readDiskCache(key));
-  if (cached && validate && !validate(cached.data)) {
-    memoryCache.delete(key);
-    cached = null;
-  }
-  if (
-    cached &&
-    expectedSha256 &&
-    (cached.integritySha256 !== expectedSha256 ||
-      cached.integrityBytes !== expectedBytes)
-  ) {
-    memoryCache.delete(key);
-    cached = null;
-  }
+  let cached = await readDiskCache(key, {
+    validate: (candidate) =>
+      (!validate || validate(candidate.data)) &&
+      (!expectedSha256 ||
+        (candidate.integritySha256 === expectedSha256 &&
+          candidate.integrityBytes === expectedBytes)),
+    allowUnsafeLegacyMigration: Boolean(expectedSha256),
+    legacyStaleUntil: (candidate) => cacheStaleUntil(candidate, maxStaleMs),
+  });
   if (cached && cacheTimestampAge(cached.fetchedAt, now) == null) {
-    memoryCache.delete(key);
+    getEconomyCacheStore().deleteMemory(key);
     cached = null;
   }
 
@@ -874,8 +906,10 @@ async function getCachedRemoteJsonUncoalesced(
             minimumTtlMs,
           ),
       };
-      memoryCache.set(key, cached);
-      await writeDiskCacheBestEffort(key, cached);
+      const sizeHint = Number.isFinite(cached.sourceBytes) && cached.sourceBytes >= 0
+        ? cached.sourceBytes
+        : undefined;
+      await writeDiskCacheBestEffort(key, cached, maxStaleMs, sizeHint);
       return {
         data: cached.data,
         fetchedAt: cached.fetchedAt,
@@ -918,13 +952,13 @@ async function getCachedRemoteJsonUncoalesced(
     const value = {
       data,
       etag: response.headers.get("etag"),
+      sourceBytes: body.length,
       integrityBytes: expectedSha256 ? expectedBytes : undefined,
       integritySha256: expectedSha256 || undefined,
       fetchedAt: responseSourceTime(response.headers, checkedAt),
       expiresAt: checkedAt + maxAge,
     };
-    memoryCache.set(key, value);
-    await writeDiskCacheBestEffort(key, value);
+    await writeDiskCacheBestEffort(key, value, maxStaleMs, body.length);
     return {
       data,
       fetchedAt: value.fetchedAt,
@@ -974,20 +1008,16 @@ async function getCachedRemoteJson(key, url, force = false, options = {}) {
 
 async function getCachedRemoteImageDataUrl(key, url) {
   const now = Date.now();
-  let cached = memoryCache.get(key) || (await readDiskCache(key));
-  if (
-    cached &&
-    (
-      typeof cached.data !== "string" ||
-      !/^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(cached.data) ||
-      cached.data.length > Math.ceil(MAX_WIKI_IMAGE_BYTES * 1.4)
-    )
-  ) {
-    memoryCache.delete(key);
-    cached = null;
-  }
+  let cached = await readDiskCache(key, {
+    validate: (candidate) => !(
+      typeof candidate.data !== "string" ||
+      !/^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(candidate.data) ||
+      candidate.data.length > Math.ceil(MAX_WIKI_IMAGE_BYTES * 1.4)
+    ),
+    legacyStaleUntil: null,
+  });
   if (cached && cacheTimestampAge(cached.fetchedAt, now) == null) {
-    memoryCache.delete(key);
+    getEconomyCacheStore().deleteMemory(key);
     cached = null;
   }
   if (cached && cached.expiresAt > now) return cached.data;
@@ -1013,8 +1043,10 @@ async function getCachedRemoteImageDataUrl(key, url) {
         fetchedAt: responseSourceTime(response.headers, checkedAt),
         expiresAt: checkedAt + WIKI_ICON_TTL_MS,
       };
-      memoryCache.set(key, cached);
-      await writeDiskCacheBestEffort(key, cached);
+      const sizeHint = Number.isFinite(cached.sourceBytes) && cached.sourceBytes >= 0
+        ? cached.sourceBytes
+        : undefined;
+      await writeDiskCacheBestEffort(key, cached, undefined, sizeHint);
       return cached.data;
     }
     const mime = (response.headers.get("content-type") || "")
@@ -1032,6 +1064,7 @@ async function getCachedRemoteImageDataUrl(key, url) {
     const value = {
       data,
       etag: response.headers.get("etag"),
+      sourceBytes: body.length,
       fetchedAt: responseSourceTime(response.headers, checkedAt),
       expiresAt:
         checkedAt +
@@ -1040,8 +1073,7 @@ async function getCachedRemoteImageDataUrl(key, url) {
           parseMaxAge(response.headers.get("cache-control"), WIKI_ICON_TTL_MS),
         ),
     };
-    memoryCache.set(key, value);
-    await writeDiskCacheBestEffort(key, value);
+    await writeDiskCacheBestEffort(key, value, undefined, body.length);
     return data;
   } catch {
     return cached?.data;
@@ -1684,6 +1716,10 @@ function updateTrayMenu() {
         label: "Refresh prices",
         click: () => sendMainCommand({ type: "refresh-market" }),
       },
+      ...(toolkitPersistenceWarning ? [{
+        label: "Toolkit storage needs attention",
+        click: () => showMainWindow({ type: "open-mode", mode: "toolkit" }),
+      }] : []),
       { type: "separator" },
       {
         label: "Always on top",
@@ -1772,14 +1808,18 @@ function intersectsWorkArea(bounds, workArea) {
 
 function visibleWindowBounds(savedBounds, compact = false) {
   const primary = screen.getPrimaryDisplay().workArea;
+  const minimumWidth = Math.min(
+    compact ? MAIN_WINDOW_COMPACT_MIN_WIDTH : MAIN_WINDOW_EXPANDED_MIN_WIDTH,
+    primary.width,
+  );
   const requestedWidth = compact
     ? 480
     : Number(savedBounds?.width) || 1440;
   const requestedHeight = compact
     ? 720
     : Number(savedBounds?.height) || 900;
-  const width = Math.max(460, Math.min(requestedWidth, primary.width));
-  const height = Math.max(560, Math.min(requestedHeight, primary.height));
+  const width = Math.max(minimumWidth, Math.min(requestedWidth, primary.width));
+  const height = Math.max(MAIN_WINDOW_MIN_HEIGHT, Math.min(requestedHeight, primary.height));
   const requested = {
     width,
     height,
@@ -1828,6 +1868,13 @@ function setCompact(value) {
   const previous = settings;
   const previousBounds = mainWindow.getBounds();
   const expandedBounds = compact ? previousBounds : settings.expandedBounds;
+  const nextMinimumWidth = Math.min(
+    compact ? MAIN_WINDOW_COMPACT_MIN_WIDTH : MAIN_WINDOW_EXPANDED_MIN_WIDTH,
+    screen.getPrimaryDisplay().workArea.width,
+  );
+  if (compact) {
+    mainWindow.setMinimumSize(nextMinimumWidth, MAIN_WINDOW_MIN_HEIGHT);
+  }
   if (compact) {
     mainWindow.setBounds(visibleWindowBounds(previousBounds, true));
   } else if (expandedBounds) {
@@ -1835,9 +1882,24 @@ function setCompact(value) {
   } else {
     mainWindow.setBounds(visibleWindowBounds({ width: 1380, height: 860 }, false));
   }
+  if (!compact) {
+    mainWindow.setMinimumSize(nextMinimumWidth, MAIN_WINDOW_MIN_HEIGHT);
+  }
   const next = { ...settings, compact, expandedBounds };
   if (!tryPersistSettings(next)) {
+    const previousMinimumWidth = Math.min(
+      previous.compact
+        ? MAIN_WINDOW_COMPACT_MIN_WIDTH
+        : MAIN_WINDOW_EXPANDED_MIN_WIDTH,
+      screen.getPrimaryDisplay().workArea.width,
+    );
+    if (previous.compact) {
+      mainWindow.setMinimumSize(previousMinimumWidth, MAIN_WINDOW_MIN_HEIGHT);
+    }
     mainWindow.setBounds(previousBounds);
+    if (!previous.compact) {
+      mainWindow.setMinimumSize(previousMinimumWidth, MAIN_WINDOW_MIN_HEIGHT);
+    }
     settings = previous;
     broadcastSettings();
     return;
@@ -5203,6 +5265,32 @@ function visibleToolkitOverlayBounds(savedBounds, drawing) {
   };
 }
 
+function clearToolkitPersistenceWarning() {
+  if (!toolkitPersistenceWarning) return;
+  toolkitPersistenceWarning = "";
+  updateTrayMenu();
+}
+
+function recordToolkitPersistenceWarning(error) {
+  if (toolkitPersistenceWarning || app.isQuitting) return;
+  const detail = String(error?.message || error || "unknown storage error")
+    .replace(/[\0\r\n]/g, " ")
+    .slice(0, 180);
+  toolkitPersistenceWarning = `Toolkit window position could not be saved: ${detail}`;
+  console.warn(toolkitPersistenceWarning);
+  updateTrayMenu();
+  try {
+    tray?.displayBalloon({
+      title: "Toolkit storage needs attention",
+      content: "A Toolkit window position could not be saved. Open Player toolkit to review storage status or recovery options.",
+      iconType: "warning",
+      noSound: true,
+    });
+  } catch {
+    // The tray menu retains the same status when Windows notifications are unavailable.
+  }
+}
+
 function persistToolkitOverlayBounds(kind, window) {
   clearTimeout(toolkitOverlayGeometryTimers.get(kind));
   toolkitOverlayGeometryTimers.set(kind, setTimeout(() => {
@@ -5210,10 +5298,15 @@ function persistToolkitOverlayBounds(kind, window) {
     if (app.isQuitting || window.isDestroyed()) return;
     const store = getToolkitRuntimeStore();
     const current = store.get();
-    store.save({
-      ...current,
-      overlayBounds: { ...current.overlayBounds, [kind]: window.getBounds() },
-    });
+    try {
+      store.save({
+        ...current,
+        overlayBounds: { ...current.overlayBounds, [kind]: window.getBounds() },
+      });
+      clearToolkitPersistenceWarning();
+    } catch (error) {
+      recordToolkitPersistenceWarning(error);
+    }
   }, 250));
 }
 
@@ -5385,8 +5478,13 @@ function createWindow() {
     height: bounds.height,
     x: bounds.x,
     y: bounds.y,
-    minWidth: 460,
-    minHeight: 560,
+    minWidth: Math.min(
+      settings.compact
+        ? MAIN_WINDOW_COMPACT_MIN_WIDTH
+        : MAIN_WINDOW_EXPANDED_MIN_WIDTH,
+      screen.getPrimaryDisplay().workArea.width,
+    ),
+    minHeight: MAIN_WINDOW_MIN_HEIGHT,
     frame: false,
     show: false,
     backgroundColor: "#080b10",
@@ -5491,7 +5589,6 @@ app.whenReady().then(() => {
     legacyPartitionNames: LEGACY_WEALTHY_EXILE_PARTITIONS,
     currentPartitionName: "gloamcore-wealthy-exile",
   });
-  void cleanupRetiredCacheFiles();
   loadSettings();
   setImmediate(() => {
     try {
@@ -5500,7 +5597,16 @@ app.whenReady().then(() => {
       // The normal renderer request reports a precise catalog error if the build is incomplete.
     }
   });
-  void getMirrorLeagues(false).catch(() => undefined);
+  void getMirrorLeagues(false)
+    .catch(() => undefined)
+    .finally(() => {
+      setImmediate(() => void sweepEconomyCacheBestEffort());
+    });
+  const economyCacheSweepTimer = setInterval(
+    () => void sweepEconomyCacheBestEffort(),
+    ECONOMY_CACHE_SWEEP_INTERVAL_MS,
+  );
+  economyCacheSweepTimer.unref();
   getToolkitRuntimeStore();
   getMappingJournalService();
   if (getMappingJournalService().getState().settings.enabled) {
@@ -5521,6 +5627,11 @@ app.whenReady().then(() => {
   tray = new Tray(createTrayIcon());
   tray.setToolTip("GloamCore - click for the market panel");
   tray.on("click", handleTrayClick);
+  tray.on("balloon-click", () => {
+    if (toolkitPersistenceWarning) {
+      showMainWindow({ type: "open-mode", mode: "toolkit" });
+    }
+  });
   updateTrayMenu();
 
   updateService = new UpdateService({
@@ -5723,10 +5834,6 @@ function sanitizeSurfaceState(value) {
     throw new Error("Invalid surface state.");
   }
   const league = limitedString(value.league, 100);
-  const searchRows = (Array.isArray(value.searchRows) ? value.searchRows : [])
-    .slice(0, 6000)
-    .map((row) => sanitizeQuickRow(row, league))
-    .filter(Boolean);
   const topMovers = (Array.isArray(value.topMovers) ? value.topMovers : [])
     .slice(0, 5)
     .map((row) => sanitizeQuickRow(row, league))
@@ -5760,6 +5867,7 @@ function sanitizeSurfaceState(value) {
   return {
     league,
     categoryLabel: limitedString(value.categoryLabel, 100),
+    searchRevision: Math.max(0, Math.floor(finiteNumber(value.searchRevision))),
     fetchedAt:
       value.fetchedAt == null ? undefined : Math.max(0, finiteNumber(value.fetchedAt)),
     stale: Boolean(value.stale),
@@ -5771,7 +5879,6 @@ function sanitizeSurfaceState(value) {
     alertCount: Math.max(0, Math.floor(finiteNumber(value.alertCount))),
     alerts,
     topMovers,
-    searchRows,
     commands,
     update: surfaceState.update,
   };
@@ -5868,15 +5975,10 @@ function validateSurfaceAction(action) {
     };
   }
   if (action.type === "open-row") {
-    const allowedSources = new Set([
-      "exchange",
-      "stash-item",
-      "stash-currency",
-    ]);
     const league = limitedString(action.league, 100);
     const categoryId = limitedString(action.categoryId, 100);
     const rowKey = limitedString(action.rowKey);
-    if (!league || !categoryId || !rowKey || !allowedSources.has(action.source)) {
+    if (!league || !categoryId || !rowKey || !isAllowedSurfaceSource(action.source)) {
       throw new Error("Invalid row navigation action.");
     }
     return {
@@ -6104,7 +6206,9 @@ ipcMain.handle("toolkit:get-workspace", (event) => {
 
 ipcMain.handle("toolkit:recover-workspace", (event) => {
   assertDashboardSender(event);
-  return getToolkitRuntimeStore().recover();
+  const recovered = getToolkitRuntimeStore().recover();
+  clearToolkitPersistenceWarning();
+  return recovered;
 });
 
 ipcMain.handle("toolkit:save-workspace", (event, value) => {
@@ -6113,7 +6217,8 @@ ipcMain.handle("toolkit:save-workspace", (event, value) => {
   const toolkitOverlay = [...toolkitOverlayWindows.values()].some((entry) => entry.webContents === event.sender);
   const workspace = toolkitOverlay
     ? store.save({ ...store.get(), whiteboard: value?.whiteboard })
-    : store.save(value);
+    : store.save(workspaceWithCurrentOverlayBounds(store.get(), value));
+  clearToolkitPersistenceWarning();
   if (toolkitOverlay) return { workspace, failures: [] };
   const failures = syncToolkitMacroShortcuts(workspace);
   syncToolkitStashScroll(workspace);
@@ -6466,7 +6571,12 @@ ipcMain.handle("settings:save", (event, patch) => {
   }
   if (!tryPersistSettings(nextSettings)) {
     if (shortcutChanged) {
-      applyShortcutRegistrationPlan(previousSettings, nextSettings);
+      const rollback = applyShortcutRegistrationPlan(previousSettings, nextSettings);
+      if (!rollback.ok) {
+        publishDesktopShortcutWarning(
+          `Settings were not saved, and every previous shortcut could not be reactivated. ${rollback.error}`,
+        );
+      }
     }
     broadcastSettings();
     return settingsForRenderer();
@@ -6566,6 +6676,24 @@ ipcMain.handle("surface:publish-state", (event, value) => {
   }
   surfaceState = sanitizeSurfaceState(value);
   broadcastSurfaceState();
+});
+
+ipcMain.handle("surface:update-search-index", (event, update) => {
+  assertDashboardSender(event);
+  quickSearchIndex.apply(update);
+});
+
+ipcMain.handle("surface:search", (event, query, limit) => {
+  assertTrustedSender(event);
+  if (!quickWindow || event.sender !== quickWindow.webContents) {
+    throw new Error("Only command search can query the market index.");
+  }
+  return quickSearchIndex.search(
+    query,
+    limit,
+    surfaceState.league,
+    MAX_MARKET_STALE_MS,
+  );
 });
 
 ipcMain.handle("surface:get-state", (event) => {

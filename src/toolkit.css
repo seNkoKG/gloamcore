@@ -303,6 +303,7 @@ html[data-toolkit-density="comfortable"] .macro-table > div { min-height:54px; }
 @media(max-width:1050px){.theme-workspace,.plugin-grid{grid-template-columns:1fr}.plugin-grid>aside{border-right:0;border-bottom:1px solid var(--line)}}
 @media(max-width:760px){
   .toolkit-header{flex-direction:column;padding:18px}.toolkit-safety{white-space:normal}.toolkit-tabs{padding:8px 12px}.toolkit-content{padding:12px}
+  .toolkit-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.toolkit-tabs::-webkit-scrollbar{display:none}.toolkit-tabs button{flex:0 0 auto;min-height:40px}
   .toolkit-toolbar>span{width:100%;margin-left:0}.filter-grid{grid-template-columns:minmax(0,1fr);min-height:0}.filter-tier-list{max-height:220px}.filter-side-card{grid-column:auto;grid-template-columns:1fr}.filter-side-card section+section{padding:14px 0 0;border-top:1px solid var(--line);border-left:0}.toolkit-form-grid{grid-template-columns:1fr}
   .recolor-workbench{grid-template-columns:minmax(0,1fr)}.recolor-config,.recolor-results{min-width:0;padding:11px}.recolor-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.recolor-table-head,.recolor-row{grid-template-columns:minmax(110px,1.2fr) .7fr .9fr .55fr}
   .audit-controls{grid-template-columns:1fr 1fr}.audit-table-head,.audit-table>label{grid-template-columns:28px minmax(150px,1fr) 85px 110px}.economy-explorer-grid,.card-ev-grid{grid-template-columns:minmax(0,1fr)}

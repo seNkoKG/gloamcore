@@ -11,6 +11,7 @@ import type {
   RawStashCurrencyOverview,
   RawWikiCargoResponse,
   RawWikiImageInfoResponse,
+  SurfaceSearchIndexGroup,
   SurfaceState,
   ToolkitWorkspace,
   UpdateState,
@@ -35,6 +36,7 @@ import {
 import type { PoeNinjaMirrorManifest } from "./poe-ninja-mirror";
 import { isNativeMobile } from "./platform";
 import { defaultPriceCheckSettings } from "./price-check/types";
+import { searchQuickRows } from "./quick-search";
 import {
   cloneDesktopSettings,
   mergeDesktopSettingsPatch,
@@ -75,15 +77,18 @@ const browserUpdateState: UpdateState = {
 let browserSurfaceState: SurfaceState = {
   league: "",
   categoryLabel: "Currency",
+  searchRevision: 0,
   stale: false,
   loading: true,
   alertCount: 0,
   alerts: [],
   topMovers: [],
-  searchRows: [],
   commands: [],
   update: browserUpdateState,
 };
+let browserSearchPublisherId = "";
+let browserSearchRevision = 0;
+const browserSearchGroups = new Map<string, SurfaceSearchIndexGroup>();
 
 const browserCache = new Map<
   string,
@@ -861,6 +866,33 @@ const browserBridge: PoeWidgetBridge = {
   },
   async publishSurfaceState(state) {
     browserSurfaceState = { ...state, update: browserUpdateState };
+  },
+  async updateSurfaceSearchIndex(update) {
+    if (update.publisherId !== browserSearchPublisherId) {
+      browserSearchGroups.clear();
+      browserSearchPublisherId = update.publisherId;
+      browserSearchRevision = 0;
+    }
+    if (update.revision <= browserSearchRevision) return;
+    if (!update.reset && update.revision !== browserSearchRevision + 1) {
+      throw new Error("Quick-search index revision gap requires a full reset.");
+    }
+    if (update.reset) browserSearchGroups.clear();
+    for (const id of update.remove) browserSearchGroups.delete(id);
+    for (const group of update.replace) {
+      browserSearchGroups.delete(group.id);
+      browserSearchGroups.set(group.id, group);
+    }
+    browserSearchRevision = update.revision;
+  },
+  async searchSurfaceRows(query, limit = 50) {
+    return searchQuickRows(
+      [...browserSearchGroups.values()].flatMap((group) => group.rows),
+      query,
+      limit,
+      browserSurfaceState.league,
+      browserSearchRevision,
+    );
   },
   async getSurfaceState() {
     return browserSurfaceState;

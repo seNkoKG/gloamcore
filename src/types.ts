@@ -397,6 +397,8 @@ export interface DesktopSettings {
   priceCheck: import("./lib/price-check/types").PriceCheckSettings;
   /** Runtime-only warning when Windows refused a configured global binding. */
   shortcutWarning?: string;
+  /** Runtime-only warning when desktop settings storage is degraded or locked. */
+  storageWarning?: string;
   /** Monotonic runtime snapshot version; never persisted or accepted in patches. */
   settingsRevision?: number;
   bounds?: unknown;
@@ -414,7 +416,7 @@ export interface DesktopShortcutSettings {
 export type DesktopSettingsPatch = Partial<
   Omit<
     DesktopSettings,
-    "priceCheck" | "shortcuts" | "settingsRevision" | "shortcutWarning"
+    "priceCheck" | "shortcuts" | "settingsRevision" | "shortcutWarning" | "storageWarning"
   >
 > & {
   shortcuts?: Partial<DesktopShortcutSettings>;
@@ -508,6 +510,32 @@ export interface QuickCommand {
   resourceId?: string;
 }
 
+export interface SurfaceSearchIndexGroup {
+  id: string;
+  league: string;
+  fetchedAt: number;
+  rows: QuickSearchRow[];
+}
+
+export interface SurfaceSearchIndexUpdate {
+  publisherId: string;
+  revision: number;
+  reset?: boolean;
+  replace: SurfaceSearchIndexGroup[];
+  remove: string[];
+}
+
+export interface SurfaceSearchResult {
+  rows: QuickSearchRow[];
+  total: number;
+  truncated: boolean;
+  indexedTotal: number;
+  indexTruncated: boolean;
+  marketCount: number;
+  league: string;
+  revision: number;
+}
+
 export interface SurfaceAlert {
   key: string;
   name: string;
@@ -573,6 +601,7 @@ export interface WorkspaceImportResult {
 export interface SurfaceState {
   league: string;
   categoryLabel: string;
+  searchRevision: number;
   fetchedAt?: number;
   stale: boolean;
   loading: boolean;
@@ -580,7 +609,6 @@ export interface SurfaceState {
   alertCount: number;
   alerts: SurfaceAlert[];
   topMovers: QuickSearchRow[];
-  searchRows: QuickSearchRow[];
   commands: QuickCommand[];
   update: UpdateState;
 }
@@ -1361,6 +1389,8 @@ export interface PoeWidgetBridge {
   saveSettings(patch: DesktopSettingsPatch): Promise<DesktopSettings>;
   windowAction(action: string, payload?: unknown): Promise<DesktopSettings | null>;
   publishSurfaceState(state: Omit<SurfaceState, "update">): Promise<void>;
+  updateSurfaceSearchIndex(update: SurfaceSearchIndexUpdate): Promise<void>;
+  searchSurfaceRows(query: string, limit?: number): Promise<SurfaceSearchResult>;
   getSurfaceState(): Promise<SurfaceState>;
   surfaceAction(action: SurfaceAction): Promise<void>;
   getUpdateState(): Promise<UpdateState>;

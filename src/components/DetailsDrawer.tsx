@@ -17,7 +17,7 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import type { EconomyRow, ItemTooltipData, WatchEntry } from "../types";
 import {
   formatCompact,
@@ -30,6 +30,7 @@ import { bridge } from "../lib/bridge";
 import { loadItemTooltip } from "../lib/item-tooltip";
 import { summarizeItemTooltip } from "../lib/item-tooltip-data";
 import { normalizeTargetPrice } from "../lib/watchlist";
+import { useDialogFocus } from "../lib/dialog-focus";
 import { craftOfExileUrl, isCraftableMarketRow } from "../lib/knowledge";
 import { CurrencyMark } from "./CurrencyMark";
 import { Sparkline } from "./Sparkline";
@@ -58,6 +59,8 @@ export function DetailsDrawer({
   row,
   league,
   watch,
+  modal = false,
+  restoreFocusRef,
   onClose,
   onToggleWatch,
   onSaveWatch,
@@ -65,10 +68,17 @@ export function DetailsDrawer({
   row: EconomyRow;
   league: string;
   watch?: WatchEntry;
+  modal?: boolean;
+  restoreFocusRef?: RefObject<HTMLElement>;
   onClose: () => void;
   onToggleWatch: (row: EconomyRow) => void;
   onSaveWatch: (watch: WatchEntry) => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLElement>({
+    modal,
+    onDismiss: onClose,
+    restoreFocusRef,
+  });
   const [targetPrice, setTargetPrice] = useState(
     watch?.targetPrice == null ? "" : String(watch.targetPrice),
   );
@@ -162,14 +172,27 @@ export function DetailsDrawer({
   };
 
   return (
-    <aside className="details-drawer" aria-label={`${row.name} details`}>
+    <aside
+      ref={dialogRef}
+      className="details-drawer"
+      role="dialog"
+      aria-modal={modal || undefined}
+      aria-labelledby="market-details-dialog-title"
+      tabIndex={-1}
+    >
       <div className="details-topline">
         <div>
           <span>{row.categoryLabel}</span>
           <i>•</i>
           <span>{sourceLabel}</span>
         </div>
-        <button type="button" onClick={onClose} title="Close details">
+        <button
+          type="button"
+          onClick={onClose}
+          title="Close details"
+          aria-label="Close details"
+          data-dialog-initial-focus
+        >
           <X size={17} />
         </button>
       </div>
@@ -179,7 +202,7 @@ export function DetailsDrawer({
           {row.icon ? <img src={row.icon} alt="" /> : <span>{row.name[0]}</span>}
         </div>
         <div>
-          <h2>{row.name}</h2>
+          <h2 id="market-details-dialog-title">{row.name}</h2>
           {row.variant && <strong>{row.variant}</strong>}
           {row.baseType && <p>{row.baseType}</p>}
         </div>

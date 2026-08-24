@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -145,5 +146,18 @@ describe("main-process shortcut settings", () => {
     expect(result.failures).toEqual([{ key: "search", accelerator: "Ctrl+F9" }]);
     expect(result.registered).toEqual({ widget: "Ctrl+F8", click: "Ctrl+F10" });
     expect([...registry.active].sort()).toEqual(["Ctrl+F10", "Ctrl+F8"]);
+  });
+
+  it("surfaces an incomplete shortcut rollback after persistence failure", () => {
+    const source = readFileSync(
+      new URL("../electron/main.cjs", import.meta.url),
+      "utf8",
+    );
+    const settingsSave = /ipcMain\.handle\("settings:save"[\s\S]*?\n}\);/.exec(source)?.[0];
+    expect(settingsSave).toContain(
+      "const rollback = applyShortcutRegistrationPlan(previousSettings, nextSettings)",
+    );
+    expect(settingsSave).toContain("if (!rollback.ok)");
+    expect(settingsSave).toContain("publishDesktopShortcutWarning");
   });
 });

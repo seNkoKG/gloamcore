@@ -18,9 +18,9 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import { bridge } from "../lib/bridge";
-import { loadGameData } from "../lib/game-data";
+import { useDialogFocus } from "../lib/dialog-focus";
 import { isMobileApp } from "../lib/platform";
 import {
   applyWorkspaceStorage,
@@ -52,6 +52,8 @@ export function SettingsDrawer({
   reducedMotion,
   colorVision,
   refreshMinutes,
+  modal = false,
+  restoreFocusRef,
   onClose,
   onSettings,
   onDensity,
@@ -68,6 +70,8 @@ export function SettingsDrawer({
   reducedMotion: boolean;
   colorVision: ColorVisionMode;
   refreshMinutes: number;
+  modal?: boolean;
+  restoreFocusRef?: RefObject<HTMLElement>;
   onClose: () => void;
   onSettings: (patch: Partial<DesktopSettings>) => Promise<void>;
   onDensity: (density: Density) => void;
@@ -77,6 +81,11 @@ export function SettingsDrawer({
   onColorVision: (mode: ColorVisionMode) => void;
   onRefreshMinutes: (minutes: number) => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLElement>({
+    modal,
+    onDismiss: onClose,
+    restoreFocusRef,
+  });
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const savedShortcutDraft = useMemo<ShortcutDraft>(() => ({
     ...settings.shortcuts,
@@ -112,16 +121,34 @@ export function SettingsDrawer({
   }, []);
 
   return (
-    <aside className="settings-drawer" aria-label="Widget settings">
+    <aside
+      ref={dialogRef}
+      className="settings-drawer"
+      role="dialog"
+      aria-modal={modal || undefined}
+      aria-labelledby="settings-dialog-title"
+      tabIndex={-1}
+    >
       <div className="settings-heading">
         <div>
           <span>{isMobileApp ? "GLOAMCORE" : "WIDGET CONTROL"}</span>
-          <h2>Settings</h2>
+          <h2 id="settings-dialog-title">Settings</h2>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close settings">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close settings"
+          data-dialog-initial-focus
+        >
           <X size={17} />
         </button>
       </div>
+
+      {settings.storageWarning && (
+        <p className="shortcut-save-error" role="alert">
+          {settings.storageWarning}
+        </p>
+      )}
 
       {!isMobileApp && (
         <section className="settings-section">
@@ -610,7 +637,9 @@ export function SettingsDrawer({
               setTransferStatus("");
               try {
                 const diagnostic = await bridge.diagnosePobEngine().catch(() => null);
-                const gameData = await loadGameData().catch(() => null);
+                const gameData = await import("../lib/game-data")
+                  .then((module) => module.loadGameData())
+                  .catch(() => null);
                 const result = await bridge.exportSupportBundle(supportContext({
                   theme,
                   density,

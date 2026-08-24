@@ -242,10 +242,61 @@ describe("economy normalization", () => {
   it("never promotes weak or directionally wrong rows into market pulse stats", () => {
     const rows = normalizeOverview(sample, "exchange", currency).rows;
     const weak = { ...rows[0], lowConfidence: true, change: 99, volume: 999_999 };
-    const falling = { ...rows[0], key: "falling", change: -5, volume: null };
+    const falling = { ...rows[0], key: "falling", change: -5, volume: 30 };
     const stats = marketStats([weak, falling]);
     expect(stats.gainer).toBeUndefined();
     expect(stats.loser?.key).toBe("falling");
-    expect(stats.liquid).toBeUndefined();
+    expect(stats.liquid?.key).toBe("falling");
+  });
+
+  it("rejects extreme movers whose source-aware market sample is below 20", () => {
+    const skillGems = categories.find((category) => category.id === "skill-gems")!;
+    const rows = normalizeOverview({ lines: [
+      {
+        id: 1,
+        name: "Thin Hextouch Support",
+        chaosValue: 500,
+        count: 7,
+        listingCount: 7,
+        sparkLine: { totalChange: 26_771, data: [1, 20, 268] },
+      },
+      {
+        id: 2,
+        name: "Qualified Support",
+        chaosValue: 40,
+        count: 24,
+        listingCount: 30,
+        sparkLine: { totalChange: 18, data: [1, 8, 18] },
+      },
+    ] }, "stash-item", skillGems).rows;
+
+    const stats = marketStats(rows);
+    expect(rows[0].lowConfidence).toBe(false);
+    expect(stats.gainer?.name).toBe("Qualified Support");
+    expect(stats.liquid?.name).toBe("Qualified Support");
+  });
+
+  it("uses the conservative listing and observation count for pulse eligibility", () => {
+    const skillGems = categories.find((category) => category.id === "skill-gems")!;
+    const rows = normalizeOverview({ lines: [
+      {
+        id: 1,
+        name: "Many listings, few observations",
+        chaosValue: 50,
+        count: 8,
+        listingCount: 100,
+        sparkLine: { totalChange: 80, data: [1, 4, 8] },
+      },
+      {
+        id: 2,
+        name: "Supported market",
+        chaosValue: 55,
+        count: 20,
+        listingCount: 20,
+        sparkLine: { totalChange: 10, data: [1, 2, 3] },
+      },
+    ] }, "stash-item", skillGems).rows;
+
+    expect(marketStats(rows).gainer?.name).toBe("Supported market");
   });
 });

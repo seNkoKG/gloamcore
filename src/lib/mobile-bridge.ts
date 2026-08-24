@@ -16,7 +16,9 @@ import type {
   RawStashCurrencyOverview,
   RawWikiCargoResponse,
   RawWikiImageInfoResponse,
+  SurfaceSearchIndexGroup,
   SurfaceState,
+  ToolkitWorkspace,
   UpdateState,
 } from "../types";
 import { readMobileCache, writeMobileCache } from "./mobile-cache";
@@ -56,6 +58,7 @@ import type {
 } from "./poe-ninja-mirror";
 import { resolveFaustusItemMetadata } from "./faustus";
 import { defaultPriceCheckSettings } from "./price-check/types";
+import { searchQuickRows } from "./quick-search";
 import {
   cloneDesktopSettings,
   createSerialTaskQueue,
@@ -98,6 +101,9 @@ function isStoredKnowledgeArtwork(value: unknown): value is StoredKnowledgeArtwo
 }
 
 const SETTINGS_KEY = "desktop-settings";
+const TOOLKIT_WORKSPACE_KEY = "toolkit-workspace-v1";
+const MAX_MOBILE_TOOLKIT_BYTES = 2 * 1024 * 1024;
+const MAX_MOBILE_TOOLKIT_IMAGE_CHARS = 512 * 1024;
 const DEFAULT_TTL = 15 * 60 * 1000;
 const MAX_MARKET_STALE_MS = 2 * 60 * 60 * 1000;
 const MARKET_CACHE_VERSION = "v3-mirror";
@@ -130,18 +136,294 @@ const mobileUpdateState: UpdateState = {
 let mobileSurfaceState: SurfaceState = {
   league: "",
   categoryLabel: "Currency",
+  searchRevision: 0,
   stale: false,
   loading: true,
   alertCount: 0,
   alerts: [],
   topMovers: [],
-  searchRows: [],
   commands: [],
   update: mobileUpdateState,
 };
+let mobileSearchPublisherId = "";
+let mobileSearchRevision = 0;
+const mobileSearchGroups = new Map<string, SurfaceSearchIndexGroup>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function mobileToolkitDefaults(): ToolkitWorkspace {
+  return {
+    version: 1,
+    macros: [],
+    cheatSheets: [],
+    theme: { accent: "#35d9b5", background: "#080f14", density: "compact" },
+    whiteboard: { strokes: [], snapshots: [] },
+    overlayBounds: {},
+    stashScroll: { enabled: false, modifier: "Ctrl" },
+    plugins: [],
+  };
+}
+
+function toolkitText(value: unknown, maximum: number) {
+  return typeof value === "string"
+    ? value.replace(/\0/g, "").trim().slice(0, maximum)
+    : "";
+}
+
+function toolkitId(value: unknown) {
+  return toolkitText(value, 80).replace(/[^a-z0-9_.-]/gi, "-") || crypto.randomUUID();
+}
+
+function toolkitHttpsUrl(value: unknown) {
+  const text = toolkitText(value, 2_048);
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    return url.protocol === "https:" && !url.username && !url.password
+      ? url.toString()
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function toolkitImage(value: unknown) {
+  const image = typeof value === "string" ? value : "";
+  return image.length <= MAX_MOBILE_TOOLKIT_IMAGE_CHARS &&
+    /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(image)
+    ? image
+    : "";
+}
+
+function toolkitBoardElements(value: unknown) {
+  const tools = new Set([
+    "free", "highlighter", "line", "rect", "circle", "arrow", "triangle",
+    "text", "image", "ruler", "radius", "mirror",
+  ]);
+  if (!Array.isArray(value)) return [];
+  return value.slice(-500).flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.tool !== "string" || !tools.has(entry.tool)) {
+      return [];
+    }
+    const points = (Array.isArray(entry.points) ? entry.points : [])
+      .slice(0, 2_000)
+      .flatMap((point) => {
+        if (!isRecord(point)) return [];
+        const x = Number(point.x);
+        const y = Number(point.y);
+        return Number.isFinite(x) && Number.isFinite(y)
+          ? [{
+              x: Math.max(-10_000, Math.min(10_000, x)),
+              y: Math.max(-10_000, Math.min(10_000, y)),
+            }]
+          : [];
+      });
+    if (!points.length) return [];
+    const base = {
+      id: toolkitId(entry.id),
+      tool: entry.tool,
+      color:
+        typeof entry.color === "string" && /^#[0-9a-f]{6}$/i.test(entry.color)
+          ? entry.color
+          : "#35d9b5",
+      width: Math.max(1, Math.min(40, Number(entry.width) || 3)),
+      points,
+    };
+    if (entry.tool === "text") {
+      const text = typeof entry.text === "string"
+        ? entry.text.replace(/\0/g, "").slice(0, 4_000)
+        : "";
+      return text
+        ? [{
+            ...base,
+            text,
+            fontSize: Math.max(8, Math.min(144, Number(entry.fontSize) || 24)),
+          }]
+        : [];
+    }
+    if (entry.tool === "image") {
+      const src = toolkitImage(entry.src);
+      return src && points.length >= 2 ? [{ ...base, src }] : [];
+    }
+    if (entry.tool === "mirror") {
+      const source = isRecord(entry.source)
+        ? {
+            x: Math.max(0, Math.min(1, Number(entry.source.x) || 0)),
+            y: Math.max(0, Math.min(1, Number(entry.source.y) || 0)),
+            w: Math.max(0.01, Math.min(1, Number(entry.source.w) || 0.25)),
+            h: Math.max(0.01, Math.min(1, Number(entry.source.h) || 0.25)),
+          }
+        : { x: 0, y: 0, w: 0.25, h: 0.25 };
+      return points.length >= 2 ? [{ ...base, source }] : [];
+    }
+    return [{ ...base }];
+  });
+}
+
+function toolkitPluginStorage(value: unknown) {
+  if (!isRecord(value)) return {};
+  const result: Record<string, string> = {};
+  let total = 0;
+  for (const [rawKey, rawValue] of Object.entries(value).slice(0, 64)) {
+    if (typeof rawValue !== "string") continue;
+    const key = toolkitText(rawKey, 80).replace(/[^a-z0-9_.:-]/gi, "-");
+    const clean = rawValue.replace(/\0/g, "").slice(0, 16 * 1024);
+    if (!key || total + key.length + clean.length > 128 * 1024) break;
+    result[key] = clean;
+    total += key.length + clean.length;
+  }
+  return result;
+}
+
+export function sanitizeStoredMobileToolkitWorkspace(value: unknown): ToolkitWorkspace {
+  if (!isRecord(value) || value.version !== 1) {
+    throw new Error("The saved mobile toolkit workspace has an unsupported format.");
+  }
+  const theme = isRecord(value.theme) ? value.theme : {};
+  const whiteboard = isRecord(value.whiteboard) ? value.whiteboard : {};
+  const stashScroll = isRecord(value.stashScroll) ? value.stashScroll : {};
+  const macroIds = new Set<string>();
+  const sheetIds = new Set<string>();
+  const pluginIds = new Set<string>();
+  const uniqueId = (raw: unknown, seen: Set<string>) => {
+    let id = toolkitId(raw);
+    while (seen.has(id)) id = crypto.randomUUID();
+    seen.add(id);
+    return id;
+  };
+
+  return {
+    version: 1,
+    macros: (Array.isArray(value.macros) ? value.macros : [])
+      .slice(0, 24)
+      .flatMap((entry) => {
+        if (!isRecord(entry)) return [];
+        const hotkey = toolkitText(entry.hotkey, 80);
+        const text = toolkitText(entry.text, 512);
+        if (!hotkey || !text) return [];
+        return [{
+          id: uniqueId(entry.id, macroIds),
+          label: toolkitText(entry.label, 80) || text,
+          hotkey,
+          text,
+          enabled: Boolean(entry.enabled),
+        }];
+      }),
+    cheatSheets: (Array.isArray(value.cheatSheets) ? value.cheatSheets : [])
+      .slice(0, 40)
+      .flatMap((entry) => {
+        if (!isRecord(entry)) return [];
+        const title = toolkitText(entry.title, 100);
+        if (!title) return [];
+        return [{
+          id: uniqueId(entry.id, sheetIds),
+          title,
+          category: toolkitText(entry.category, 80) || "General",
+          body: typeof entry.body === "string"
+            ? entry.body.replace(/\0/g, "").slice(0, 20_000)
+            : "",
+          url: toolkitHttpsUrl(entry.url),
+          image: toolkitImage(entry.image),
+          pinned: Boolean(entry.pinned),
+        }];
+      }),
+    theme: {
+      accent: typeof theme.accent === "string" && /^#[0-9a-f]{6}$/i.test(theme.accent)
+        ? theme.accent
+        : "#35d9b5",
+      background:
+        typeof theme.background === "string" && /^#[0-9a-f]{6}$/i.test(theme.background)
+          ? theme.background
+          : "#080f14",
+      density: theme.density === "comfortable" ? "comfortable" : "compact",
+    },
+    whiteboard: {
+      strokes: toolkitBoardElements(whiteboard.strokes),
+      snapshots: (Array.isArray(whiteboard.snapshots) ? whiteboard.snapshots : [])
+        .slice(-24)
+        .flatMap((entry) => {
+          if (!isRecord(entry)) return [];
+          const name = toolkitText(entry.name, 100);
+          if (!name) return [];
+          const createdAt = Number(entry.createdAt);
+          return [{
+            id: toolkitId(entry.id),
+            name,
+            createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+            strokes: toolkitBoardElements(entry.strokes),
+          }];
+        }),
+    },
+    overlayBounds: {},
+    stashScroll: {
+      enabled: Boolean(stashScroll.enabled),
+      modifier:
+        stashScroll.modifier === "Shift" || stashScroll.modifier === "Alt"
+          ? stashScroll.modifier
+          : "Ctrl",
+    },
+    plugins: (Array.isArray(value.plugins) ? value.plugins : [])
+      .slice(0, 20)
+      .flatMap((entry) => {
+        if (!isRecord(entry)) return [];
+        const name = toolkitText(entry.name, 80);
+        if (!name) return [];
+        const url = toolkitHttpsUrl(entry.url);
+        const permissions = isRecord(entry.permissions) ? entry.permissions : {};
+        return [{
+          id: uniqueId(entry.id, pluginIds),
+          name,
+          url,
+          enabled: Boolean(entry.enabled && url),
+          permissions: {
+            currentItem: Boolean(permissions.currentItem),
+            gameCapture: Boolean(permissions.gameCapture),
+            openExternal: Boolean(permissions.openExternal),
+          },
+          storage: toolkitPluginStorage(entry.storage),
+        }];
+      }),
+  };
+}
+
+export function serializeMobileToolkitWorkspace(value: unknown) {
+  const workspace = sanitizeStoredMobileToolkitWorkspace(value);
+  const serialized = JSON.stringify(workspace);
+  if (new TextEncoder().encode(serialized).byteLength > MAX_MOBILE_TOOLKIT_BYTES) {
+    throw new Error(
+      "The toolkit workspace exceeds the 2 MB safety limit. Remove some images before saving.",
+    );
+  }
+  return { workspace, serialized };
+}
+
+const mobileToolkitSaveQueue = createSerialTaskQueue<
+  ToolkitWorkspace,
+  {
+    workspace: ToolkitWorkspace;
+    failures: Array<{ id: string; hotkey: string; error: string }>;
+  }
+>(async (value) => {
+  const { workspace, serialized } = serializeMobileToolkitWorkspace(value);
+  await Preferences.set({ key: TOOLKIT_WORKSPACE_KEY, value: serialized });
+  return { workspace, failures: [] };
+});
+
+async function readMobileToolkitWorkspace() {
+  await mobileToolkitSaveQueue.waitForIdle();
+  const { value } = await Preferences.get({ key: TOOLKIT_WORKSPACE_KEY });
+  if (!value) return mobileToolkitDefaults();
+  if (new TextEncoder().encode(value).byteLength > MAX_MOBILE_TOOLKIT_BYTES) {
+    throw new Error("The saved mobile toolkit workspace exceeds the 2 MB safety limit.");
+  }
+  try {
+    return sanitizeStoredMobileToolkitWorkspace(JSON.parse(value));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`The saved mobile toolkit workspace could not be loaded: ${detail}`);
+  }
 }
 
 function isRecordArray(value: unknown): value is Array<Record<string, unknown>> {
@@ -952,22 +1234,22 @@ export const mobileBridge: PoeWidgetBridge = {
     return {};
   },
   async getToolkitWorkspace() {
-    return {
-      version: 1,
-      macros: [],
-      cheatSheets: [],
-      theme: { accent: "#35d9b5", background: "#080f14", density: "compact" },
-      whiteboard: { strokes: [], snapshots: [] },
-      overlayBounds: {},
-      stashScroll: { enabled: false, modifier: "Ctrl" },
-      plugins: [],
-    };
+    return readMobileToolkitWorkspace();
   },
   async recoverToolkitWorkspace() {
-    return { workspace: await mobileBridge.getToolkitWorkspace(), backupName: null };
+    await mobileToolkitSaveQueue.waitForIdle();
+    const { value } = await Preferences.get({ key: TOOLKIT_WORKSPACE_KEY });
+    const backupName = value
+      ? `${TOOLKIT_WORKSPACE_KEY}:recovered:${Date.now()}`
+      : null;
+    if (value && backupName) {
+      await Preferences.set({ key: backupName, value });
+    }
+    await Preferences.remove({ key: TOOLKIT_WORKSPACE_KEY });
+    return { workspace: mobileToolkitDefaults(), backupName };
   },
   async saveToolkitWorkspace(value) {
-    return { workspace: value, failures: [] };
+    return mobileToolkitSaveQueue.run(value);
   },
   async showToolkitOverlay() {
     throw new Error("Game overlays require the Windows desktop app.");
@@ -1047,6 +1329,33 @@ export const mobileBridge: PoeWidgetBridge = {
   },
   async publishSurfaceState(state) {
     mobileSurfaceState = { ...state, update: mobileUpdateState };
+  },
+  async updateSurfaceSearchIndex(update) {
+    if (update.publisherId !== mobileSearchPublisherId) {
+      mobileSearchGroups.clear();
+      mobileSearchPublisherId = update.publisherId;
+      mobileSearchRevision = 0;
+    }
+    if (update.revision <= mobileSearchRevision) return;
+    if (!update.reset && update.revision !== mobileSearchRevision + 1) {
+      throw new Error("Quick-search index revision gap requires a full reset.");
+    }
+    if (update.reset) mobileSearchGroups.clear();
+    for (const id of update.remove) mobileSearchGroups.delete(id);
+    for (const group of update.replace) {
+      mobileSearchGroups.delete(group.id);
+      mobileSearchGroups.set(group.id, group);
+    }
+    mobileSearchRevision = update.revision;
+  },
+  async searchSurfaceRows(query, limit = 50) {
+    return searchQuickRows(
+      [...mobileSearchGroups.values()].flatMap((group) => group.rows),
+      query,
+      limit,
+      mobileSurfaceState.league,
+      mobileSearchRevision,
+    );
   },
   async getSurfaceState() {
     return mobileSurfaceState;
