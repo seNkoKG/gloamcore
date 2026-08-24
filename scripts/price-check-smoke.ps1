@@ -427,10 +427,12 @@ Add-Type -AssemblyName System.Drawing
 )
 `$form = New-Object System.Windows.Forms.Form
 `$timer = New-Object System.Windows.Forms.Timer
-`$copySurface = New-Object System.Windows.Forms.TextBox
 try {
   [System.Windows.Forms.Application]::EnableVisualStyles()
   `$work = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+  # Keep every machine on the short-work-area path. Component tests cover the
+  # unconstrained layout; native QA proves the adaptive constrained card.
+  `$targetHeight = [Math]::Min(660, [Math]::Max(600, `$work.Height - 60))
   `$form.Text = `$title
   `$form.ShowInTaskbar = `$true
   `$form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
@@ -438,19 +440,23 @@ try {
     `$work.X + 30,
     `$work.Y + 30,
     [Math]::Max(800, `$work.Width - 60),
-    [Math]::Max(600, `$work.Height - 60)
+    `$targetHeight
   )
   `$form.Opacity = 0.05
   `$form.BackColor = [System.Drawing.Color]::Black
   `$form.KeyPreview = `$true
-  `$copySurface.Multiline = `$true
-  `$copySurface.ReadOnly = `$true
-  `$copySurface.BorderStyle = [System.Windows.Forms.BorderStyle]::None
-  `$copySurface.BackColor = [System.Drawing.Color]::Black
-  `$copySurface.ForeColor = [System.Drawing.Color]::Black
-  `$copySurface.Dock = [System.Windows.Forms.DockStyle]::Fill
-  `$copySurface.Text = `$fixture
-  `$form.Controls.Add(`$copySurface)
+  `$form.Tag = `$fixture
+  `$form.Add_KeyDown({
+    param(`$sender, `$eventArgs)
+    if (
+      `$eventArgs.Control -and
+      `$eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::C
+    ) {
+      [System.Windows.Forms.Clipboard]::SetText([string]`$sender.Tag)
+      `$eventArgs.Handled = `$true
+      `$eventArgs.SuppressKeyPress = `$true
+    }
+  })
   # Keep the synthetic PoE target alive for the complete 240-second harness.
   # Official Trade may legitimately expose a cooldown before the selected
   # query retries, and target expiry must never masquerade as an app failure.
@@ -459,8 +465,7 @@ try {
   `$form.Add_Shown({
     `$form.Activate()
     `$form.BringToFront()
-    [void]`$copySurface.Focus()
-    `$copySurface.SelectAll()
+    [void]`$form.Focus()
     `$timer.Start()
   })
   [System.Windows.Forms.Application]::Run(`$form)
@@ -675,21 +680,29 @@ try {
           $nativeAltTabRequest.phase -eq "focus-target" -and
           $qaSwitchForegroundVerified
         ) {
-          if ([GloamCoreQaWindow]::GetForegroundWindow() -ne $qaTargetWindow) {
-            [void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)
+          # Require a real unrelated-to-target foreground transition. If the
+          # unrelated window lost focus, restore that known starting point
+          # before moving to the target instead of accepting auto-promotion.
+          $foregroundBeforeTarget = [GloamCoreQaWindow]::GetForegroundWindow()
+          if ($foregroundBeforeTarget -ne $qaSwitchWindow) {
+            [void][GloamCoreQaWindow]::ForceForegroundWindow($qaSwitchWindow)
+            $foregroundBeforeTarget = [GloamCoreQaWindow]::GetForegroundWindow()
           }
-          if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
-            if (-not $qaTargetReturnVerified) {
-              $qaTargetReturnVerified = $true
-              $nativeAltTabAck = [ordered]@{
-                phase = "target-focused"
-                hwnd = [string]$qaTargetWindow.ToInt64()
-              } | ConvertTo-Json -Compress
-              [System.IO.File]::WriteAllText(
-                $nativeAltTabAckPath,
-                $nativeAltTabAck,
-                [Text.UTF8Encoding]::new($false)
-              )
+          if ($foregroundBeforeTarget -eq $qaSwitchWindow) {
+            [void][GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)
+            if ([GloamCoreQaWindow]::GetForegroundWindow() -eq $qaTargetWindow) {
+              if (-not $qaTargetReturnVerified) {
+                $qaTargetReturnVerified = $true
+                $nativeAltTabAck = [ordered]@{
+                  phase = "target-focused"
+                  hwnd = [string]$qaTargetWindow.ToInt64()
+                } | ConvertTo-Json -Compress
+                [System.IO.File]::WriteAllText(
+                  $nativeAltTabAckPath,
+                  $nativeAltTabAck,
+                  [Text.UTF8Encoding]::new($false)
+                )
+              }
             }
           }
         }
@@ -957,6 +970,7 @@ try {
   } else {
     $expectedMagebloodRangeSliders = if ($result.result.modifierEditorConstrained) { 0 } else { 8 }
     $expectedMagebloodControl = if ($result.result.modifierEditorConstrained) { "number" } else { "slider" }
+    $expectedMagebloodMinimum = if ($result.result.modifierEditorConstrained) { "36" } else { "38" }
     if (
       -not $result.result.modifierEditor -or
       $result.result.modifierRows -ne 4 -or
@@ -991,10 +1005,27 @@ try {
       -not $result.modifierInteraction.ready -or
       -not $result.modifierInteraction.updated -or
       $result.modifierInteraction.control -ne $expectedMagebloodControl -or
+      [string]$result.modifierInteraction.after -ne $expectedMagebloodMinimum -or
       $result.modifierInteraction.elapsedMs -gt 250 -or
       $result.modifierInteraction.horizontalOverflow -ne 0
     ) {
       throw "Canonical Mageblood bounded control was not immediately usable: $($result.modifierInteraction | ConvertTo-Json -Compress)"
+    }
+    if (
+      -not $result.postInteractionTradeState -or
+      -not $result.postInteractionTradeState.settled -or
+      -not $result.postInteractionTradeState.loadingObserved -or
+      $result.postInteractionTradeState.editorHeading -ne "1/7 STATS" -or
+      $result.postInteractionTradeState.selectedCount -ne 1 -or
+      [string]$result.postInteractionTradeState.selectedMinimumValue -ne $expectedMagebloodMinimum -or
+      $result.postInteractionTradeState.marketRows -lt 1 -or
+      $result.postInteractionTradeState.loading -or
+      $result.postInteractionTradeState.statusText -or
+      -not $result.postInteractionTradeState.rendererAligned -or
+      $result.postInteractionTradeState.geometryTimerPending -or
+      (@($result.postInteractionTradeState.columnLabels) -join ",") -ne "PRICE,SELLER,LISTED"
+    ) {
+      throw "Canonical Mageblood did not settle its refreshed Trade rows before capture: $($result.postInteractionTradeState | ConvertTo-Json -Compress -Depth 5)"
     }
     if ($result.result.sourceLabel -ne "TRADE FILTERS") {
       throw "Compact official Trade source labeling is missing."
@@ -1210,6 +1241,15 @@ try {
   }
   if (-not $qaSwitchForegroundVerified -or -not $qaTargetReturnVerified) {
     throw "Native Alt-Tab QA did not verify the unrelated window and signed synthetic Path of Exile target as consecutive foreground HWNDs."
+  }
+  if (
+    -not $result.lifecycle.targetReturn -or
+    -not $result.lifecycle.targetReturn.ready -or
+    -not $result.lifecycle.targetReturn.targetActive -or
+    $result.lifecycle.targetReturn.normalRegistered -ne $result.shortcut.configured -or
+    $result.lifecycle.targetReturn.lockedRegistered -ne $result.shortcut.lockedConfigured
+  ) {
+    throw "The overlay controller did not reconcile the verified target return: $($result.lifecycle.targetReturn | ConvertTo-Json -Compress)"
   }
   if (
     -not $result.lifecycle.lockedReopen.generationAdvanced -or

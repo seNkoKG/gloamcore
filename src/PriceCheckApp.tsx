@@ -557,7 +557,8 @@ export default function PriceCheckApp({
     setSession((current) => current.id === targetSessionId
       ? {
           ...current,
-          tradePriceSnapshot: undefined,
+          // Retain the previous row count while the replacement query runs so
+          // the native overlay does not collapse and expand during refresh.
           tradePriceLoading: true,
         }
       : current);

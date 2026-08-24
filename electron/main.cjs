@@ -3870,24 +3870,92 @@ const deadline = Date.now() + 150_000;
     console.log("PHASE modifier-done");
     let postInteractionTradeState = null;
     if (result?.modifierEditor) {
+      const awaitTradeRefresh = Boolean(modifierInteraction?.updated);
+      const postInteractionDeadline = Date.now() + (awaitTradeRefresh ? 60_000 : 0);
+      let postInteractionSettledSince = 0;
+      let postInteractionStableKey = '';
+      let postInteractionLoadingObserved = false;
       try {
-        postInteractionTradeState = await priceCheckWindow.webContents.executeJavaScript(`(() => {
-          const resultSurface = document.querySelector('.pco-trade-price-results');
-          const rows = [...(resultSurface?.querySelectorAll('.pco-row') || [])];
-          const statusText = resultSurface?.querySelector('.pco-no-results')?.textContent?.trim() || '';
-          return {
-            editorHeading: document.querySelector('.crme-heading strong')?.textContent?.trim() || '',
-            selectedCount: document.querySelectorAll('.crme-row input[type="checkbox"]:checked').length,
-            marketRows: rows.length,
-            statusText,
-            loading: /^CHECKING\\s+\\d+\\s+SELECTED\\s+STATS?$/i.test(statusText),
-            columnLabels: [...(resultSurface?.querySelectorAll('.pco-results-head span') || [])]
-              .map((entry) => entry.textContent?.trim() || '')
-              .filter(Boolean),
-            rowCells: rows.map((row) => [...row.children]
-              .map((cell) => cell.textContent?.trim() || '')),
+        do {
+          postInteractionTradeState = await priceCheckWindow.webContents.executeJavaScript(`(() => {
+            const surface = document.querySelector('.pco');
+            const resultSurface = document.querySelector('.pco-trade-price-results');
+            const rows = [...(resultSurface?.querySelectorAll('.pco-row') || [])];
+            const statusText = resultSurface?.querySelector('.pco-no-results')?.textContent?.trim() || '';
+            const surfaceRect = surface?.getBoundingClientRect();
+            return {
+              editorHeading: document.querySelector('.crme-heading strong')?.textContent?.trim() || '',
+              selectedCount: document.querySelectorAll('.crme-row input[type="checkbox"]:checked').length,
+              selectedMinimumValue: document.querySelector(
+                '.crme-row.is-enabled .crme-number[aria-label="Minimum value for 39% total Elemental Resistance"]:not(:disabled)',
+              )?.value || '',
+              marketRows: rows.length,
+              statusText,
+              loading: /^CHECKING\\s+\\d+\\s+SELECTED\\s+STATS?$/i.test(statusText),
+              surfaceBounds: surfaceRect ? {
+                x: Math.round(surfaceRect.x),
+                y: Math.round(surfaceRect.y),
+                width: Math.round(surfaceRect.width),
+                height: Math.round(surfaceRect.height),
+              } : null,
+              columnLabels: [...(resultSurface?.querySelectorAll('.pco-results-head span') || [])]
+                .map((entry) => entry.textContent?.trim() || '')
+                .filter(Boolean),
+              rowCells: rows.map((row) => [...row.children]
+                .map((cell) => cell.textContent?.trim() || '')),
+            };
+          })()`);
+          const rendererAligned = Boolean(
+            postInteractionTradeState?.surfaceBounds &&
+            priceCheckPanelBounds &&
+            JSON.stringify(postInteractionTradeState.surfaceBounds) ===
+              JSON.stringify(priceCheckPanelBounds)
+          );
+          if (postInteractionTradeState?.loading) {
+            postInteractionLoadingObserved = true;
+          }
+          const ready = Boolean(
+            (!awaitTradeRefresh || postInteractionLoadingObserved) &&
+            !postInteractionTradeState?.loading &&
+            postInteractionTradeState?.marketRows > 0 &&
+            !postInteractionTradeState?.statusText &&
+            rendererAligned &&
+            !priceCheckGeometryTimer
+          );
+          const stableKey = JSON.stringify({
+            surfaceBounds: postInteractionTradeState?.surfaceBounds || null,
+            nativeBounds: priceCheckPanelBounds || null,
+            overlayRevision: priceCheckOverlayRevision,
+            marketRows: postInteractionTradeState?.marketRows ?? -1,
+          });
+          if (ready) {
+            if (stableKey !== postInteractionStableKey) {
+              postInteractionStableKey = stableKey;
+              postInteractionSettledSince = Date.now();
+            }
+          } else {
+            postInteractionStableKey = '';
+            postInteractionSettledSince = 0;
+          }
+          const settled = Boolean(
+            ready &&
+            (
+              !awaitTradeRefresh ||
+              Date.now() - postInteractionSettledSince >= 500
+            )
+          );
+          postInteractionTradeState = {
+            ...postInteractionTradeState,
+            loadingObserved: postInteractionLoadingObserved,
+            rendererAligned,
+            geometryTimerPending: Boolean(priceCheckGeometryTimer),
+            overlayRevision: priceCheckOverlayRevision,
+            nativeBounds: priceCheckPanelBounds ? { ...priceCheckPanelBounds } : null,
+            settled,
           };
-        })()`);
+          if (!awaitTradeRefresh || settled) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } while (Date.now() < postInteractionDeadline);
       } catch (error) {
         postInteractionTradeState = {
           error: error instanceof Error ? error.message : String(error),
@@ -4412,12 +4480,8 @@ const deadline = Date.now() + 150_000;
         unrelatedWindowFocused: qaSwitchWindow.isFocused(),
       };
 
-      qaSwitchWindow.setFocusable(false);
-      qaSwitchWindow.hide();
-      // Let Chromium finish the focus transfer caused by hiding the unrelated
-      // window before the one explicit QA return to PoE. Keep the test window
-      // alive and hidden so a later close cannot enqueue another activation.
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Keep the unrelated window foreground until the external controller
+      // performs one observable transition to the exact synthetic PoE HWND.
       writeNativeAltTabRequest("focus-target", {
         targetTitle: priceCheckTargetTitle(),
       });
@@ -4426,14 +4490,12 @@ const deadline = Date.now() + 150_000;
           "The external QA controller did not verify the synthetic Path of Exile foreground HWND.",
         );
       }
-      // Reconcile the overlay library only after the external driver has
-      // proved the exact signed target HWND is foreground. Calling this before
-      // Windows accepts the handoff can leave targetHasFocus stale for the
-      // entire native polling window on automated desktops.
-      OverlayController.focusTarget();
-      // electron-overlay-window can emit one corrected blur immediately after
-      // a synthetic foreground handoff, then reconcile on its native poll.
-      // Wait for that observed target state; do not issue another focus call.
+      qaSwitchWindow.setFocusable(false);
+      qaSwitchWindow.hide();
+      // The now-background QA window remains alive and hidden so a later
+      // close cannot enqueue another activation.
+      // Wait for electron-overlay-window to observe the verified native
+      // transition; issuing another focus call here would be a same-HWND no-op.
       const targetReturnDeadline = Date.now() + 5_000;
       while (
         Date.now() < targetReturnDeadline &&
@@ -4445,9 +4507,26 @@ const deadline = Date.now() + 150_000;
       ) {
         await new Promise((resolve) => setTimeout(resolve, 35));
       }
-      fs.rmSync(nativeAltTabRequestPath, { force: true });
       payload.shortcut.registeredAfterAltTabReturn = registeredPriceCheckHotkey;
       payload.shortcut.registeredLockedAfterAltTabReturn = registeredLockedPriceCheckHotkey;
+      const targetReturnReady = Boolean(
+        OverlayController.targetHasFocus &&
+        registeredPriceCheckHotkey === configuredPriceCheckHotkey &&
+        registeredLockedPriceCheckHotkey === DEFAULT_LOCKED_PRICE_CHECK_HOTKEY
+      );
+      payload.lifecycle.targetReturn = {
+        ready: targetReturnReady,
+        targetActive: Boolean(OverlayController.targetHasFocus),
+        normalRegistered: registeredPriceCheckHotkey,
+        lockedRegistered: registeredLockedPriceCheckHotkey,
+      };
+      if (!targetReturnReady) {
+        fs.rmSync(nativeAltTabRequestPath, { force: true });
+        throw new Error(
+          "The overlay controller did not reconcile target focus and shortcuts after the verified foreground transition.",
+        );
+      }
+      fs.rmSync(nativeAltTabRequestPath, { force: true });
       const lockedReopenGeneration = priceCheckCaptureGeneration;
       await handleLockedPriceCheckShortcut();
       const lockedReopenDeadline = Date.now() + PRICE_CHECK_FOCUS_TIMEOUT_MS + 2_000;

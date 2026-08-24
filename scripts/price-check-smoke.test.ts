@@ -10,6 +10,10 @@ const electronMain = fs.readFileSync(
   path.join(projectRoot, "electron", "main.cjs"),
   "utf8",
 );
+const priceCheckApp = fs.readFileSync(
+  path.join(projectRoot, "src", "PriceCheckApp.tsx"),
+  "utf8",
+);
 const packageMetadata = JSON.parse(
   fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"),
 ) as { version?: string };
@@ -72,6 +76,13 @@ describe("native price-check smoke harness", () => {
   });
 
   it("drives the Alt-Tab lifecycle through verified native foreground HWNDs", () => {
+    expect(compact).toContain(
+      "`$targetHeight = [Math]::Min(660, [Math]::Max(600, `$work.Height - 60))",
+    );
+    expect(smoke).toContain("`$form.Add_KeyDown({");
+    expect(smoke).toContain("[System.Windows.Forms.Clipboard]::SetText([string]`$sender.Tag)");
+    expect(smoke).toContain("[void]`$form.Focus()");
+    expect(smoke).not.toContain("`$copySurface");
     expect(smoke).toContain('$nativeAltTabRequestPath = Join-Path $qaRootFull "native-alt-tab-request.json"');
     expect(smoke).toContain('$nativeAltTabAckPath = Join-Path $qaRootFull "native-alt-tab-ack.json"');
     expect(smoke).toContain("public static extern bool IsWindowVisible(IntPtr window);");
@@ -104,6 +115,12 @@ describe("native price-check smoke harness", () => {
       "$nativeAltTabRequest.phase -eq \"focus-target\"",
     );
     expect(compact).toContain(
+      "[GloamCoreQaWindow]::GetForegroundWindow() -eq $qaSwitchWindow",
+    );
+    expect(smoke).toContain(
+      "[void][GloamCoreQaWindow]::ForceForegroundWindow($qaSwitchWindow)",
+    );
+    expect(compact).toContain(
       "[GloamCoreQaWindow]::ForceForegroundWindow($qaTargetWindow)",
     );
     expect(compact).toContain('phase = "target-focused"');
@@ -114,6 +131,28 @@ describe("native price-check smoke harness", () => {
     expect(electronMain).toContain('waitForNativeAltTabAck("unrelated-focused"');
     expect(electronMain).toContain('writeNativeAltTabRequest("focus-target"');
     expect(electronMain).toContain('waitForNativeAltTabAck("target-focused"');
+    const targetRequestAt = electronMain.indexOf(
+      'writeNativeAltTabRequest("focus-target"',
+    );
+    const targetAckAt = electronMain.indexOf(
+      'waitForNativeAltTabAck("target-focused"',
+      targetRequestAt,
+    );
+    const unrelatedHideAt = electronMain.indexOf(
+      "qaSwitchWindow.hide()",
+      targetRequestAt,
+    );
+    expect(targetRequestAt).toBeGreaterThan(-1);
+    expect(targetAckAt).toBeGreaterThan(targetRequestAt);
+    expect(unrelatedHideAt).toBeGreaterThan(targetAckAt);
+    expect(electronMain).toContain(
+      "The overlay controller did not reconcile target focus and shortcuts after the verified foreground transition.",
+    );
+    expect(electronMain).toContain("payload.lifecycle.targetReturn = {");
+    expect(smoke).toContain("-not $result.lifecycle.targetReturn.ready");
+    expect(smoke).toContain(
+      "The overlay controller did not reconcile the verified target return:",
+    );
     expect(electronMain).toContain("fs.rmSync(nativeAltTabRequestPath, { force: true });");
     expect(compact).toContain("$result.lifecycle.altTab.targetActive -or");
     expect(compact).not.toContain(
@@ -169,6 +208,25 @@ describe("native price-check smoke harness", () => {
     expect(electronMain).toContain("const interactionDeadline = performance.now() + 225");
     expect(electronMain).toContain(
       "^CHECKING\\\\s+\\\\d+\\\\s+SELECTED\\\\s+STATS?$",
+    );
+    expect(electronMain).toContain(
+      "const postInteractionDeadline = Date.now() + (awaitTradeRefresh ? 60_000 : 0)",
+    );
+    expect(electronMain).toContain("Date.now() - postInteractionSettledSince >= 500");
+    expect(electronMain).toContain("stableKey !== postInteractionStableKey");
+    expect(electronMain).toContain("postInteractionLoadingObserved = true");
+    expect(priceCheckApp).not.toMatch(
+      /tradePriceSnapshot:\s*undefined,\s*tradePriceLoading:\s*true/,
+    );
+    expect(smoke).toContain("-not $result.postInteractionTradeState.settled");
+    expect(smoke).toContain("-not $result.postInteractionTradeState.loadingObserved");
+    expect(smoke).toContain(
+      "[string]$result.postInteractionTradeState.selectedMinimumValue -ne $expectedMagebloodMinimum",
+    );
+    expect(smoke).toContain("-not $result.postInteractionTradeState.rendererAligned");
+    expect(smoke).toContain("$result.postInteractionTradeState.geometryTimerPending");
+    expect(smoke).toContain(
+      "Canonical Mageblood did not settle its refreshed Trade rows before capture:",
     );
     for (const visibleLabel of [
       "39% total Elemental Resistance",

@@ -760,14 +760,17 @@ describe("compact empty market state", () => {
 
     expect(cooldownMarkup).toContain('class="pco-no-results is-error"');
 
-    const loadingMarkup = renderCompact({
+    const loadingSession: PriceCheckSession = {
       ...session,
-      tradePriceSnapshot: undefined,
       tradePriceLoading: true,
-    });
+    };
+    const loadingMarkup = renderCompact(loadingSession);
     expect(loadingMarkup).toContain("CHECKING 1 SELECTED STAT");
-
     expect(loadingMarkup).not.toContain('class="pco-no-results is-error"');
+    expect(loadingMarkup).not.toContain("WandSeller");
+    expect(compactPriceCheckPanelHeight(loadingSession)).toBe(
+      compactPriceCheckPanelHeight(session),
+    );
 
     const timeoutMarkup = renderCompact({
       ...session,
