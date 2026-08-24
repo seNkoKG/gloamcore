@@ -94,6 +94,7 @@ describe("desktop platform release boundaries", () => {
     const workflows = [
       read(".github/workflows/ci.yml"),
       read(".github/workflows/pages.yml"),
+      read(".github/workflows/windows-release-qa.yml"),
     ].join("\n");
     const uses = [...workflows.matchAll(/\buses:\s+([^\s#]+)/g)].map((match) => match[1]);
     expect(uses.length).toBeGreaterThan(0);
@@ -104,6 +105,28 @@ describe("desktop platform release boundaries", () => {
     expect(workflows).not.toContain("pnpm/action-setup@");
     expect(workflows).toContain("runtime: node@24.14.0");
     expect(workflows).toContain("version: 11.16.0");
+  });
+
+  it("keeps dependency, mobile-policy, and Android checks in ordinary CI", () => {
+    const workflow = read(".github/workflows/ci.yml");
+    expect(workflow).toContain("pnpm audit --audit-level=high");
+    expect(workflow).not.toContain("pnpm audit --prod");
+    expect(workflow).toContain("pnpm mobile:policy");
+    expect(workflow).toContain("assembleDebug lintDebug testDebugUnitTest");
+  });
+
+  it("keeps GUI release QA manual and isolated from ordinary CI", () => {
+    const workflow = read(".github/workflows/windows-release-qa.yml");
+    expect(workflow).toMatch(/^\s*workflow_dispatch:\s*$/m);
+    expect(workflow).not.toMatch(/^\s*(?:push|pull_request|schedule):/m);
+    expect(workflow).toContain("run: pnpm release:qa");
+  });
+
+  it("keeps the unused broad Android FileProvider out of the app", () => {
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).not.toContain("FileProvider");
+    expect(manifest).not.toContain("FILE_PROVIDER_PATHS");
+    expect(existsSync(join(root, "android/app/src/main/res/xml/file_paths.xml"))).toBe(false);
   });
 
   it("verifies AAPT2 executables for Windows generation and Linux CI", () => {

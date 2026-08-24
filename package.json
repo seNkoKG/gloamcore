@@ -38,6 +38,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-release.ps1",
     "dist:dir": "pnpm build && electron-builder --dir",
+    "mobile:policy": "node scripts/verify-release-artifacts.mjs mobile-policy --root .",
     "mobile:sync": "pnpm build && cap sync && node scripts/normalize-capacitor-spm.mjs",
     "mobile:assets": "node scripts/generate-mobile-assets.mjs",
     "mobile:android:open": "cap open android",

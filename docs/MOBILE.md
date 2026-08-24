@@ -9,8 +9,10 @@ Windows-only Player Toolkit features that require a local PoE process or
 `Client.txt`, including Mapping Journal, remain visible with an explicit
 platform boundary and do not fabricate mobile observations.
 
-The newest packaged mobile preview in `deliverables/mobile` is 3.4.2. No 3.4.7
-Android or iOS package has been built or published.
+The newest packaged mobile preview in `deliverables/mobile` is 3.4.2. The
+checked-in Android and iOS metadata remains at 3.4.6 and is explicitly recorded
+as unbuilt against package source 3.4.7 in `android/release-version-policy.json`.
+No 3.4.7 Android or iOS package has been built or published.
 
 ## Android: build, install, or share
 
@@ -99,6 +101,7 @@ server-side alerts would require a hosted push-notification service.
 ## Developer commands
 
 ```powershell
+pnpm mobile:policy
 pnpm mobile:sync
 pnpm mobile:assets
 pnpm mobile:android:debug
@@ -106,6 +109,11 @@ pnpm mobile:android:release
 pnpm mobile:ios:open
 pnpm mobile:package
 ```
+
+`pnpm mobile:policy` validates package, Android, and iOS metadata without
+building or accepting an artifact. Signed packaging remains strict: the policy
+must be marked `release-ready`, and every native version must match
+`package.json` before the APK provenance or friend bundle can be accepted.
 
 The checked-in native projects target Android API 36 and iOS 15. The local
 Android build uses JDK 21 and Build Tools 36.0.0. CI synchronizes and compiles

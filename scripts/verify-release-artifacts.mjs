@@ -1138,26 +1138,77 @@ function androidReleaseMetadata(root) {
   return { applicationId, versionName, versionCode };
 }
 
-function androidReleasePolicy(root, version) {
+function mobilePolicyReleaseStateIsConsistent(policy) {
+  return (
+    policy?.releaseState !== "release-ready" ||
+    policy.versionName === policy.packageSourceVersion
+  );
+}
+
+function verifyMobilePolicy(root) {
   const policyPath = requireFile(
     path.join(root, "android", "release-version-policy.json"),
     "Android release version policy",
   );
   const policy = JSON.parse(readFileSync(policyPath, "utf8"));
+  const packageJson = readPackage(root);
   const metadata = androidReleaseMetadata(root);
   if (
-    policy.schema !== 1 ||
+    policy.schema !== 2 ||
+    !["unbuilt", "release-ready"].includes(policy.releaseState) ||
+    policy.packageSourceVersion !== packageJson.version ||
+    !mobilePolicyReleaseStateIsConsistent(policy) ||
     policy.applicationId !== metadata.applicationId ||
     policy.versionName !== metadata.versionName ||
-    policy.versionName !== version ||
     policy.versionCode !== metadata.versionCode ||
     !Number.isSafeInteger(policy.previousPublishedVersionCode) ||
     policy.previousPublishedVersionCode < 1 ||
     policy.versionCode <= policy.previousPublishedVersionCode
   ) {
     fail(
-      "Android release policy must exactly match Gradle/package versions and monotonically increase versionCode.",
+      "Mobile release policy must record the current package source, match Android metadata, and monotonically increase versionCode.",
     );
+  }
+
+  const iosProjectPath = requireFile(
+    path.join(root, "ios", "App", "App.xcodeproj", "project.pbxproj"),
+    "iOS App project",
+  );
+  const iosProject = readFileSync(iosProjectPath, "utf8");
+  const configurations = [...iosProject.matchAll(
+    /buildSettings\s*=\s*\{(?<settings>[\s\S]*?INFOPLIST_FILE\s*=\s*App\/Info\.plist;[\s\S]*?)\};/g,
+  )];
+  if (configurations.length < 1) {
+    fail("No iOS App target build configurations could be verified.");
+  }
+  for (const configuration of configurations) {
+    const settings = configuration.groups?.settings || "";
+    const marketingVersion =
+      /MARKETING_VERSION\s*=\s*([^;]+);/.exec(settings)?.[1]?.trim();
+    const buildNumber = Number(
+      /CURRENT_PROJECT_VERSION\s*=\s*([^;]+);/.exec(settings)?.[1]?.trim(),
+    );
+    const bundleIdentifier =
+      /PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);/.exec(settings)?.[1]?.trim();
+    if (
+      marketingVersion !== policy.versionName ||
+      buildNumber !== policy.versionCode ||
+      bundleIdentifier !== policy.applicationId
+    ) {
+      fail("iOS App version, build number, and bundle identifier must match the mobile release policy.");
+    }
+  }
+  return policy;
+}
+
+function androidReleasePolicy(root, version) {
+  const policy = verifyMobilePolicy(root);
+  if (
+    policy.releaseState !== "release-ready" ||
+    policy.packageSourceVersion !== version ||
+    policy.versionName !== version
+  ) {
+    fail("Mobile artifact verification requires a release-ready policy matching package.json.");
   }
   return policy;
 }
@@ -2015,6 +2066,7 @@ function usage() {
       "  node scripts/verify-release-artifacts.mjs production-dependencies --root <dir> --graph <file>\n" +
       "  node scripts/verify-release-artifacts.mjs snapshot-production-dependencies --root <dir> --graph <file>\n" +
       "  node scripts/verify-release-artifacts.mjs record-windows --root <dir> --version <version> --started-at <iso>\n" +
+      "  node scripts/verify-release-artifacts.mjs mobile-policy --root <dir>\n" +
       "  node scripts/verify-release-artifacts.mjs prepare-mobile --root <dir> --version <version>\n" +
       "  node scripts/verify-release-artifacts.mjs record-mobile --root <dir> --version <version> --apk <file> --started-at <iso>\n" +
       "  node scripts/verify-release-artifacts.mjs mobile --root <dir> --version <version> --apk <file>\n",
@@ -2064,6 +2116,13 @@ function main() {
     });
     return;
   }
+  if (command === "mobile-policy") {
+    const policy = verifyMobilePolicy(root);
+    process.stdout.write(
+      `Verified ${policy.releaseState} mobile ${policy.versionName} policy against package source ${policy.packageSourceVersion}.\n`,
+    );
+    return;
+  }
   if (command === "record-mobile") {
     recordMobile({
       root,
@@ -2095,6 +2154,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
 }
 
 export {
+  androidReleasePolicy,
   androidNativeNoticeState,
   assertAsarNodeModulesMatch,
   assertNoForbiddenText,
@@ -2112,5 +2172,7 @@ export {
   readAsarEntry,
   relevantMobileSource,
   sha256File,
+  mobilePolicyReleaseStateIsConsistent,
+  verifyMobilePolicy,
   verifyProductionDependencies,
 };

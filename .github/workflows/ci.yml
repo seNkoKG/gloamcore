@@ -36,6 +36,12 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit all dependencies for high severity issues
+        run: pnpm audit --audit-level=high
+
+      - name: Verify mobile release metadata policy
+        run: pnpm mobile:policy
+
       - name: Rebuild pinned game-data packs
         run: node scripts/build-game-data-packs.mjs
 
@@ -100,8 +106,8 @@ jobs:
       - name: Verify Android project is current
         run: git diff --exit-code -- android
 
-      - name: Compile Android debug app
-        run: bash android/gradlew -p android --no-daemon assembleDebug
+      - name: Build, lint, and unit-test Android debug app
+        run: bash android/gradlew -p android --no-daemon assembleDebug lintDebug testDebugUnitTest
 
   ios:
     name: Sync and build iOS

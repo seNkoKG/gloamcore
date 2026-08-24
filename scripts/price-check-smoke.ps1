@@ -8,6 +8,28 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-GloamCoreFileSha256 {
+  param([Parameter(Mandatory = $true)][string]$LiteralPath)
+  $stream = [System.IO.File]::Open(
+    [System.IO.Path]::GetFullPath($LiteralPath),
+    [System.IO.FileMode]::Open,
+    [System.IO.FileAccess]::Read,
+    [System.IO.FileShare]::Read
+  )
+  $algorithm = $null
+  try {
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    return ([System.BitConverter]::ToString(
+      $algorithm.ComputeHash($stream)
+    )).Replace("-", "")
+  } finally {
+    if ($algorithm) {
+      $algorithm.Dispose()
+    }
+    $stream.Dispose()
+  }
+}
+
 if ((@($Rare, $Wand, $LegacyUnique) | Where-Object { $_ }).Count -gt 1) {
   throw "Choose only one of -Rare, -Wand, or -LegacyUnique."
 }
@@ -53,7 +75,7 @@ if ($Executable) {
     if (-not (Test-Path -LiteralPath $proof.Path -PathType Leaf)) {
       throw "Packaged $($proof.Label) is missing: $($proof.Path)"
     }
-    $actualHash = (Get-FileHash -LiteralPath $proof.Path -Algorithm SHA256).Hash
+    $actualHash = Get-GloamCoreFileSha256 -LiteralPath $proof.Path
     if (-not $actualHash.Equals($proof.Expected, [System.StringComparison]::OrdinalIgnoreCase)) {
       throw "Packaged $($proof.Label) does not match recorded release provenance."
     }
@@ -323,14 +345,57 @@ public static class GloamCoreQaWindow {
   Copy-Item `
     -LiteralPath $windowsPowerShellConfig `
     -Destination "$signedQaTarget.config"
-  $sourceHostHash = (Get-FileHash -LiteralPath $windowsPowerShell -Algorithm SHA256).Hash
-  $qaHostHash = (Get-FileHash -LiteralPath $signedQaTarget -Algorithm SHA256).Hash
-  $qaHostSignature = Get-AuthenticodeSignature -LiteralPath $signedQaTarget
+  $sourceHostHash = Get-GloamCoreFileSha256 -LiteralPath $windowsPowerShell
+  $qaHostHash = Get-GloamCoreFileSha256 -LiteralPath $signedQaTarget
+  $trustedModulePath = Join-Path (Split-Path -Parent $windowsPowerShell) "Modules"
+  $previousQaModulePath = [Environment]::GetEnvironmentVariable(
+    "PSModulePath",
+    [EnvironmentVariableTarget]::Process
+  )
+  $previousSignatureTarget = [Environment]::GetEnvironmentVariable(
+    "GLOAMCORE_QA_SIGNATURE_TARGET",
+    [EnvironmentVariableTarget]::Process
+  )
+  try {
+    [Environment]::SetEnvironmentVariable(
+      "PSModulePath",
+      $trustedModulePath,
+      [EnvironmentVariableTarget]::Process
+    )
+    $env:GLOAMCORE_QA_SIGNATURE_TARGET = $signedQaTarget
+    $signatureOutput = @(
+      & $windowsPowerShell `
+        -NoLogo `
+        -NoProfile `
+        -NonInteractive `
+        -Command 'Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; (Get-AuthenticodeSignature -LiteralPath $env:GLOAMCORE_QA_SIGNATURE_TARGET).Status.ToString()'
+    )
+    $signatureExitCode = $LASTEXITCODE
+  } finally {
+    [Environment]::SetEnvironmentVariable(
+      "PSModulePath",
+      $previousQaModulePath,
+      [EnvironmentVariableTarget]::Process
+    )
+    [Environment]::SetEnvironmentVariable(
+      "GLOAMCORE_QA_SIGNATURE_TARGET",
+      $previousSignatureTarget,
+      [EnvironmentVariableTarget]::Process
+    )
+  }
+  $qaHostSignatureStatus = [Convert]::ToString((
+    $signatureOutput | Select-Object -Last 1
+  )).Trim()
   if (
     -not $qaHostHash.Equals($sourceHostHash, [StringComparison]::OrdinalIgnoreCase) -or
-    $qaHostSignature.Status -ne [System.Management.Automation.SignatureStatus]::Valid
+    $signatureExitCode -ne 0 -or
+    $qaHostSignatureStatus -ne "Valid"
   ) {
-    throw "The synthetic target is not the verified Microsoft-signed PowerShell host."
+    $hashMatches = $qaHostHash.Equals(
+      $sourceHostHash,
+      [StringComparison]::OrdinalIgnoreCase
+    )
+    throw "The synthetic target is not the verified Microsoft-signed PowerShell host (hash match: $hashMatches; Authenticode: $qaHostSignatureStatus; verifier exit: $signatureExitCode)."
   }
   $qaTargetTitleBase64 = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes($qaTargetTitle)

@@ -29,14 +29,19 @@ describe("native price-check smoke harness", () => {
     expect(smoke).toContain('(Join-Path $projectRoot "package.json")');
     expect(smoke).toContain(").version)");
     expect(smoke).toContain("$provenance.gitHead -ne $snapshotHead.Trim()");
-    expect(smoke).toContain("Get-FileHash -LiteralPath $proof.Path -Algorithm SHA256");
+    expect(smoke).toContain("function Get-GloamCoreFileSha256");
+    expect(smoke).toContain("Get-GloamCoreFileSha256 -LiteralPath $proof.Path");
+    expect(smoke).toContain("[System.Security.Cryptography.SHA256]::Create()");
     expect(smoke).toContain("Packaged $($proof.Label) does not match recorded release provenance.");
   });
 
   it("serializes machine-wide focus state and proves the exact signed target identity", () => {
     expect(smoke).toContain('"Local\\GloamCorePriceCheckSmoke"');
     expect(smoke).toContain("$smokeMutex.WaitOne(45000)");
-    expect(smoke).toContain("$qaHostSignature.Status -ne [System.Management.Automation.SignatureStatus]::Valid");
+    expect(smoke).toContain('"PSModulePath"');
+    expect(smoke).toContain("Import-Module Microsoft.PowerShell.Security -ErrorAction Stop");
+    expect(smoke).toContain('$qaHostSignatureStatus -ne "Valid"');
+    expect(smoke).toContain("$signatureExitCode -ne 0");
     expect(compact).toContain(
       "([DateTime]::UtcNow - $focusStableSince).TotalMilliseconds -ge 750",
     );
