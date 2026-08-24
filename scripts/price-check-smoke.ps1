@@ -1271,6 +1271,26 @@ try {
   if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
     try {
       $failedResult = Get-Content -Raw -LiteralPath $resultPath | ConvertFrom-Json
+      $failedState = [pscustomobject]@{
+        Scenario = $scenario
+        Ready = $failedResult.result.ready
+        Error = $failedResult.result.error
+        ItemName = $failedResult.result.itemName
+        ModifierEditor = $failedResult.result.modifierEditor
+        ModifierRows = $failedResult.result.modifierRows
+        ModifierLabels = @($failedResult.result.modifierLabels)
+        RangeSliders = $failedResult.result.rangeSliders
+        MarketRows = $failedResult.result.marketRows
+        TradePriceLoading = $failedResult.result.tradePriceLoading
+        TradeStatCatalog = $failedResult.result.tradeStatCatalog
+        EditorHeading = $failedResult.result.editorHeading
+        StateLabels = @($failedResult.result.stateLabels)
+        PollTail = @($failedResult.pollTrace | Select-Object -Last 8)
+      }
+      Write-Warning (
+        "Price-check failure state: " +
+        ($failedState | ConvertTo-Json -Compress -Depth 6)
+      )
       if (
         $failedResult.screenshotPath -and
         (Test-Path -LiteralPath $failedResult.screenshotPath -PathType Leaf)

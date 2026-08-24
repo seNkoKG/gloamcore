@@ -258,6 +258,10 @@ describe("native price-check smoke harness", () => {
     );
     expect(smoke).toContain("Remove-Item -LiteralPath $qaRootFull -Recurse -Force");
     expect(smoke).not.toMatch(/\btaskkill\b|Stop-Process\s+-(?:Name|InputObject)/i);
+    expect(smoke).toContain('"Price-check failure state: "');
+    expect(smoke).toContain(
+      "PollTail = @($failedResult.pollTrace | Select-Object -Last 8)",
+    );
 
     expectOrdered(
       "if ($appProcess -and -not $appProcess.HasExited)",
