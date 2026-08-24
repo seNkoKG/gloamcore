@@ -3594,12 +3594,13 @@ const deadline = Date.now() + 150_000;
               // selected rows (for example a fixed-roll unique or a crafted
               // wand whose optional stats all start disabled). The mounted
               // editor and its state/summary controls are the ready surface.
-              (modifierEditor ? true : Boolean(results)) &&
+              modifierEditor &&
               sourceLabel &&
               detailButton &&
               surfaceRect &&
               Math.abs(surfaceRect.height - expectedHeight) <= 1 &&
-              (!modifierEditor || (marketRows > 0 && !tradePriceLoading))
+              marketRows > 0 &&
+              !tradePriceLoading
             ),
             buttons,
             marketRows,

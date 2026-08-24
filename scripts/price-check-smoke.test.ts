@@ -205,8 +205,15 @@ describe("native price-check smoke harness", () => {
 
   it("waits for Trade rows in every modifier-editor scenario", () => {
     expect(electronMain).toContain(
-      "(!modifierEditor || (marketRows > 0 && !tradePriceLoading))",
+      "editor and its state/summary controls are the ready surface.\n              modifierEditor &&",
     );
+    expect(electronMain).toContain(
+      "marketRows > 0 &&\n              !tradePriceLoading",
+    );
+    expect(electronMain).not.toContain(
+      "(modifierEditor ? true : Boolean(results))",
+    );
+    expect(electronMain).not.toContain("!modifierEditor ||");
     expect(electronMain).not.toContain(
       'QA_SELECT_WAND_STATS ? "marketRows > 0 && !tradePriceLoading"',
     );
